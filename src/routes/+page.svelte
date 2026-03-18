@@ -15,13 +15,17 @@
   import ItemNode from '$lib/components/ItemNode.svelte';
   import RawNode from '$lib/components/RawNode.svelte';
   import TagNode from '$lib/components/TagNode.svelte';
+  import MarketNode from '$lib/components/MarketNode.svelte';
+  import ByproductNode from '$lib/components/ByproductNode.svelte';
 
   // ── Custom node type registry ────────────────────────────────────
   const nodeTypes = {
     tableNode: TableNode,
     itemNode: ItemNode,
     rawNode: RawNode,
-    tagNode: TagNode
+    tagNode: TagNode,
+    marketNode: MarketNode,
+    byproductNode: ByproductNode
   };
 
   // ── State ────────────────────────────────────────────────────────
@@ -37,7 +41,8 @@
   let choices = $state<UserChoices>({
     recipeByItem: new Map(),
     variantByItem: new Map(),
-    itemByTag: new Map()
+    itemByTag: new Map(),
+    marketItems: new Set()
   });
 
   // SvelteFlow v0.1.x requires writable stores, not $state arrays
@@ -96,10 +101,13 @@
       // Inject callbacks into node data here (avoids infinite $effect loops)
       flowNodes.set(flow.nodes.map(n => {
         if (n.type === 'tableNode') {
-          return { ...n, data: { ...n.data, onRecipeChange: handleRecipeChange, onVariantChange: handleVariantChange } };
+          return { ...n, data: { ...n.data, onRecipeChange: handleRecipeChange, onVariantChange: handleVariantChange, onMarketSelect: handleMarketSelect } };
         }
         if (n.type === 'tagNode') {
           return { ...n, data: { ...n.data, onTagSelect: handleTagSelect } };
+        }
+        if (n.type === 'marketNode') {
+          return { ...n, data: { ...n.data, onRecipeChange: handleRecipeChange } };
         }
         return n;
       }));
@@ -114,15 +122,25 @@
     choices = {
       recipeByItem: new Map(),
       variantByItem: new Map(),
-      itemByTag: new Map()
+      itemByTag: new Map(),
+      marketItems: new Set()
     };
     replan();
   }
 
   // ── Node event handlers ──────────────────────────────────────────
   function handleRecipeChange(itemName: string, recipe: RecipeObject) {
+    choices.marketItems.delete(itemName);
     choices.recipeByItem.set(itemName, recipe);
-    choices = { ...choices, recipeByItem: new Map(choices.recipeByItem) };
+    choices = { ...choices, recipeByItem: new Map(choices.recipeByItem), marketItems: new Set(choices.marketItems) };
+    replan();
+  }
+
+  function handleMarketSelect(itemName: string) {
+    choices.marketItems.add(itemName);
+    choices.recipeByItem.delete(itemName);
+    choices.variantByItem.delete(itemName);
+    choices = { ...choices, marketItems: new Set(choices.marketItems), recipeByItem: new Map(choices.recipeByItem), variantByItem: new Map(choices.variantByItem) };
     replan();
   }
 

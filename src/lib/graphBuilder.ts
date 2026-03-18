@@ -10,7 +10,7 @@ export interface FlowGraph {
 }
 
 const NODE_WIDTH = 220;
-const NODE_HEIGHT = 80;
+const NODE_HEIGHT = 140;
 
 function elkNodeId(id: string): string {
   // ELK needs IDs without special characters in some cases; we encode them
@@ -93,10 +93,12 @@ export async function buildFlowGraph(plannerGraph: PlannerGraph): Promise<FlowGr
 
 function plannerNodeType(node: PlannerNode): string {
   switch (node.type) {
-    case 'table': return 'tableNode';
-    case 'item':  return 'itemNode';
-    case 'raw':   return 'rawNode';
-    case 'tag':   return 'tagNode';
+    case 'table':  return 'tableNode';
+    case 'item':   return 'itemNode';
+    case 'raw':    return 'rawNode';
+    case 'tag':    return 'tagNode';
+    case 'market':     return 'marketNode';
+    case 'byproduct':  return 'byproductNode';
   }
 }
 

@@ -8,6 +8,8 @@ import type {
   ItemPlannerNode,
   RawPlannerNode,
   TagPlannerNode,
+  MarketPlannerNode,
+  ByproductPlannerNode,
   UserChoices
 } from './types.js';
 import type { RecipeIndex } from './recipeIndex.js';
@@ -27,7 +29,7 @@ interface BuildOptions {
 function itemNodeId(name: string) { return `item:${name}`; }
 function tableNodeId(name: string) { return `table:${name}`; }
 function rawNodeId(name: string)   { return `raw:${name}`; }
-function tagNodeId(tag: string, parentItem: string) { return `tag:${tag}:from:${parentItem}`; }
+function tagNodeId(tag: string) { return `tag:${tag}`; }
 
 function getDefaultVariant(recipe: RecipeObject): Variant {
   return recipe.Variants.find(v => v.Name === recipe.DefaultVariant) ?? recipe.Variants[0];
@@ -123,8 +125,8 @@ export function buildGraph(opts: BuildOptions): PlannerGraph {
     visited.add(itemName);
 
     const recipes = recipeIndex.byProduct.get(itemName) ?? [];
-    if (recipes.length === 0) {
-      // Raw resource
+    if (recipes.length === 0 || choices.marketItems.has(itemName)) {
+      // Raw resource or bought from market — leaf node
       return;
     }
 
@@ -152,7 +154,7 @@ export function buildGraph(opts: BuildOptions): PlannerGraph {
         const tag = ingredient.Tag;
         tagRequirements.set(tag, (tagRequirements.get(tag) ?? 0) + ingredientTotal);
 
-        const tagId = tagNodeId(tag, itemName);
+        const tagId = tagNodeId(tag);
         addEdge(tagId, tableId);
 
         const selectedItem = choices.itemByTag.get(tag);
@@ -195,6 +197,21 @@ export function buildGraph(opts: BuildOptions): PlannerGraph {
       return;
     }
 
+    if (choices.marketItems.has(itemName)) {
+      if (!builtNodes.has(itemId)) {
+        builtNodes.add(itemId);
+        const marketNode: MarketPlannerNode = {
+          type: 'market',
+          id: itemId,
+          itemName,
+          amount: totalRequired,
+          availableRecipes: recipes
+        };
+        nodes.push(marketNode);
+      }
+      return;
+    }
+
     // Item node
     if (!builtNodes.has(itemId)) {
       builtNodes.add(itemId);
@@ -230,6 +247,23 @@ export function buildGraph(opts: BuildOptions): PlannerGraph {
         availableRecipes: recipes
       };
       nodes.push(tableNode);
+
+      // Byproduct nodes: all products except the one this table is "for"
+      for (const product of variant.Products) {
+        if (product.Name === itemName) continue;
+        const byproductId = `byproduct:${product.Name}:from:${itemName}`;
+        addEdge(tableId, byproductId);
+        if (!builtNodes.has(byproductId)) {
+          builtNodes.add(byproductId);
+          const byproductNode: ByproductPlannerNode = {
+            type: 'byproduct',
+            id: byproductId,
+            itemName: product.Name,
+            amount: product.Ammount * cycles
+          };
+          nodes.push(byproductNode);
+        }
+      }
     }
 
     for (const ingredient of variant.Ingredients) {
@@ -242,7 +276,7 @@ export function buildGraph(opts: BuildOptions): PlannerGraph {
         buildNodes(ingredient.Name, ingredientTotal);
       } else if (ingredient.Tag) {
         const tag = ingredient.Tag;
-        const tagId = tagNodeId(tag, itemName);
+        const tagId = tagNodeId(tag);
         const tagTotal = tagRequirements.get(tag) ?? ingredientTotal;
 
         if (!builtNodes.has(tagId)) {

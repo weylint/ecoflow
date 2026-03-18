@@ -65,7 +65,20 @@ export interface TagPlannerNode {
   availableItems: string[];
   selectedItem: string | null;
 }
-export type PlannerNode = TablePlannerNode | ItemPlannerNode | RawPlannerNode | TagPlannerNode;
+export interface MarketPlannerNode {
+  type: 'market';
+  id: string;
+  itemName: string;
+  amount: number;
+  availableRecipes: RecipeObject[];  // so user can switch back to crafting
+}
+export interface ByproductPlannerNode {
+  type: 'byproduct';
+  id: string;
+  itemName: string;
+  amount: number;   // cycles × product.Ammount
+}
+export type PlannerNode = TablePlannerNode | ItemPlannerNode | RawPlannerNode | TagPlannerNode | MarketPlannerNode | ByproductPlannerNode;
 
 export interface PlannerEdge {
   id: string;
@@ -83,4 +96,5 @@ export interface UserChoices {
   recipeByItem: Map<string, RecipeObject>;    // item name → chosen recipe
   variantByItem: Map<string, Variant>;        // item name → chosen variant
   itemByTag: Map<string, string>;             // tag name → chosen specific item
+  marketItems: Set<string>;                   // items to buy instead of craft
 }

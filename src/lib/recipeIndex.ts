@@ -22,6 +22,23 @@ export function buildRecipeIndex(recipes: RecipeObject[]): RecipeIndex {
     }
   }
 
+  // Sort each recipe list so the best default comes first:
+  // 1. Recipes where this item is the primary (first) product outrank byproduct recipes.
+  // 2. Within that group, prefer fewer craftable ingredients (i.e. closer to raw).
+  for (const [itemName, list] of byProduct) {
+    if (list.length < 2) continue;
+    list.sort((a, b) => {
+      const va = a.Variants.find(v => v.Name === a.DefaultVariant) ?? a.Variants[0];
+      const vb = b.Variants.find(v => v.Name === b.DefaultVariant) ?? b.Variants[0];
+      const rankA = (va.Products[0]?.Name === itemName ? 0 : 1);
+      const rankB = (vb.Products[0]?.Name === itemName ? 0 : 1);
+      if (rankA !== rankB) return rankA - rankB;
+      const craftA = va.Ingredients.filter(i => i.IsSpecificItem && byProduct.has(i.Name)).length;
+      const craftB = vb.Ingredients.filter(i => i.IsSpecificItem && byProduct.has(i.Name)).length;
+      return craftA - craftB;
+    });
+  }
+
   return {
     byProduct,
     allCraftableNames: [...byProduct.keys()].sort()

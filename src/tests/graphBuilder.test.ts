@@ -54,7 +54,7 @@ describe('buildFlowGraph', () => {
   it('tag nodes get tagNode type', async () => {
     const graphWithTag: PlannerGraph = {
       nodes: [
-        { type: 'tag', id: 'tag:Wood:from:Wooden Plank', tag: 'Wood', amount: 15, availableItems: ['Birch Log'], selectedItem: null }
+        { type: 'tag', id: 'tag:Wood', tag: 'Wood', amount: 15, availableItems: ['Birch Log'], selectedItem: null }
       ],
       edges: []
     };

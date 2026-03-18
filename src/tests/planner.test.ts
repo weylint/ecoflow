@@ -9,7 +9,8 @@ function emptyChoices(): UserChoices {
   return {
     recipeByItem: new Map(),
     variantByItem: new Map(),
-    itemByTag: new Map()
+    itemByTag: new Map(),
+    marketItems: new Set()
   };
 }
 
@@ -119,7 +120,8 @@ describe('buildGraph', () => {
     const choices: UserChoices = {
       recipeByItem: new Map(),
       variantByItem: new Map(),
-      itemByTag: new Map([['Wood', 'Birch Log']])
+      itemByTag: new Map([['Wood', 'Birch Log']]),
+      marketItems: new Set()
     };
     const graph = buildGraph({
       targetItem: 'Wooden Plank',
@@ -200,6 +202,36 @@ describe('buildGraph', () => {
       choices: emptyChoices(),
       skillReduction: 0
     })).not.toThrow();
+  });
+
+  it('market item produces MarketNode and stops ingredient resolution', () => {
+    const recipeIndex = buildRecipeIndex([simpleRecipe]);
+    const tagsIndex = buildTagsIndex({});
+    const choices: UserChoices = {
+      recipeByItem: new Map(),
+      variantByItem: new Map(),
+      itemByTag: new Map(),
+      marketItems: new Set(['Iron Bar'])
+    };
+    const graph = buildGraph({
+      targetItem: 'Iron Bar',
+      totalAmount: 50,
+      recipeIndex,
+      tagsIndex,
+      choices,
+      skillReduction: 0
+    });
+
+    const marketNode = graph.nodes.find(n => n.type === 'market');
+    expect(marketNode).toBeDefined();
+    if (marketNode?.type === 'market') {
+      expect(marketNode.itemName).toBe('Iron Bar');
+      expect(marketNode.amount).toBe(50);
+      expect(marketNode.availableRecipes.length).toBeGreaterThan(0);
+    }
+    // No table node or raw node — chain stops at market
+    expect(graph.nodes.find(n => n.type === 'table')).toBeUndefined();
+    expect(graph.nodes.find(n => n.type === 'raw')).toBeUndefined();
   });
 
   it('graph has edges connecting nodes', () => {

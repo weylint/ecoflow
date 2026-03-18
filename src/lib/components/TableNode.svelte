@@ -6,6 +6,7 @@
     data: TablePlannerNode & {
       onRecipeChange?: (itemName: string, recipe: RecipeObject) => void;
       onVariantChange?: (itemName: string, variant: Variant) => void;
+      onMarketSelect?: (itemName: string) => void;
     };
   }
 
@@ -13,6 +14,10 @@
 
   function handleRecipeSelect(e: Event) {
     const select = e.target as HTMLSelectElement;
+    if (select.value === '__market__') {
+      data.onMarketSelect?.(data.itemName);
+      return;
+    }
     const recipe = data.availableRecipes.find(r => r.Key === select.value);
     if (recipe && data.onRecipeChange) {
       data.onRecipeChange(data.itemName, recipe);
@@ -27,7 +32,18 @@
     }
   }
 
+  function formatTime(seconds: number): string {
+    const s = Math.round(seconds);
+    if (s < 60) return `${s}s`;
+    const m = Math.floor(s / 60);
+    const rem = s % 60;
+    if (m < 60) return rem > 0 ? `${m}m ${rem}s` : `${m}m`;
+    const h = Math.floor(m / 60);
+    const mRem = m % 60;
+    return mRem > 0 ? `${h}h ${mRem}m` : `${h}h`;
+  }
 
+  const totalSeconds = $derived(data.cycles * data.recipe.BaseCraftTime);
 </script>
 
 <div class="table-node">
@@ -36,20 +52,19 @@
   <div class="header">{data.table}</div>
 
   <div class="body">
-    <div class="cycles">×{data.cycles} runs</div>
+    <div class="cycles">×{data.cycles} runs · {formatTime(totalSeconds)}</div>
 
-    {#if data.availableRecipes.length > 1}
-      <div class="picker-row">
-        <!-- svelte-ignore a11y_label_has_associated_control -->
-        <label>Recipe:
-          <select value={data.recipe.Key} onchange={handleRecipeSelect}>
-            {#each data.availableRecipes as r}
-              <option value={r.Key}>{r.DefaultVariant}</option>
-            {/each}
-          </select>
-        </label>
-      </div>
-    {/if}
+    <div class="picker-row">
+      <!-- svelte-ignore a11y_label_has_associated_control -->
+      <label>Recipe:
+        <select value={data.recipe.Key} onchange={handleRecipeSelect}>
+          <option value="__market__">Market</option>
+          {#each data.availableRecipes as r}
+            <option value={r.Key}>{r.DefaultVariant}</option>
+          {/each}
+        </select>
+      </label>
+    </div>
 
     {#if data.recipe.NumberOfVariants > 1}
       <div class="picker-row">
@@ -97,7 +112,7 @@
   }
 
   .cycles {
-    font-size: 16px;
+    font-size: 13px;
     font-weight: bold;
     text-align: center;
     color: #7ec8e3;
