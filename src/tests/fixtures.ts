@@ -115,3 +115,55 @@ export const widgetRecipe: RecipeObject = {
 export const sampleTags: Record<string, string[]> = {
   'Wood': ['Birch Log', 'Oak Log', 'Pine Log']
 };
+
+// slabRecipe: 2 Stone → 1 Stone Slab + 2 Crushed Granite (byproduct)
+export const slabRecipe: RecipeObject = {
+  Key: 'StoneSlab',
+  Untranslated: 'Stone Slab Recipe',
+  BaseCraftTime: 2,
+  BaseLaborCost: 10,
+  BaseXPGain: 1,
+  CraftingTable: 'Masonry Table',
+  CraftingTableCanUseModules: false,
+  DefaultVariant: 'Stone Slab',
+  NumberOfVariants: 1,
+  SkillNeeds: [],
+  Variants: [{
+    Key: 'StoneSlab',
+    Name: 'Stone Slab',
+    Ingredients: [
+      { IsSpecificItem: true, Tag: null, Name: 'Stone', Ammount: 2, IsStatic: false }
+    ],
+    Products: [
+      { Name: 'Stone Slab', Ammount: 1 },
+      { Name: 'Crushed Granite', Ammount: 2 }
+    ]
+  }]
+};
+
+// pathRecipe: needs tag "Crushed Rock" (2/cycle) → 1 Stone Path
+export const pathRecipe: RecipeObject = {
+  Key: 'StonePath',
+  Untranslated: 'Stone Path Recipe',
+  BaseCraftTime: 1,
+  BaseLaborCost: 5,
+  BaseXPGain: 0.5,
+  CraftingTable: 'Masonry Table',
+  CraftingTableCanUseModules: false,
+  DefaultVariant: 'Stone Path',
+  NumberOfVariants: 1,
+  SkillNeeds: [],
+  Variants: [{
+    Key: 'StonePath',
+    Name: 'Stone Path',
+    Ingredients: [
+      { IsSpecificItem: false, Tag: 'Crushed Rock', Name: '', Ammount: 2, IsStatic: false }
+    ],
+    Products: [{ Name: 'Stone Path', Ammount: 1 }]
+  }]
+};
+
+// tags: 'Crushed Rock' includes 'Crushed Granite' and 'Crushed Sandstone'
+export const crushedRockTags: Record<string, string[]> = {
+  'Crushed Rock': ['Crushed Granite', 'Crushed Sandstone']
+};

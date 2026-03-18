@@ -5,7 +5,8 @@
   import '@xyflow/svelte/dist/style.css';
 
   import type { Node, Edge } from '@xyflow/svelte';
-  import type { RecipeObject, Variant, TagsFile, RecipeFile, UserChoices } from '$lib/types.js';
+  import { UPGRADE_LEVELS } from '$lib/types.js';
+  import type { RecipeObject, Variant, TagsFile, RecipeFile, UserChoices, TablePlannerNode } from '$lib/types.js';
   import { buildRecipeIndex } from '$lib/recipeIndex.js';
   import { buildTagsIndex } from '$lib/tagsIndex.js';
   import { buildGraph } from '$lib/planner.js';
@@ -17,6 +18,8 @@
   import TagNode from '$lib/components/TagNode.svelte';
   import MarketNode from '$lib/components/MarketNode.svelte';
   import ByproductNode from '$lib/components/ByproductNode.svelte';
+  import LoopbackNode from '$lib/components/LoopbackNode.svelte';
+  import TablePane from '$lib/components/TablePane.svelte';
 
   // ── Custom node type registry ────────────────────────────────────
   const nodeTypes = {
@@ -25,7 +28,8 @@
     rawNode: RawNode,
     tagNode: TagNode,
     marketNode: MarketNode,
-    byproductNode: ByproductNode
+    byproductNode: ByproductNode,
+    loopbackNode: LoopbackNode
   };
 
   // ── State ────────────────────────────────────────────────────────
@@ -36,14 +40,17 @@
 
   let selectedProduct = $state('Steel Bar');
   let amount = $state(100);
-  let skillReduction = $state(0);
+  let globalUpgrade = $state(0);
 
   let choices = $state<UserChoices>({
     recipeByItem: new Map(),
     variantByItem: new Map(),
     itemByTag: new Map(),
-    marketItems: new Set()
+    marketItems: new Set(),
+    upgradeByTable: new Map()
   });
+
+  let plannerTableNodes = $state<TablePlannerNode[]>([]);
 
   // SvelteFlow v0.1.x requires writable stores, not $state arrays
   const flowNodes = writable<Node[]>([]);
@@ -93,15 +100,28 @@
         recipeIndex,
         tagsIndex,
         choices,
-        skillReduction
+        globalUpgrade
       });
+
+      plannerTableNodes = plannerGraph.nodes.filter((n): n is TablePlannerNode => n.type === 'table');
 
       const flow = await buildFlowGraph(plannerGraph);
 
       // Inject callbacks into node data here (avoids infinite $effect loops)
       flowNodes.set(flow.nodes.map(n => {
         if (n.type === 'tableNode') {
-          return { ...n, data: { ...n.data, onRecipeChange: handleRecipeChange, onVariantChange: handleVariantChange, onMarketSelect: handleMarketSelect } };
+          const tNode = n.data as TablePlannerNode;
+          return {
+            ...n,
+            data: {
+              ...n.data,
+              onRecipeChange: handleRecipeChange,
+              onVariantChange: handleVariantChange,
+              onMarketSelect: handleMarketSelect,
+              onUpgradeChange: handleUpgradeChange,
+              currentUpgrade: choices.upgradeByTable.get(tNode.table) ?? globalUpgrade
+            }
+          };
         }
         if (n.type === 'tagNode') {
           return { ...n, data: { ...n.data, onTagSelect: handleTagSelect } };
@@ -123,7 +143,8 @@
       recipeByItem: new Map(),
       variantByItem: new Map(),
       itemByTag: new Map(),
-      marketItems: new Set()
+      marketItems: new Set(),
+      upgradeByTable: new Map()
     };
     replan();
   }
@@ -156,7 +177,11 @@
     replan();
   }
 
-
+  function handleUpgradeChange(tableName: string, value: number) {
+    choices.upgradeByTable.set(tableName, value);
+    choices = { ...choices, upgradeByTable: new Map(choices.upgradeByTable) };
+    replan();
+  }
 </script>
 
 <svelte:head>
@@ -186,15 +211,15 @@
         <input type="number" bind:value={amount} min="1" step="1" disabled={loading} />
       </label>
 
-      <fieldset class="skill-field">
-        <legend>Skill reduction:</legend>
-        <label>
-          <input type="radio" bind:group={skillReduction} value={0} /> 0%
-        </label>
-        <label>
-          <input type="radio" bind:group={skillReduction} value={0.5} /> 50%
-        </label>
-      </fieldset>
+      <!-- svelte-ignore a11y_label_has_associated_control -->
+      <label>
+        Upgrade (global):
+        <select bind:value={globalUpgrade} disabled={loading}>
+          {#each UPGRADE_LEVELS as lvl}
+            <option value={lvl.value}>{lvl.label} ({lvl.value * 100}%)</option>
+          {/each}
+        </select>
+      </label>
 
       <button onclick={handlePlan} disabled={loading || graphBuilding}>
         {graphBuilding ? 'Planning…' : 'Plan!'}
@@ -203,25 +228,37 @@
   </header>
 
   <main class="canvas-container">
-    {#if loading}
-      <div class="status">Loading game data…</div>
-    {:else if error}
-      <div class="status error">Error: {error}</div>
-    {:else if graphBuilding}
-      <div class="status">Building graph…</div>
-    {:else if $flowNodes.length === 0}
-      <div class="status">Select a product and click Plan!</div>
-    {:else}
-      <SvelteFlow
-        nodes={flowNodes}
-        edges={flowEdges}
-        {nodeTypes}
-        fitView
-      >
-        <Controls />
-        <Background />
-        <MiniMap />
-      </SvelteFlow>
+    <div class="graph-area">
+      {#if loading}
+        <div class="status">Loading game data…</div>
+      {:else if error}
+        <div class="status error">Error: {error}</div>
+      {:else if graphBuilding}
+        <div class="status">Building graph…</div>
+      {:else if $flowNodes.length === 0}
+        <div class="status">Select a product and click Plan!</div>
+      {:else}
+        <SvelteFlow
+          nodes={flowNodes}
+          edges={flowEdges}
+          {nodeTypes}
+          fitView
+        >
+          <Controls />
+          <Background />
+          <MiniMap />
+        </SvelteFlow>
+      {/if}
+    </div>
+
+    {#if plannerTableNodes.length > 0}
+      <TablePane
+        tableNodes={plannerTableNodes}
+        upgradeByTable={choices.upgradeByTable}
+        {globalUpgrade}
+        onRecipeChange={handleRecipeChange}
+        onUpgradeChange={handleUpgradeChange}
+      />
     {/if}
   </main>
 </div>
@@ -293,27 +330,6 @@
     width: 80px;
   }
 
-  .skill-field {
-    border: 1px solid #444;
-    border-radius: 4px;
-    padding: 2px 8px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-size: 12px;
-  }
-
-  .skill-field legend {
-    font-size: 11px;
-    color: #888;
-    padding: 0 4px;
-  }
-
-  .skill-field label {
-    font-size: 12px;
-    color: #c0c0c0;
-  }
-
   button {
     background: #1a6b3a;
     border: 1px solid #2a9b5a;
@@ -335,6 +351,13 @@
   }
 
   .canvas-container {
+    flex: 1;
+    display: flex;
+    flex-direction: row;
+    overflow: hidden;
+  }
+
+  .graph-area {
     flex: 1;
     position: relative;
     overflow: hidden;

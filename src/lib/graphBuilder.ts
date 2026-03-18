@@ -1,5 +1,6 @@
-import type { PlannerGraph, PlannerNode } from './types.js';
+import type { PlannerGraph, PlannerNode, LoopbackPlannerNode } from './types.js';
 import type { Node, Edge } from '@xyflow/svelte';
+import { MarkerType } from '@xyflow/svelte';
 import ELK from 'elkjs/lib/elk.bundled.js';
 
 const elk = new ELK();
@@ -22,23 +23,29 @@ export async function buildFlowGraph(plannerGraph: PlannerGraph): Promise<FlowGr
     return { nodes: [], edges: [] };
   }
 
-  // Map from original planner node id → elk-safe id
+  // Separate loopback nodes — they are excluded from ELK and positioned manually
+  const loopbackNodes = plannerGraph.nodes.filter(n => n.type === 'loopback') as LoopbackPlannerNode[];
+  const regularNodes = plannerGraph.nodes.filter(n => n.type !== 'loopback');
+  const loopbackNodeIds = new Set(loopbackNodes.map(n => n.id));
+
+  // Map from original planner node id → elk-safe id (only for regular nodes)
   const idMap = new Map<string, string>();
   const reverseIdMap = new Map<string, string>();
 
-  for (const node of plannerGraph.nodes) {
+  for (const node of regularNodes) {
     const safe = elkNodeId(node.id);
     idMap.set(node.id, safe);
     reverseIdMap.set(safe, node.id);
   }
 
-  const elkNodes = plannerGraph.nodes.map(n => ({
+  const elkNodes = regularNodes.map(n => ({
     id: idMap.get(n.id)!,
     width: NODE_WIDTH,
     height: NODE_HEIGHT
   }));
 
   const elkEdges = plannerGraph.edges
+    .filter(e => !loopbackNodeIds.has(e.source) && !loopbackNodeIds.has(e.target))
     .filter(e => idMap.has(e.source) && idMap.has(e.target))
     .map(e => ({
       id: elkNodeId(e.id),
@@ -58,20 +65,30 @@ export async function buildFlowGraph(plannerGraph: PlannerGraph): Promise<FlowGr
     edges: elkEdges
   };
 
-  let layouted;
+  const posMap = new Map<string, { x: number; y: number }>();
+
   try {
-    layouted = await elk.layout(graph);
+    const layouted = await elk.layout(graph);
+    for (const child of layouted.children ?? []) {
+      const originalId = reverseIdMap.get(child.id);
+      if (originalId) {
+        posMap.set(originalId, { x: child.x ?? 0, y: child.y ?? 0 });
+      }
+    }
   } catch {
-    // Fallback: simple grid layout
-    return buildSimpleLayout(plannerGraph);
+    // Fallback: simple grid layout for regular nodes
+    regularNodes.forEach((n, i) => {
+      posMap.set(n.id, { x: (i % 5) * 280, y: Math.floor(i / 5) * 180 });
+    });
   }
 
-  const posMap = new Map<string, { x: number; y: number }>();
-  for (const child of layouted.children ?? []) {
-    const originalId = reverseIdMap.get(child.id);
-    if (originalId) {
-      posMap.set(originalId, { x: child.x ?? 0, y: child.y ?? 0 });
-    }
+  // Post-position loopback nodes below their associated table
+  for (const loopNode of loopbackNodes) {
+    const tablePos = posMap.get(loopNode.tableId);
+    posMap.set(loopNode.id, {
+      x: tablePos?.x ?? 0,
+      y: (tablePos?.y ?? 0) + NODE_HEIGHT + 20
+    });
   }
 
   const nodes: Node[] = plannerGraph.nodes.map(n => ({
@@ -81,41 +98,38 @@ export async function buildFlowGraph(plannerGraph: PlannerGraph): Promise<FlowGr
     data: n
   }));
 
-  const edges: Edge[] = plannerGraph.edges.map(e => ({
-    id: e.id,
-    source: e.source,
-    target: e.target,
-    type: 'default'
-  }));
+  const edges: Edge[] = plannerGraph.edges.map(e => {
+    const isLoopbackEdge = loopbackNodeIds.has(e.source) || loopbackNodeIds.has(e.target);
+    if (isLoopbackEdge) {
+      return {
+        id: e.id,
+        source: e.source,
+        target: e.target,
+        type: 'default',
+        animated: true,
+        markerStart: { type: MarkerType.ArrowClosed },
+        markerEnd: { type: MarkerType.ArrowClosed }
+      };
+    }
+    return {
+      id: e.id,
+      source: e.source,
+      target: e.target,
+      type: 'default'
+    };
+  });
 
   return { nodes, edges };
 }
 
 function plannerNodeType(node: PlannerNode): string {
   switch (node.type) {
-    case 'table':  return 'tableNode';
-    case 'item':   return 'itemNode';
-    case 'raw':    return 'rawNode';
-    case 'tag':    return 'tagNode';
-    case 'market':     return 'marketNode';
-    case 'byproduct':  return 'byproductNode';
+    case 'table':     return 'tableNode';
+    case 'item':      return 'itemNode';
+    case 'raw':       return 'rawNode';
+    case 'tag':       return 'tagNode';
+    case 'market':    return 'marketNode';
+    case 'byproduct': return 'byproductNode';
+    case 'loopback':  return 'loopbackNode';
   }
-}
-
-function buildSimpleLayout(plannerGraph: PlannerGraph): FlowGraph {
-  const nodes: Node[] = plannerGraph.nodes.map((n, i) => ({
-    id: n.id,
-    type: plannerNodeType(n),
-    position: { x: (i % 5) * 280, y: Math.floor(i / 5) * 120 },
-    data: n
-  }));
-
-  const edges: Edge[] = plannerGraph.edges.map(e => ({
-    id: e.id,
-    source: e.source,
-    target: e.target,
-    type: 'default'
-  }));
-
-  return { nodes, edges };
 }

@@ -2,15 +2,16 @@ import { describe, it, expect } from 'vitest';
 import { buildGraph } from '$lib/planner.js';
 import { buildRecipeIndex } from '$lib/recipeIndex.js';
 import { buildTagsIndex } from '$lib/tagsIndex.js';
-import { simpleRecipe, tagRecipe, multiProductRecipe, widgetRecipe, sampleTags } from './fixtures.js';
-import type { UserChoices } from '$lib/types.js';
+import { simpleRecipe, tagRecipe, multiProductRecipe, widgetRecipe, sampleTags, slabRecipe, pathRecipe, crushedRockTags } from './fixtures.js';
+import type { UserChoices, RecipeObject } from '$lib/types.js';
 
 function emptyChoices(): UserChoices {
   return {
     recipeByItem: new Map(),
     variantByItem: new Map(),
     itemByTag: new Map(),
-    marketItems: new Set()
+    marketItems: new Set(),
+    upgradeByTable: new Map()
   };
 }
 
@@ -24,7 +25,7 @@ describe('buildGraph', () => {
       recipeIndex,
       tagsIndex,
       choices: emptyChoices(),
-      skillReduction: 0
+      globalUpgrade: 0
     });
 
     const tableNode = graph.nodes.find(n => n.type === 'table');
@@ -44,7 +45,7 @@ describe('buildGraph', () => {
       recipeIndex,
       tagsIndex,
       choices: emptyChoices(),
-      skillReduction: 0
+      globalUpgrade: 0
     });
 
     const tableNode = graph.nodes.find(n => n.type === 'table');
@@ -62,7 +63,7 @@ describe('buildGraph', () => {
       recipeIndex,
       tagsIndex,
       choices: emptyChoices(),
-      skillReduction: 0
+      globalUpgrade: 0
     });
 
     // 10 cycles × 2 Iron Ore per cycle = 20 Iron Ore
@@ -82,7 +83,7 @@ describe('buildGraph', () => {
       recipeIndex,
       tagsIndex,
       choices: emptyChoices(),
-      skillReduction: 0
+      globalUpgrade: 0
     });
 
     const rawNodes = graph.nodes.filter(n => n.type === 'raw');
@@ -100,7 +101,7 @@ describe('buildGraph', () => {
       recipeIndex,
       tagsIndex,
       choices: emptyChoices(),
-      skillReduction: 0
+      globalUpgrade: 0
     });
 
     const tagNodes = graph.nodes.filter(n => n.type === 'tag');
@@ -121,7 +122,8 @@ describe('buildGraph', () => {
       recipeByItem: new Map(),
       variantByItem: new Map(),
       itemByTag: new Map([['Wood', 'Birch Log']]),
-      marketItems: new Set()
+      marketItems: new Set(),
+      upgradeByTable: new Map()
     };
     const graph = buildGraph({
       targetItem: 'Wooden Plank',
@@ -129,7 +131,7 @@ describe('buildGraph', () => {
       recipeIndex,
       tagsIndex,
       choices,
-      skillReduction: 0
+      globalUpgrade: 0
     });
 
     // Should have a raw node for Birch Log
@@ -150,7 +152,7 @@ describe('buildGraph', () => {
       recipeIndex,
       tagsIndex,
       choices: emptyChoices(),
-      skillReduction: 0.5
+      globalUpgrade: 0.5
     });
 
     const coalNode = graph.nodes.find(n =>
@@ -176,7 +178,7 @@ describe('buildGraph', () => {
       recipeIndex,
       tagsIndex,
       choices: emptyChoices(),
-      skillReduction: 0.5
+      globalUpgrade: 0.5
     });
 
     const ironBarNode = graph.nodes.find(n =>
@@ -200,7 +202,7 @@ describe('buildGraph', () => {
       recipeIndex,
       tagsIndex,
       choices: emptyChoices(),
-      skillReduction: 0
+      globalUpgrade: 0
     })).not.toThrow();
   });
 
@@ -211,7 +213,8 @@ describe('buildGraph', () => {
       recipeByItem: new Map(),
       variantByItem: new Map(),
       itemByTag: new Map(),
-      marketItems: new Set(['Iron Bar'])
+      marketItems: new Set(['Iron Bar']),
+      upgradeByTable: new Map()
     };
     const graph = buildGraph({
       targetItem: 'Iron Bar',
@@ -219,7 +222,7 @@ describe('buildGraph', () => {
       recipeIndex,
       tagsIndex,
       choices,
-      skillReduction: 0
+      globalUpgrade: 0
     });
 
     const marketNode = graph.nodes.find(n => n.type === 'market');
@@ -247,7 +250,7 @@ describe('buildGraph', () => {
       recipeIndex,
       tagsIndex,
       choices: emptyChoices(),
-      skillReduction: 0
+      globalUpgrade: 0
     });
 
     // Slag has no recipe — normally a raw node, but byproduct fully covers it
@@ -275,6 +278,72 @@ describe('buildGraph', () => {
     expect(slagByproduct).toBeUndefined();
   });
 
+  it('byproduct satisfies tag ingredient: TagNode shows selectedItem=byproduct, amount=0', () => {
+    // Stone Slab recipe: 2 Stone → 1 Stone Slab + 2 Crushed Granite (byproduct)
+    // Stone Path recipe: needs tag "Crushed Rock" (2/cycle) → 1 Stone Path
+    // Stone Kit: needs 1 Stone Slab + 1 Stone Path
+    // Stone Slab produces Crushed Granite as byproduct → auto-satisfies "Crushed Rock" tag for Stone Path.
+    // Fix B: table:Stone Slab → tag:Crushed Rock (directly, no item:Crushed Granite node)
+
+    const kitRecipe: RecipeObject = {
+      Key: 'StoneKit',
+      Untranslated: 'Stone Kit Recipe',
+      BaseCraftTime: 1,
+      BaseLaborCost: 5,
+      BaseXPGain: 0,
+      CraftingTable: 'Masonry Table',
+      CraftingTableCanUseModules: false,
+      DefaultVariant: 'Stone Kit',
+      NumberOfVariants: 1,
+      SkillNeeds: [],
+      Variants: [{
+        Key: 'StoneKit',
+        Name: 'Stone Kit',
+        Ingredients: [
+          { IsSpecificItem: true, Tag: null, Name: 'Stone Slab', Ammount: 1, IsStatic: false },
+          { IsSpecificItem: true, Tag: null, Name: 'Stone Path', Ammount: 1, IsStatic: false }
+        ],
+        Products: [{ Name: 'Stone Kit', Ammount: 1 }]
+      }]
+    };
+
+    const recipeIndex = buildRecipeIndex([slabRecipe, pathRecipe, kitRecipe]);
+    const tagsIndex = buildTagsIndex(crushedRockTags);
+    const graph = buildGraph({
+      targetItem: 'Stone Kit',
+      totalAmount: 1,
+      recipeIndex,
+      tagsIndex,
+      choices: emptyChoices(),
+      globalUpgrade: 0
+    });
+
+    // TagNode for "Crushed Rock" should have selectedItem='Crushed Granite' (auto-byproduct)
+    const tagNode = graph.nodes.find(n => n.type === 'tag' && (n as { tag: string }).tag === 'Crushed Rock');
+    expect(tagNode).toBeDefined();
+    if (tagNode?.type === 'tag') {
+      expect(tagNode.selectedItem).toBe('Crushed Granite');
+      expect(tagNode.amount).toBe(0);
+      expect(tagNode.byproductSupply).toBe(2);
+    }
+
+    // Fix B: table:Stone Slab → tag:Crushed Rock (byproduct routes to tag directly)
+    const edgeFromSlab = graph.edges.find(e => e.source === 'table:Stone Slab' && e.target === 'tag:Crushed Rock');
+    expect(edgeFromSlab).toBeDefined();
+
+    // tag:Crushed Rock → table:Stone Path (tag supplies table)
+    const edgeToPath = graph.edges.find(e => e.source === 'tag:Crushed Rock' && e.target === 'table:Stone Path');
+    expect(edgeToPath).toBeDefined();
+
+    // No item:Crushed Granite node — it's unified into the tag representation
+    const graniteItem = graph.nodes.find(n => n.id === 'item:Crushed Granite');
+    expect(graniteItem).toBeUndefined();
+
+    // No dead-end byproduct node for Crushed Granite
+    const byproductNode = graph.nodes.find(n => n.type === 'byproduct' && (n as { itemName: string }).itemName === 'Crushed Granite');
+    expect(byproductNode).toBeUndefined();
+  });
+
   it('graph has edges connecting nodes', () => {
     const recipeIndex = buildRecipeIndex([simpleRecipe]);
     const tagsIndex = buildTagsIndex({});
@@ -284,7 +353,7 @@ describe('buildGraph', () => {
       recipeIndex,
       tagsIndex,
       choices: emptyChoices(),
-      skillReduction: 0
+      globalUpgrade: 0
     });
 
     expect(graph.edges.length).toBeGreaterThan(0);

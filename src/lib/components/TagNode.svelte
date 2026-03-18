@@ -24,7 +24,16 @@
   <div class="header">TAG: {data.tag}</div>
 
   <div class="body">
-    <div class="amount">× {data.amount % 1 === 0 ? data.amount : data.amount.toFixed(2)}</div>
+    <div class="amount">
+      {#if data.amount === 0}
+        ✓ from byproduct
+      {:else}
+        × {data.amount % 1 === 0 ? data.amount : data.amount.toFixed(2)}
+      {/if}
+    </div>
+    {#if data.byproductSupply}
+      <div class="supply">+{data.byproductSupply % 1 === 0 ? data.byproductSupply : data.byproductSupply.toFixed(2)} byproduct</div>
+    {/if}
 
     <div class="picker-row">
       <select value={data.selectedItem ?? ''} onchange={handleSelect}>
@@ -75,6 +84,12 @@
     font-weight: bold;
     text-align: center;
     color: #f0c070;
+  }
+
+  .supply {
+    font-size: 11px;
+    color: #4ec870;
+    margin-top: 2px;
   }
 
   .picker-row select {

@@ -1,12 +1,15 @@
 <script lang="ts">
   import { Handle, Position } from '@xyflow/svelte';
   import type { TablePlannerNode, RecipeObject, Variant } from '../types.js';
+  import { UPGRADE_LEVELS } from '../types.js';
 
   interface Props {
     data: TablePlannerNode & {
       onRecipeChange?: (itemName: string, recipe: RecipeObject) => void;
       onVariantChange?: (itemName: string, variant: Variant) => void;
       onMarketSelect?: (itemName: string) => void;
+      onUpgradeChange?: (tableName: string, value: number) => void;
+      currentUpgrade?: number;
     };
   }
 
@@ -30,6 +33,11 @@
     if (variant && data.onVariantChange) {
       data.onVariantChange(data.itemName, variant);
     }
+  }
+
+  function handleUpgradeSelect(e: Event) {
+    const select = e.target as HTMLSelectElement;
+    data.onUpgradeChange?.(data.table, Number(select.value));
   }
 
   function formatTime(seconds: number): string {
@@ -78,6 +86,17 @@
         </label>
       </div>
     {/if}
+
+    <div class="picker-row">
+      <!-- svelte-ignore a11y_label_has_associated_control -->
+      <label>Upgrade:
+        <select value={data.currentUpgrade ?? 0} onchange={handleUpgradeSelect}>
+          {#each UPGRADE_LEVELS as lvl}
+            <option value={lvl.value}>{lvl.label} ({lvl.value * 100}%)</option>
+          {/each}
+        </select>
+      </label>
+    </div>
   </div>
 
   <Handle type="source" position={Position.Right} />

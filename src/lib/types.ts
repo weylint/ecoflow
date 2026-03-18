@@ -32,8 +32,18 @@ export interface Product { Name: string; Ammount: number }  // intentional doubl
 // ── Tags JSON type ─────────────────────────────────────────────────
 export interface TagsFile { Tags: Record<string, string[]> }
 
+// ── Upgrade levels ─────────────────────────────────────────────────
+export const UPGRADE_LEVELS = [
+  { label: 'Upgrade 0', value: 0 },
+  { label: 'Upgrade 1', value: 0.15 },
+  { label: 'Upgrade 2', value: 0.25 },
+  { label: 'Upgrade 3', value: 0.40 },
+  { label: 'Upgrade 4', value: 0.45 },
+  { label: 'Upgrade 5', value: 0.50 },
+] as const;
+
 // ── Planner graph types ────────────────────────────────────────────
-export type PlannerNodeType = 'table' | 'item' | 'raw' | 'tag';
+export type PlannerNodeType = 'table' | 'item' | 'raw' | 'tag' | 'loopback';
 
 export interface TablePlannerNode {
   type: 'table';
@@ -62,9 +72,10 @@ export interface TagPlannerNode {
   type: 'tag';
   id: string;
   tag: string;
-  amount: number;
+  amount: number;           // net remaining after byproduct coverage
   availableItems: string[];
   selectedItem: string | null;
+  byproductSupply?: number; // amount auto-covered by a byproduct item
 }
 export interface MarketPlannerNode {
   type: 'market';
@@ -79,7 +90,16 @@ export interface ByproductPlannerNode {
   itemName: string;
   amount: number;   // cycles × product.Ammount
 }
-export type PlannerNode = TablePlannerNode | ItemPlannerNode | RawPlannerNode | TagPlannerNode | MarketPlannerNode | ByproductPlannerNode;
+export interface LoopbackPlannerNode {
+  type: 'loopback';
+  id: string;
+  itemName: string;
+  tableId: string;       // the table this loops back into
+  grossAmount: number;   // total input needed (ingredientAmt × cycles)
+  returnAmount: number;  // scaled return (product.Ammount × (1 - effectiveReduction) × cycles)
+  netAmount: number;     // grossAmount - returnAmount
+}
+export type PlannerNode = TablePlannerNode | ItemPlannerNode | RawPlannerNode | TagPlannerNode | MarketPlannerNode | ByproductPlannerNode | LoopbackPlannerNode;
 
 export interface PlannerEdge {
   id: string;
@@ -98,4 +118,5 @@ export interface UserChoices {
   variantByItem: Map<string, Variant>;        // item name → chosen variant
   itemByTag: Map<string, string>;             // tag name → chosen specific item
   marketItems: Set<string>;                   // items to buy instead of craft
+  upgradeByTable: Map<string, number>;        // CraftingTable name → reduction fraction
 }
