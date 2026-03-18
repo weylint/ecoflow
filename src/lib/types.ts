@@ -49,7 +49,8 @@ export interface ItemPlannerNode {
   type: 'item';
   id: string;
   itemName: string;
-  amount: number;           // total batch amount required
+  amount: number;             // net amount still needed (after byproduct coverage)
+  byproductSupply?: number;   // amount covered by byproducts (omitted when zero)
 }
 export interface RawPlannerNode {
   type: 'raw';

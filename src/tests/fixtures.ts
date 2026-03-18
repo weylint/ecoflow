@@ -88,6 +88,30 @@ export const multiRecipeItem: RecipeObject = {
   }]
 };
 
+// Widget uses Steel Bar (which produces Slag as byproduct) AND Slag itself.
+// Planning Widget exercises byproduct-feeds-back-into-chain logic.
+export const widgetRecipe: RecipeObject = {
+  Key: 'Widget',
+  Untranslated: 'Widget Recipe',
+  BaseCraftTime: 2,
+  BaseLaborCost: 10,
+  BaseXPGain: 1,
+  CraftingTable: 'Factory',
+  CraftingTableCanUseModules: false,
+  DefaultVariant: 'Widget',
+  NumberOfVariants: 1,
+  SkillNeeds: [],
+  Variants: [{
+    Key: 'Widget',
+    Name: 'Widget',
+    Ingredients: [
+      { IsSpecificItem: true, Tag: null, Name: 'Steel Bar', Ammount: 4, IsStatic: false },
+      { IsSpecificItem: true, Tag: null, Name: 'Slag',      Ammount: 1, IsStatic: false }
+    ],
+    Products: [{ Name: 'Widget', Ammount: 1 }]
+  }]
+};
+
 export const sampleTags: Record<string, string[]> = {
   'Wood': ['Birch Log', 'Oak Log', 'Pine Log']
 };

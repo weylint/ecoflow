@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { buildGraph } from '$lib/planner.js';
 import { buildRecipeIndex } from '$lib/recipeIndex.js';
 import { buildTagsIndex } from '$lib/tagsIndex.js';
-import { simpleRecipe, tagRecipe, multiProductRecipe, sampleTags } from './fixtures.js';
+import { simpleRecipe, tagRecipe, multiProductRecipe, widgetRecipe, sampleTags } from './fixtures.js';
 import type { UserChoices } from '$lib/types.js';
 
 function emptyChoices(): UserChoices {
@@ -232,6 +232,47 @@ describe('buildGraph', () => {
     // No table node or raw node — chain stops at market
     expect(graph.nodes.find(n => n.type === 'table')).toBeUndefined();
     expect(graph.nodes.find(n => n.type === 'raw')).toBeUndefined();
+  });
+
+  it('byproduct feeds back: fully-covered item gets ItemNode with amount=0, no raw/table', () => {
+    // Widget needs 4 Steel Bar + 1 Slag.
+    // multiProductRecipe: 4 Iron Bar + 1 Coal → 4 Steel Bar + 1 Slag (byproduct).
+    // 1 Widget → ceil(4/4)=1 cycle of Steel Bar → produces 1 Slag byproduct.
+    // Slag gross requirement = 1, byproduct supply = 1 → net = 0.
+    const recipeIndex = buildRecipeIndex([multiProductRecipe, widgetRecipe]);
+    const tagsIndex = buildTagsIndex({});
+    const graph = buildGraph({
+      targetItem: 'Widget',
+      totalAmount: 1,
+      recipeIndex,
+      tagsIndex,
+      choices: emptyChoices(),
+      skillReduction: 0
+    });
+
+    // Slag has no recipe — normally a raw node, but byproduct fully covers it
+    const slagRaw = graph.nodes.find(n => n.type === 'raw' && (n as { itemName: string }).itemName === 'Slag');
+    expect(slagRaw).toBeUndefined();
+
+    // Should be an item node with amount=0 and byproductSupply=1
+    const slagItem = graph.nodes.find(n => n.type === 'item' && (n as { itemName: string }).itemName === 'Slag');
+    expect(slagItem).toBeDefined();
+    if (slagItem?.type === 'item') {
+      expect(slagItem.amount).toBe(0);
+      expect(slagItem.byproductSupply).toBe(1);
+    }
+
+    // Edge from table:Steel Bar to item:Slag (byproduct → chain)
+    const feedEdge = graph.edges.find(e => e.source === 'table:Steel Bar' && e.target === 'item:Slag');
+    expect(feedEdge).toBeDefined();
+
+    // Edge from item:Slag to table:Widget (Slag consumed by Widget table)
+    const consumeEdge = graph.edges.find(e => e.source === 'item:Slag' && e.target === 'table:Widget');
+    expect(consumeEdge).toBeDefined();
+
+    // No byproduct node for Slag (it feeds into the chain, not dead-end)
+    const slagByproduct = graph.nodes.find(n => n.type === 'byproduct' && (n as { itemName: string }).itemName === 'Slag');
+    expect(slagByproduct).toBeUndefined();
   });
 
   it('graph has edges connecting nodes', () => {

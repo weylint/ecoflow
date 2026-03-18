@@ -14,7 +14,16 @@
 
   <div class="content">
     <div class="name">{data.itemName}</div>
-    <div class="amount">× {data.amount % 1 === 0 ? data.amount : data.amount.toFixed(2)}</div>
+    <div class="amount">
+      {#if data.amount === 0}
+        ✓ from byproduct
+      {:else}
+        × {data.amount % 1 === 0 ? data.amount : data.amount.toFixed(2)}
+      {/if}
+    </div>
+    {#if data.byproductSupply}
+      <div class="supply">+{data.byproductSupply % 1 === 0 ? data.byproductSupply : data.byproductSupply.toFixed(2)} byproduct</div>
+    {/if}
   </div>
 
   <Handle type="source" position={Position.Right} />
@@ -46,5 +55,11 @@
     font-size: 15px;
     color: #7ee3a0;
     font-weight: bold;
+  }
+
+  .supply {
+    font-size: 11px;
+    color: #4ec870;
+    margin-top: 2px;
   }
 </style>
