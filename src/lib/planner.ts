@@ -76,6 +76,7 @@ export function buildGraph(opts: BuildOptions): PlannerGraph {
     const recipe = choices.recipeByItem.get(itemName) ?? recipes[0];
     const variant =
       choices.variantByItem.get(itemName) ??
+      recipe.Variants.find(v => v.Products[0]?.Name === itemName) ??
       getDefaultVariant(recipe);
 
     // Only treat this as the "true" crafting intent when itemName is the leading product.
@@ -243,6 +244,7 @@ export function buildGraph(opts: BuildOptions): PlannerGraph {
     const recipe = choices.recipeByItem.get(itemName) ?? recipes[0];
     const variant =
       choices.variantByItem.get(itemName) ??
+      recipe.Variants.find(v => v.Products[0]?.Name === itemName) ??
       getDefaultVariant(recipe);
 
     // If this item is only a secondary product of the chosen recipe (not Products[0]),

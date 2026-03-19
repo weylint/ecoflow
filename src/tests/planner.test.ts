@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { buildGraph } from '$lib/planner.js';
 import { buildRecipeIndex } from '$lib/recipeIndex.js';
 import { buildTagsIndex } from '$lib/tagsIndex.js';
-import { simpleRecipe, tagRecipe, multiProductRecipe, widgetRecipe, sampleTags, slabRecipe, pathRecipe, crushedRockTags } from './fixtures.js';
+import { simpleRecipe, tagRecipe, multiProductRecipe, widgetRecipe, sampleTags, slabRecipe, pathRecipe, crushedRockTags, multiVariantRecipe, byproductOnlyRecipe } from './fixtures.js';
 import type { UserChoices, RecipeObject } from '$lib/types.js';
 
 function emptyChoices(): UserChoices {
@@ -475,5 +475,49 @@ describe('buildGraph', () => {
     });
 
     expect(graph.edges.length).toBeGreaterThan(0);
+  });
+});
+
+describe('multi-variant recipe indexing', () => {
+  it('non-default variant products appear in allCraftableNames', () => {
+    const recipeIndex = buildRecipeIndex([multiVariantRecipe]);
+    expect(recipeIndex.allCraftableNames).toContain('Composite Oak Lumber');
+    expect(recipeIndex.allCraftableNames).toContain('Composite Spruce Lumber');
+    expect(recipeIndex.allCraftableNames).toContain('Composite Lumber');
+  });
+
+  it('planning a non-default variant product produces a table node, not a raw node', () => {
+    const recipeIndex = buildRecipeIndex([multiVariantRecipe]);
+    const tagsIndex = buildTagsIndex({});
+    const graph = buildGraph({
+      targetItem: 'Composite Oak Lumber',
+      totalAmount: 10,
+      recipeIndex,
+      tagsIndex,
+      choices: {
+        recipeByItem: new Map(),
+        variantByItem: new Map(),
+        itemByTag: new Map(),
+        marketItems: new Set(),
+        upgradeByTable: new Map()
+      },
+      globalUpgrade: 0
+    });
+
+    const rawNodes = graph.nodes.filter(n => n.type === 'raw');
+    const tableNodes = graph.nodes.filter(n => n.type === 'table');
+    expect(tableNodes.length).toBe(1);
+    expect(tableNodes[0].type === 'table' && (tableNodes[0] as any).itemName).toBe('Composite Oak Lumber');
+    // Oak Log should be the raw ingredient, not Composite Oak Lumber itself
+    expect(rawNodes.some(n => (n as any).itemName === 'Composite Oak Lumber')).toBe(false);
+    expect(rawNodes.some(n => (n as any).itemName === 'Oak Log')).toBe(true);
+  });
+
+  it('byproduct-only items (never Products[0]) are absent from allCraftableNames', () => {
+    const recipeIndex = buildRecipeIndex([byproductOnlyRecipe]);
+    // Raw Meat is Products[0] — should be craftable
+    expect(recipeIndex.allCraftableNames).toContain('Raw Meat');
+    // Wool is only ever Products[1] — should NOT be listed as a plannable target
+    expect(recipeIndex.allCraftableNames).not.toContain('Wool');
   });
 });

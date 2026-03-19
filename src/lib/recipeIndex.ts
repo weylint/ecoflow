@@ -16,10 +16,22 @@ export function buildRecipeIndex(recipes: RecipeObject[]): RecipeIndex {
 
     if (!defaultVariant) continue;
 
+    // Index all products from the default variant (primary + secondary byproducts)
     for (const product of defaultVariant.Products) {
       const list = byProduct.get(product.Name) ?? [];
       list.push(recipe);
       byProduct.set(product.Name, list);
+    }
+
+    // Also index the primary product (Products[0]) of every non-default variant,
+    // so variant-specific items (e.g. "Composite Oak Lumber") are reachable.
+    for (const variant of recipe.Variants) {
+      if (variant === defaultVariant) continue;
+      const primary = variant.Products[0];
+      if (!primary) continue;
+      const list = byProduct.get(primary.Name) ?? [];
+      if (!list.includes(recipe)) list.push(recipe);
+      byProduct.set(primary.Name, list);
     }
   }
 
@@ -72,9 +84,17 @@ export function buildRecipeIndex(recipes: RecipeObject[]): RecipeIndex {
     }
   }
 
+  // Only expose items that are the primary product (Products[0]) in at least one variant.
+  // This excludes secondary-byproduct-only items (e.g. Shorn Wool) that can never be
+  // directly targeted for crafting.
+  const primaryProductNames = new Set<string>();
+  for (const recipe of recipes)
+    for (const variant of recipe.Variants)
+      if (variant.Products[0]) primaryProductNames.add(variant.Products[0].Name);
+
   return {
     byProduct,
     byIngredient,
-    allCraftableNames: [...byProduct.keys()].sort()
+    allCraftableNames: [...byProduct.keys()].filter(n => primaryProductNames.has(n)).sort()
   };
 }

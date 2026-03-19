@@ -45,6 +45,18 @@ export const UPGRADE_LEVELS = [
 // Byproducts that are waste products and should never satisfy tag requirements
 export const EXCLUDED_BYPRODUCTS = new Set(['Garbage', 'Wet Tailings', 'Tailings']);
 
+export interface LayoutOptions {
+  thoroughness: number;
+  nodePlacement: 'BRANDES_KOPP' | 'LINEAR_SEGMENTS' | 'NETWORK_SIMPLEX';
+  direction: 'RIGHT' | 'DOWN';
+}
+
+export const DEFAULT_LAYOUT_OPTIONS: LayoutOptions = {
+  thoroughness: 7,
+  nodePlacement: 'BRANDES_KOPP',
+  direction: 'RIGHT'
+};
+
 // ── Planner graph types ────────────────────────────────────────────
 export type PlannerNodeType = 'table' | 'item' | 'raw' | 'tag';
 

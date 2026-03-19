@@ -167,3 +167,62 @@ export const pathRecipe: RecipeObject = {
 export const crushedRockTags: Record<string, string[]> = {
   'Crushed Rock': ['Crushed Granite', 'Crushed Sandstone']
 };
+
+// multiVariantRecipe: models Composite Lumber — one recipe with 3 variants, each
+// producing a different primary product. Only "Composite Lumber" is the default variant.
+export const multiVariantRecipe: RecipeObject = {
+  Key: 'CompositeLumber',
+  Untranslated: 'Composite Lumber Recipe',
+  BaseCraftTime: 2,
+  BaseLaborCost: 10,
+  BaseXPGain: 1,
+  CraftingTable: 'Carpentry Table',
+  CraftingTableCanUseModules: false,
+  DefaultVariant: 'Composite Lumber',
+  NumberOfVariants: 3,
+  SkillNeeds: [],
+  Variants: [
+    {
+      Key: 'CompositeLumber',
+      Name: 'Composite Lumber',
+      Ingredients: [{ IsSpecificItem: true, Tag: null, Name: 'Wood Pulp', Ammount: 2, IsStatic: false }],
+      Products: [{ Name: 'Composite Lumber', Ammount: 1 }]
+    },
+    {
+      Key: 'CompositeOakLumber',
+      Name: 'Composite Oak Lumber',
+      Ingredients: [{ IsSpecificItem: true, Tag: null, Name: 'Oak Log', Ammount: 2, IsStatic: false }],
+      Products: [{ Name: 'Composite Oak Lumber', Ammount: 1 }]
+    },
+    {
+      Key: 'CompositeSpruceLumber',
+      Name: 'Composite Spruce Lumber',
+      Ingredients: [{ IsSpecificItem: true, Tag: null, Name: 'Spruce Log', Ammount: 2, IsStatic: false }],
+      Products: [{ Name: 'Composite Spruce Lumber', Ammount: 1 }]
+    }
+  ]
+};
+
+// byproductOnlyRecipe: models Butcher recipes — "Wool" is a secondary product that is
+// never Products[0] in any variant. It should NOT appear in allCraftableNames.
+export const byproductOnlyRecipe: RecipeObject = {
+  Key: 'ButcherSheep',
+  Untranslated: 'Butcher Sheep Recipe',
+  BaseCraftTime: 3,
+  BaseLaborCost: 15,
+  BaseXPGain: 1,
+  CraftingTable: 'Butchery Table',
+  CraftingTableCanUseModules: false,
+  DefaultVariant: 'Butcher Sheep',
+  NumberOfVariants: 1,
+  SkillNeeds: [],
+  Variants: [{
+    Key: 'ButcherSheep',
+    Name: 'Butcher Sheep',
+    Ingredients: [{ IsSpecificItem: true, Tag: null, Name: 'Sheep Carcass', Ammount: 1, IsStatic: false }],
+    Products: [
+      { Name: 'Raw Meat', Ammount: 5 },
+      { Name: 'Wool', Ammount: 2 }
+    ]
+  }]
+};

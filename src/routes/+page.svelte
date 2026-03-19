@@ -2,11 +2,12 @@
   import { onMount } from 'svelte';
   import { dev } from '$app/environment';
   import { writable, get } from 'svelte/store';
-  import { SvelteFlow, Controls, Background, MiniMap } from '@xyflow/svelte';
+  import { SvelteFlow, Controls, Background, MiniMap, Panel } from '@xyflow/svelte';
   import '@xyflow/svelte/dist/style.css';
 
   import type { Node, Edge } from '@xyflow/svelte';
-  import { UPGRADE_LEVELS, EXCLUDED_BYPRODUCTS } from '$lib/types.js';
+  import { UPGRADE_LEVELS, EXCLUDED_BYPRODUCTS, DEFAULT_LAYOUT_OPTIONS } from '$lib/types.js';
+  import type { LayoutOptions } from '$lib/types.js';
   import type { RecipeObject, Variant, TagsFile, RecipeFile, UserChoices, TablePlannerNode, RawPlannerNode, MarketPlannerNode, TagPlannerNode, ByproductPlannerNode, ByproductResolveOption } from '$lib/types.js';
   import { buildRecipeIndex } from '$lib/recipeIndex.js';
   import { buildTagsIndex } from '$lib/tagsIndex.js';
@@ -57,6 +58,8 @@
   let plannerByproductNodes = $state<ByproductPlannerNode[]>([]);
   let showReport = $state(false);
   let showResolve = $state(false);
+  let showLayoutSettings = $state(false);
+  let layoutOptions = $state<LayoutOptions>({ ...DEFAULT_LAYOUT_OPTIONS });
   let darkMode = $state(true);
   let groupByProfession = $state(false);
 
@@ -185,7 +188,7 @@
       plannerByproductNodes = plannerGraph.nodes.filter((n): n is ByproductPlannerNode => n.type === 'byproduct');
 
       const { buildFlowGraph } = await import('$lib/graphBuilder.js');
-      const flow = await buildFlowGraph(plannerGraph, groupByProfession);
+      const flow = await buildFlowGraph(plannerGraph, groupByProfession, layoutOptions);
 
       let layoutNodes = flow.nodes;
 
@@ -347,6 +350,10 @@
         Re-layout
       </button>
 
+      <button onclick={() => showLayoutSettings = true} disabled={loading} title="ELK layout settings">
+        Settings
+      </button>
+
       <label class="checkbox-label">
         <input type="checkbox" bind:checked={groupByProfession} onchange={() => replan(false)} />
         Group by Profession
@@ -372,6 +379,16 @@
           minZoom={0.05}
         >
           <FitViewOnDemand {fitViewPending} onFitViewDone={() => { fitViewPending = false; }} />
+          <Panel position="top-right">
+            <select
+              class="direction-select"
+              value={layoutOptions.direction}
+              onchange={e => { layoutOptions = { ...layoutOptions, direction: (e.target as HTMLSelectElement).value as LayoutOptions['direction'] }; replan(false); }}
+            >
+              <option value="RIGHT">→ Left to Right</option>
+              <option value="DOWN">↓ Top to Bottom</option>
+            </select>
+          </Panel>
           <Controls />
           <Background />
           <MiniMap />
@@ -477,6 +494,44 @@
     onApply={handleResolveApply}
     onClose={() => showResolve = false}
   />
+{/if}
+
+{#if showLayoutSettings}
+  <div class="report-overlay" role="dialog" aria-modal="true">
+    <div class="report-panel layout-settings-panel">
+      <div class="report-header">
+        <h2>Layout Settings</h2>
+        <button class="close-btn" onclick={() => showLayoutSettings = false}>✕</button>
+      </div>
+
+      <section>
+        <label class="settings-row">
+          <span class="settings-label">Thoroughness</span>
+          <select
+            value={layoutOptions.thoroughness}
+            onchange={e => { layoutOptions = { ...layoutOptions, thoroughness: Number((e.target as HTMLSelectElement).value) }; replan(false); }}
+          >
+            <option value={7}>7 – Default</option>
+            <option value={15}>15 – Better</option>
+            <option value={25}>25 – Best</option>
+            <option value={50}>50 – Max</option>
+          </select>
+        </label>
+
+        <label class="settings-row">
+          <span class="settings-label">Node Placement</span>
+          <select
+            value={layoutOptions.nodePlacement}
+            onchange={e => { layoutOptions = { ...layoutOptions, nodePlacement: (e.target as HTMLSelectElement).value as LayoutOptions['nodePlacement'] }; replan(false); }}
+          >
+            <option value="BRANDES_KOPP">BRANDES_KOPP – Default</option>
+            <option value="LINEAR_SEGMENTS">LINEAR_SEGMENTS</option>
+            <option value="NETWORK_SIMPLEX">NETWORK_SIMPLEX</option>
+          </select>
+        </label>
+      </section>
+    </div>
+  </div>
 {/if}
 
 <style>
@@ -801,4 +856,54 @@
   :global(html.light) .item-amt { color: #1d4ed8; }
   :global(html.light) .close-btn { color: #555; }
   :global(html.light) .empty { color: #888; }
+
+  .layout-settings-panel {
+    min-width: 320px;
+    max-width: 400px;
+  }
+
+  .settings-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 0;
+    font-size: 13px;
+    color: #b0b0b0;
+  }
+
+  .settings-label {
+    white-space: nowrap;
+  }
+
+  .layout-settings-panel select {
+    background: #2a2a2a;
+    border: 1px solid #444;
+    color: #e0e0e0;
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 13px;
+    min-width: 180px;
+  }
+
+  :global(html.light) .settings-row { color: #444; }
+  :global(html.light) .layout-settings-panel select {
+    background: #ffffff; border-color: #bbb; color: #1a1a1a;
+  }
+
+  :global(.direction-select) {
+    background: #1e1e1e;
+    border: 1px solid #444;
+    color: #e0e0e0;
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 12px;
+    cursor: pointer;
+  }
+
+  :global(html.light .direction-select) {
+    background: #ffffff;
+    border-color: #bbb;
+    color: #1a1a1a;
+  }
 </style>

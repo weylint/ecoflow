@@ -1,4 +1,5 @@
-import type { PlannerGraph, PlannerNode, ItemPlannerNode, TablePlannerNode } from './types.js';
+import type { PlannerGraph, PlannerNode, ItemPlannerNode, TablePlannerNode, LayoutOptions } from './types.js';
+import { DEFAULT_LAYOUT_OPTIONS } from './types.js';
 import type { Node, Edge } from '@xyflow/svelte';
 import ELK from 'elkjs/lib/elk.bundled.js';
 
@@ -34,7 +35,11 @@ function labeledEdge(id: string, source: string, target: string, label: string):
   };
 }
 
-export async function buildFlowGraph(plannerGraph: PlannerGraph, groupByProfession = false): Promise<FlowGraph> {
+export async function buildFlowGraph(
+  plannerGraph: PlannerGraph,
+  groupByProfession = false,
+  layoutOptions: LayoutOptions = DEFAULT_LAYOUT_OPTIONS
+): Promise<FlowGraph> {
   if (plannerGraph.nodes.length === 0) {
     return { nodes: [], edges: [] };
   }
@@ -132,8 +137,10 @@ export async function buildFlowGraph(plannerGraph: PlannerGraph, groupByProfessi
     id: elkNodeId(`group:${skill}`),
     layoutOptions: {
       'elk.algorithm': 'layered',
-      'elk.direction': 'RIGHT',
+      'elk.direction': layoutOptions.direction,
       'elk.padding': `[top=${GROUP_PADDING.top},right=${GROUP_PADDING.right},bottom=${GROUP_PADDING.bottom},left=${GROUP_PADDING.left}]`,
+      'elk.layered.thoroughness': String(layoutOptions.thoroughness),
+      'elk.layered.nodePlacement.strategy': layoutOptions.nodePlacement,
     },
     children: ids.map(id => ({
       id: idMap.get(id)!,
@@ -168,9 +175,11 @@ export async function buildFlowGraph(plannerGraph: PlannerGraph, groupByProfessi
     id: 'root',
     layoutOptions: {
       'elk.algorithm': 'layered',
-      'elk.direction': 'RIGHT',
+      'elk.direction': layoutOptions.direction,
       'elk.layered.spacing.nodeNodeBetweenLayers': '80',
-      'elk.spacing.nodeNode': '40'
+      'elk.spacing.nodeNode': '40',
+      'elk.layered.thoroughness': String(layoutOptions.thoroughness),
+      'elk.layered.nodePlacement.strategy': layoutOptions.nodePlacement,
     },
     children: [...elkFlatNodes, ...elkGroupNodes],
     edges: elkEdges
