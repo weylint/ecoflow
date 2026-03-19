@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { dev } from '$app/environment';
   import { writable } from 'svelte/store';
   import { SvelteFlow, Controls, Background, MiniMap } from '@xyflow/svelte';
   import '@xyflow/svelte/dist/style.css';
@@ -10,7 +11,6 @@
   import { buildRecipeIndex } from '$lib/recipeIndex.js';
   import { buildTagsIndex } from '$lib/tagsIndex.js';
   import { buildGraph } from '$lib/planner.js';
-  import { buildFlowGraph } from '$lib/graphBuilder.js';
 
   import TableNode from '$lib/components/TableNode.svelte';
   import RawNode from '$lib/components/RawNode.svelte';
@@ -71,11 +71,18 @@
   let graphBuilding = $state(false);
 
   // ── Data loading ─────────────────────────────────────────────────
+  const RECIPES_URL = dev
+    ? './recipes.json'
+    : 'https://white-tiger.play.eco/api/v1/plugins/EcoPriceCalculator/recipes';
+  const TAGS_URL = dev
+    ? './tags.json'
+    : 'https://white-tiger.play.eco/api/v1/plugins/EcoPriceCalculator/tags';
+
   onMount(async () => {
     try {
       const [recipesRes, tagsRes] = await Promise.all([
-        fetch('./recipes.json'),
-        fetch('./tags.json')
+        fetch(RECIPES_URL),
+        fetch(TAGS_URL)
       ]);
 
       if (!recipesRes.ok || !tagsRes.ok) throw new Error('Failed to load data files');
@@ -123,6 +130,7 @@
         (n): n is TagPlannerNode => n.type === 'tag' && n.amount > 0 && (n.selectedItem === null || n.byproductSupply !== undefined)
       );
 
+      const { buildFlowGraph } = await import('$lib/graphBuilder.js');
       const flow = await buildFlowGraph(plannerGraph, groupByProfession);
 
       // Inject callbacks into node data here (avoids infinite $effect loops)
@@ -310,9 +318,11 @@
           <p class="empty">None</p>
         {:else}
           <table>
-            {#each [...plannerRawNodes].sort((a, b) => b.amount - a.amount) as n}
-              <tr><td class="item-name">{n.itemName}</td><td class="item-amt">{fmt(n.amount)}</td></tr>
-            {/each}
+            <tbody>
+              {#each [...plannerRawNodes].sort((a, b) => b.amount - a.amount) as n}
+                <tr><td class="item-name">{n.itemName}</td><td class="item-amt">{fmt(n.amount)}</td></tr>
+              {/each}
+            </tbody>
           </table>
         {/if}
       </section>
@@ -321,9 +331,11 @@
         <section>
           <h3>Unresolved Tags</h3>
           <table>
-            {#each [...plannerUnresolvedTagNodes].sort((a, b) => b.amount - a.amount) as n}
-              <tr><td class="item-name">{n.tag}</td><td class="item-amt">{fmt(n.amount)}</td></tr>
-            {/each}
+            <tbody>
+              {#each [...plannerUnresolvedTagNodes].sort((a, b) => b.amount - a.amount) as n}
+                <tr><td class="item-name">{n.tag}</td><td class="item-amt">{fmt(n.amount)}</td></tr>
+              {/each}
+            </tbody>
           </table>
         </section>
       {/if}
@@ -334,9 +346,11 @@
           <p class="empty">None</p>
         {:else}
           <table>
-            {#each [...plannerMarketNodes].sort((a, b) => b.amount - a.amount) as n}
-              <tr><td class="item-name">{n.itemName}</td><td class="item-amt">{fmt(n.amount)}</td></tr>
-            {/each}
+            <tbody>
+              {#each [...plannerMarketNodes].sort((a, b) => b.amount - a.amount) as n}
+                <tr><td class="item-name">{n.itemName}</td><td class="item-amt">{fmt(n.amount)}</td></tr>
+              {/each}
+            </tbody>
           </table>
         {/if}
       </section>
