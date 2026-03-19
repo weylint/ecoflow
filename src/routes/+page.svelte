@@ -6,7 +6,7 @@
   import '@xyflow/svelte/dist/style.css';
 
   import type { Node, Edge } from '@xyflow/svelte';
-  import { UPGRADE_LEVELS } from '$lib/types.js';
+  import { UPGRADE_LEVELS, EXCLUDED_BYPRODUCTS } from '$lib/types.js';
   import type { RecipeObject, Variant, TagsFile, RecipeFile, UserChoices, TablePlannerNode, RawPlannerNode, MarketPlannerNode, TagPlannerNode, ByproductPlannerNode, ByproductResolveOption } from '$lib/types.js';
   import { buildRecipeIndex } from '$lib/recipeIndex.js';
   import { buildTagsIndex } from '$lib/tagsIndex.js';
@@ -121,6 +121,7 @@
     unresolvedTags: TagPlannerNode[]
   ): ByproductResolveOption[] {
     if (!recipeIndex || !tagsIndex) return [];
+    if (EXCLUDED_BYPRODUCTS.has(itemName)) return [];
     const unresolved = new Map(unresolvedTags.map(n => [n.tag, n.amount]));
     const options: ByproductResolveOption[] = [];
     const seen = new Set<string>();
@@ -743,6 +744,11 @@
   }
   :global(html.light .byproduct-node .label) { color: #7c3aed; }
   :global(html.light .byproduct-node .amount) { color: #6d28d9; }
+  :global(html.light .byproduct-node.excluded) {
+    background: #fde8e8; border-color: #dc2626; color: #450a0a;
+  }
+  :global(html.light .byproduct-node.excluded .label) { color: #b91c1c; }
+  :global(html.light .byproduct-node.excluded .amount) { color: #dc2626; }
 
   /* TagNode */
   :global(html.light .tag-node) {

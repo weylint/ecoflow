@@ -12,6 +12,7 @@ import type {
   ByproductPlannerNode,
   UserChoices
 } from './types.js';
+import { EXCLUDED_BYPRODUCTS } from './types.js';
 import type { RecipeIndex } from './recipeIndex.js';
 import type { TagsIndex } from './tagsIndex.js';
 
@@ -150,6 +151,7 @@ export function buildGraph(opts: BuildOptions): PlannerGraph {
     const contributors: { itemName: string; contribution: number }[] = [];
     for (const [itemName, supply] of byproductSupply) {
       if (remaining <= 0) break;
+      if (EXCLUDED_BYPRODUCTS.has(itemName)) continue;
       if (!(tagsIndex.itemToTags.get(itemName) ?? []).includes(tag)) continue;
       const contribution = Math.min(supply, remaining);
       contributors.push({ itemName, contribution });

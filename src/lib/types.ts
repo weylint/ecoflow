@@ -42,6 +42,9 @@ export const UPGRADE_LEVELS = [
   { label: 'Upgrade 5', value: 0.50 },
 ] as const;
 
+// Byproducts that are waste products and should never satisfy tag requirements
+export const EXCLUDED_BYPRODUCTS = new Set(['Garbage', 'Wet Tailings', 'Tailings']);
+
 // ── Planner graph types ────────────────────────────────────────────
 export type PlannerNodeType = 'table' | 'item' | 'raw' | 'tag';
 
