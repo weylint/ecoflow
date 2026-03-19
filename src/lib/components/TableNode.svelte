@@ -48,10 +48,17 @@
     if (m < 60) return rem > 0 ? `${m}m ${rem}s` : `${m}m`;
     const h = Math.floor(m / 60);
     const mRem = m % 60;
-    return mRem > 0 ? `${h}h ${mRem}m` : `${h}h`;
+    if (h < 24) return mRem > 0 ? `${h}h ${mRem}m` : `${h}h`;
+    const d = Math.floor(h / 24);
+    const hRem = h % 24;
+    return hRem > 0 ? `${d}d ${hRem}h` : `${d}d`;
   }
 
-  const totalSeconds = $derived(data.cycles * data.recipe.BaseCraftTime);
+  const totalSeconds = $derived(data.cycles * data.recipe.BaseCraftTime * 60 * (1 - (data.currentUpgrade ?? 0)));
+
+  function fmt(n: number): string {
+    return Number.isInteger(n) ? String(n) : n.toFixed(2);
+  }
 </script>
 
 <div class="table-node">
@@ -97,6 +104,19 @@
         </select>
       </label>
     </div>
+
+    {#if data.loopbackItems?.length}
+      <div class="returnables">
+        {#each data.loopbackItems as lb}
+          <div class="returnable-row">
+            <span class="lb-name">{lb.itemName}</span>
+            <span class="lb-gross">↓{fmt(lb.grossAmount)}</span>
+            <span class="lb-return">↑{fmt(lb.returnAmount)}</span>
+            <span class="lb-net">net {fmt(lb.netAmount)}</span>
+          </div>
+        {/each}
+      </div>
+    {/if}
   </div>
 
   <Handle type="source" position={Position.Right} />
@@ -158,4 +178,32 @@
     padding: 2px 4px;
     font-size: 11px;
   }
+
+  .returnables {
+    margin-top: 4px;
+    border-top: 1px solid #4a7fb5;
+    padding-top: 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .returnable-row {
+    display: flex;
+    gap: 4px;
+    font-size: 10px;
+    align-items: center;
+  }
+
+  .lb-name {
+    flex: 1;
+    color: #a0c4e0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .lb-gross { color: #e07070; }
+  .lb-return { color: #70e070; }
+  .lb-net { color: #e0e070; }
 </style>

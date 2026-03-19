@@ -1,6 +1,5 @@
-import type { PlannerGraph, PlannerNode, LoopbackPlannerNode } from './types.js';
+import type { PlannerGraph, PlannerNode } from './types.js';
 import type { Node, Edge } from '@xyflow/svelte';
-import { MarkerType } from '@xyflow/svelte';
 import ELK from 'elkjs/lib/elk.bundled.js';
 
 const elk = new ELK();
@@ -23,14 +22,11 @@ export async function buildFlowGraph(plannerGraph: PlannerGraph): Promise<FlowGr
     return { nodes: [], edges: [] };
   }
 
-  // Separate loopback nodes — they are excluded from ELK and positioned manually
-  const loopbackNodes = plannerGraph.nodes.filter(n => n.type === 'loopback') as LoopbackPlannerNode[];
-  const regularNodes = plannerGraph.nodes.filter(n => n.type !== 'loopback');
-  const loopbackNodeIds = new Set(loopbackNodes.map(n => n.id));
-
-  // Map from original planner node id → elk-safe id (only for regular nodes)
+  // Map from original planner node id → elk-safe id
   const idMap = new Map<string, string>();
   const reverseIdMap = new Map<string, string>();
+
+  const regularNodes = plannerGraph.nodes;
 
   for (const node of regularNodes) {
     const safe = elkNodeId(node.id);
@@ -45,7 +41,6 @@ export async function buildFlowGraph(plannerGraph: PlannerGraph): Promise<FlowGr
   }));
 
   const elkEdges = plannerGraph.edges
-    .filter(e => !loopbackNodeIds.has(e.source) && !loopbackNodeIds.has(e.target))
     .filter(e => idMap.has(e.source) && idMap.has(e.target))
     .map(e => ({
       id: elkNodeId(e.id),
@@ -82,42 +77,19 @@ export async function buildFlowGraph(plannerGraph: PlannerGraph): Promise<FlowGr
     });
   }
 
-  // Post-position loopback nodes below their associated table
-  for (const loopNode of loopbackNodes) {
-    const tablePos = posMap.get(loopNode.tableId);
-    posMap.set(loopNode.id, {
-      x: tablePos?.x ?? 0,
-      y: (tablePos?.y ?? 0) + NODE_HEIGHT + 20
-    });
-  }
-
   const nodes: Node[] = plannerGraph.nodes.map(n => ({
     id: n.id,
     type: plannerNodeType(n),
     position: posMap.get(n.id) ?? { x: 0, y: 0 },
-    data: n
+    data: n as unknown as Record<string, unknown>
   }));
 
-  const edges: Edge[] = plannerGraph.edges.map(e => {
-    const isLoopbackEdge = loopbackNodeIds.has(e.source) || loopbackNodeIds.has(e.target);
-    if (isLoopbackEdge) {
-      return {
-        id: e.id,
-        source: e.source,
-        target: e.target,
-        type: 'default',
-        animated: true,
-        markerStart: { type: MarkerType.ArrowClosed },
-        markerEnd: { type: MarkerType.ArrowClosed }
-      };
-    }
-    return {
-      id: e.id,
-      source: e.source,
-      target: e.target,
-      type: 'default'
-    };
-  });
+  const edges: Edge[] = plannerGraph.edges.map(e => ({
+    id: e.id,
+    source: e.source,
+    target: e.target,
+    type: 'default'
+  }));
 
   return { nodes, edges };
 }
@@ -130,6 +102,5 @@ function plannerNodeType(node: PlannerNode): string {
     case 'tag':       return 'tagNode';
     case 'market':    return 'marketNode';
     case 'byproduct': return 'byproductNode';
-    case 'loopback':  return 'loopbackNode';
   }
 }

@@ -43,7 +43,7 @@ export const UPGRADE_LEVELS = [
 ] as const;
 
 // ── Planner graph types ────────────────────────────────────────────
-export type PlannerNodeType = 'table' | 'item' | 'raw' | 'tag' | 'loopback';
+export type PlannerNodeType = 'table' | 'item' | 'raw' | 'tag';
 
 export interface TablePlannerNode {
   type: 'table';
@@ -54,6 +54,7 @@ export interface TablePlannerNode {
   variant: Variant;
   cycles: number;           // ceil(requiredAmount / productAmount)
   availableRecipes: RecipeObject[];
+  loopbackItems?: { itemName: string; grossAmount: number; returnAmount: number; netAmount: number }[];
 }
 export interface ItemPlannerNode {
   type: 'item';
@@ -90,16 +91,7 @@ export interface ByproductPlannerNode {
   itemName: string;
   amount: number;   // cycles × product.Ammount
 }
-export interface LoopbackPlannerNode {
-  type: 'loopback';
-  id: string;
-  itemName: string;
-  tableId: string;       // the table this loops back into
-  grossAmount: number;   // total input needed (ingredientAmt × cycles)
-  returnAmount: number;  // scaled return (product.Ammount × (1 - effectiveReduction) × cycles)
-  netAmount: number;     // grossAmount - returnAmount
-}
-export type PlannerNode = TablePlannerNode | ItemPlannerNode | RawPlannerNode | TagPlannerNode | MarketPlannerNode | ByproductPlannerNode | LoopbackPlannerNode;
+export type PlannerNode = TablePlannerNode | ItemPlannerNode | RawPlannerNode | TagPlannerNode | MarketPlannerNode | ByproductPlannerNode;
 
 export interface PlannerEdge {
   id: string;

@@ -23,7 +23,7 @@ vi.mock('elkjs/lib/elk.bundled.js', () => {
 const sampleGraph: PlannerGraph = {
   nodes: [
     { type: 'item', id: 'item:Iron Bar', itemName: 'Iron Bar', amount: 10 },
-    { type: 'table', id: 'table:Iron Bar', table: 'Bloomery', recipe: {} as never, variant: {} as never, cycles: 10, availableRecipes: [] },
+    { type: 'table', id: 'table:Iron Bar', itemName: 'Iron Bar', table: 'Bloomery', recipe: {} as never, variant: {} as never, cycles: 10, availableRecipes: [] },
     { type: 'raw', id: 'raw:Iron Ore', itemName: 'Iron Ore', amount: 20 }
   ],
   edges: [

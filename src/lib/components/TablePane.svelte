@@ -8,9 +8,24 @@
     globalUpgrade: number;
     onRecipeChange: (itemName: string, recipe: RecipeObject) => void;
     onUpgradeChange: (tableName: string, value: number) => void;
+    onMarketSelect: (itemName: string) => void;
   }
 
-  let { tableNodes, upgradeByTable, globalUpgrade, onRecipeChange, onUpgradeChange }: Props = $props();
+  let { tableNodes, upgradeByTable, globalUpgrade, onRecipeChange, onUpgradeChange, onMarketSelect }: Props = $props();
+
+  function formatTime(seconds: number): string {
+    const s = Math.round(seconds);
+    if (s < 60) return `${s}s`;
+    const m = Math.floor(s / 60);
+    const rem = s % 60;
+    if (m < 60) return rem > 0 ? `${m}m ${rem}s` : `${m}m`;
+    const h = Math.floor(m / 60);
+    const mRem = m % 60;
+    if (h < 24) return mRem > 0 ? `${h}h ${mRem}m` : `${h}h`;
+    const d = Math.floor(h / 24);
+    const hRem = h % 24;
+    return hRem > 0 ? `${d}d ${hRem}h` : `${d}d`;
+  }
 
   // Group table nodes by skill name
   const groups = $derived.by(() => {
@@ -33,6 +48,7 @@
         <div class="table-entry">
           <div class="entry-item">{node.itemName}</div>
           <div class="entry-table">{node.table}</div>
+          <div class="entry-cycles">×{node.cycles} runs · {formatTime(node.cycles * node.recipe.BaseCraftTime * 60 * (1 - (upgradeByTable.get(node.table) ?? globalUpgrade)))}</div>
 
           <div class="entry-row">
             <!-- svelte-ignore a11y_label_has_associated_control -->
@@ -40,10 +56,13 @@
               <select
                 value={node.recipe.Key}
                 onchange={(e) => {
-                  const r = node.availableRecipes.find(x => x.Key === (e.target as HTMLSelectElement).value);
+                  const val = (e.target as HTMLSelectElement).value;
+                  if (val === '__market__') { onMarketSelect(node.itemName); return; }
+                  const r = node.availableRecipes.find(x => x.Key === val);
                   if (r) onRecipeChange(node.itemName, r);
                 }}
               >
+                <option value="__market__">Market</option>
                 {#each node.availableRecipes as r}
                   <option value={r.Key}>{r.DefaultVariant}</option>
                 {/each}
@@ -124,7 +143,13 @@
     font-size: 13px;
     font-weight: bold;
     color: #c8dff0;
-    margin-bottom: 6px;
+    margin-bottom: 2px;
+  }
+
+  .entry-cycles {
+    font-size: 11px;
+    color: #7ec8e3;
+    margin-bottom: 4px;
   }
 
   .entry-row {

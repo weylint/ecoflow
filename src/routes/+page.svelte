@@ -6,7 +6,7 @@
 
   import type { Node, Edge } from '@xyflow/svelte';
   import { UPGRADE_LEVELS } from '$lib/types.js';
-  import type { RecipeObject, Variant, TagsFile, RecipeFile, UserChoices, TablePlannerNode } from '$lib/types.js';
+  import type { RecipeObject, Variant, TagsFile, RecipeFile, UserChoices, TablePlannerNode, RawPlannerNode, MarketPlannerNode, TagPlannerNode } from '$lib/types.js';
   import { buildRecipeIndex } from '$lib/recipeIndex.js';
   import { buildTagsIndex } from '$lib/tagsIndex.js';
   import { buildGraph } from '$lib/planner.js';
@@ -18,7 +18,6 @@
   import TagNode from '$lib/components/TagNode.svelte';
   import MarketNode from '$lib/components/MarketNode.svelte';
   import ByproductNode from '$lib/components/ByproductNode.svelte';
-  import LoopbackNode from '$lib/components/LoopbackNode.svelte';
   import TablePane from '$lib/components/TablePane.svelte';
 
   // ── Custom node type registry ────────────────────────────────────
@@ -28,8 +27,7 @@
     rawNode: RawNode,
     tagNode: TagNode,
     marketNode: MarketNode,
-    byproductNode: ByproductNode,
-    loopbackNode: LoopbackNode
+    byproductNode: ByproductNode
   };
 
   // ── State ────────────────────────────────────────────────────────
@@ -51,6 +49,14 @@
   });
 
   let plannerTableNodes = $state<TablePlannerNode[]>([]);
+  let plannerRawNodes = $state<RawPlannerNode[]>([]);
+  let plannerMarketNodes = $state<MarketPlannerNode[]>([]);
+  let plannerUnresolvedTagNodes = $state<TagPlannerNode[]>([]);
+  let showReport = $state(false);
+
+  function fmt(n: number): string {
+    return Number.isInteger(n) ? String(n) : n.toFixed(2);
+  }
 
   // SvelteFlow v0.1.x requires writable stores, not $state arrays
   const flowNodes = writable<Node[]>([]);
@@ -104,6 +110,11 @@
       });
 
       plannerTableNodes = plannerGraph.nodes.filter((n): n is TablePlannerNode => n.type === 'table');
+      plannerRawNodes = plannerGraph.nodes.filter((n): n is RawPlannerNode => n.type === 'raw');
+      plannerMarketNodes = plannerGraph.nodes.filter((n): n is MarketPlannerNode => n.type === 'market');
+      plannerUnresolvedTagNodes = plannerGraph.nodes.filter(
+        (n): n is TagPlannerNode => n.type === 'tag' && n.amount > 0 && (n.selectedItem === null || n.byproductSupply !== undefined)
+      );
 
       const flow = await buildFlowGraph(plannerGraph);
 
@@ -224,6 +235,10 @@
       <button onclick={handlePlan} disabled={loading || graphBuilding}>
         {graphBuilding ? 'Planning…' : 'Plan!'}
       </button>
+
+      <button onclick={() => showReport = true} disabled={loading || $flowNodes.length === 0}>
+        Generate Report
+      </button>
     </div>
   </header>
 
@@ -243,6 +258,7 @@
           edges={flowEdges}
           {nodeTypes}
           fitView
+          minZoom={0.05}
         >
           <Controls />
           <Background />
@@ -258,10 +274,59 @@
         {globalUpgrade}
         onRecipeChange={handleRecipeChange}
         onUpgradeChange={handleUpgradeChange}
+        onMarketSelect={handleMarketSelect}
       />
     {/if}
   </main>
 </div>
+
+{#if showReport}
+  <div class="report-overlay" role="dialog" aria-modal="true">
+    <div class="report-panel">
+      <div class="report-header">
+        <h2>Production Report</h2>
+        <button class="close-btn" onclick={() => showReport = false}>✕</button>
+      </div>
+
+      <section>
+        <h3>Raw Ingredients</h3>
+        {#if plannerRawNodes.length === 0}
+          <p class="empty">None</p>
+        {:else}
+          <table>
+            {#each [...plannerRawNodes].sort((a, b) => b.amount - a.amount) as n}
+              <tr><td class="item-name">{n.itemName}</td><td class="item-amt">{fmt(n.amount)}</td></tr>
+            {/each}
+          </table>
+        {/if}
+      </section>
+
+      {#if plannerUnresolvedTagNodes.length > 0}
+        <section>
+          <h3>Unresolved Tags</h3>
+          <table>
+            {#each [...plannerUnresolvedTagNodes].sort((a, b) => b.amount - a.amount) as n}
+              <tr><td class="item-name">{n.tag}</td><td class="item-amt">{fmt(n.amount)}</td></tr>
+            {/each}
+          </table>
+        </section>
+      {/if}
+
+      <section>
+        <h3>Market Purchases</h3>
+        {#if plannerMarketNodes.length === 0}
+          <p class="empty">None</p>
+        {:else}
+          <table>
+            {#each [...plannerMarketNodes].sort((a, b) => b.amount - a.amount) as n}
+              <tr><td class="item-name">{n.itemName}</td><td class="item-amt">{fmt(n.amount)}</td></tr>
+            {/each}
+          </table>
+        {/if}
+      </section>
+    </div>
+  </div>
+{/if}
 
 <style>
   :global(body) {
@@ -375,5 +440,55 @@
 
   .status.error {
     color: #e06060;
+  }
+
+  .report-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.6);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 1000;
+  }
+
+  .report-panel {
+    background: #1e1e1e; border: 1px solid #444; border-radius: 8px;
+    padding: 24px; min-width: 360px; max-width: 520px; max-height: 80vh;
+    overflow-y: auto; color: #e0e0e0;
+  }
+
+  .report-header {
+    display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;
+  }
+
+  .report-header h2 {
+    margin: 0; font-size: 16px; color: #7ec8e3;
+  }
+
+  .close-btn {
+    background: none; border: none; color: #888; font-size: 18px; cursor: pointer; padding: 0;
+  }
+
+  .report-panel section {
+    margin-bottom: 20px;
+  }
+
+  .report-panel h3 {
+    font-size: 13px; color: #a0c4e0; margin: 0 0 8px;
+    text-transform: uppercase; letter-spacing: 0.05em;
+  }
+
+  .report-panel table {
+    width: 100%; border-collapse: collapse; font-size: 13px;
+  }
+
+  .item-name {
+    padding: 3px 8px 3px 0;
+  }
+
+  .item-amt {
+    text-align: right; color: #7ec8e3; font-variant-numeric: tabular-nums;
+  }
+
+  .empty {
+    color: #666; font-style: italic; font-size: 12px;
   }
 </style>

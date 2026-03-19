@@ -10,7 +10,6 @@ import type {
   TagPlannerNode,
   MarketPlannerNode,
   ByproductPlannerNode,
-  LoopbackPlannerNode,
   UserChoices
 } from './types.js';
 import type { RecipeIndex } from './recipeIndex.js';
@@ -47,6 +46,10 @@ export function buildGraph(opts: BuildOptions): PlannerGraph {
   const edges: PlannerEdge[] = [];
   const edgeSet = new Set<string>();
 
+  // Pass 1: tracks how many cycles of each item have already been expanded,
+  // so re-visits only process the incremental delta (fixes multi-path accumulation).
+  const processedCycles = new Map<string, number>();
+  // Pass 2: prevents rebuilding the same node/edge twice.
   const visited = new Set<string>();
 
   function addEdge(source: string, target: string) {
@@ -59,11 +62,12 @@ export function buildGraph(opts: BuildOptions): PlannerGraph {
 
   // ── Pass 1 (gross): accumulate requirements + byproduct supply ────
   // Edges are NOT built here — buildNodes handles all edge creation.
+  //
+  // Uses processedCycles instead of a visited set so that items needed via
+  // multiple paths get their ingredients correctly expanded for the full total.
+  // Each call recurses only for the *incremental* cycles not yet processed.
   function resolveScaled(itemName: string, amount: number): void {
     requirements.set(itemName, (requirements.get(itemName) ?? 0) + amount);
-
-    if (visited.has(itemName)) return;
-    visited.add(itemName);
 
     const recipes = recipeIndex.byProduct.get(itemName) ?? [];
     if (recipes.length === 0 || choices.marketItems.has(itemName)) return;
@@ -73,18 +77,25 @@ export function buildGraph(opts: BuildOptions): PlannerGraph {
       choices.variantByItem.get(itemName) ??
       getDefaultVariant(recipe);
 
-    const effectiveReduction = choices.upgradeByTable.get(recipe.CraftingTable) ?? globalUpgrade;
-
-    const primaryProduct = variant.Products.find(p => p.Name === itemName) ?? variant.Products[0];
-    const primaryAmmount = primaryProduct?.Ammount ?? 1;
-    const cycles = Math.ceil(amount / primaryAmmount);
-
     // Only treat this as the "true" crafting intent when itemName is the leading product.
     // If the recipe's first product is something else (itemName is a byproduct of that recipe),
     // skip byproduct supply tracking and ingredient recursion — the item will be supplied
     // as a side effect of producing the true primary.
     const isTruePrimary = variant.Products[0]?.Name === itemName;
     if (!isTruePrimary) return;
+
+    const effectiveReduction = choices.upgradeByTable.get(recipe.CraftingTable) ?? globalUpgrade;
+
+    const primaryProduct = variant.Products.find(p => p.Name === itemName) ?? variant.Products[0];
+    const primaryAmmount = primaryProduct?.Ammount ?? 1;
+
+    // Compute delta: only expand cycles we haven't yet processed
+    const totalRequired = requirements.get(itemName)!;
+    const totalCycles = Math.ceil(totalRequired / primaryAmmount);
+    const prevCycles = processedCycles.get(itemName) ?? 0;
+    const newCycles = totalCycles - prevCycles;
+    if (newCycles <= 0) return;
+    processedCycles.set(itemName, totalCycles);
 
     // Identify loopback items: products that also appear as IsStatic:false ingredients
     const loopbackItems = new Set(
@@ -94,20 +105,20 @@ export function buildGraph(opts: BuildOptions): PlannerGraph {
         .map(p => p.Name)
     );
 
-    // Track byproduct supply from this table's runs (skip loopback items)
+    // Track byproduct supply from the new cycles (skip loopback items)
     for (const product of variant.Products) {
       if (product.Name === itemName) continue;
       if (loopbackItems.has(product.Name)) continue;
-      byproductSupply.set(product.Name, (byproductSupply.get(product.Name) ?? 0) + product.Ammount * cycles);
+      byproductSupply.set(product.Name, (byproductSupply.get(product.Name) ?? 0) + product.Ammount * (1 - effectiveReduction) * newCycles);
     }
 
     for (const ingredient of variant.Ingredients) {
       if (loopbackItems.has(ingredient.Name)) {
-        // Loopback: only the net loss needs to be supplied externally
+        // Both input and return scale with upgrade; net is the difference
         const loopbackProduct = variant.Products.find(p => p.Name === ingredient.Name)!;
-        const netPerCycle = ingredient.Ammount - loopbackProduct.Ammount * (1 - effectiveReduction);
+        const netPerCycle = (ingredient.Ammount - loopbackProduct.Ammount) * (1 - effectiveReduction);
         if (netPerCycle > 0) {
-          resolveScaled(ingredient.Name, netPerCycle * cycles);
+          resolveScaled(ingredient.Name, netPerCycle * newCycles);
         }
         continue;
       }
@@ -115,7 +126,7 @@ export function buildGraph(opts: BuildOptions): PlannerGraph {
       const effectivePerCycle = ingredient.IsStatic
         ? ingredient.Ammount
         : ingredient.Ammount * (1 - effectiveReduction);
-      const ingredientTotal = effectivePerCycle * cycles;
+      const ingredientTotal = effectivePerCycle * newCycles;
 
       if (ingredient.IsSpecificItem) {
         resolveScaled(ingredient.Name, ingredientTotal);
@@ -248,6 +259,19 @@ export function buildGraph(opts: BuildOptions): PlannerGraph {
     const tableId = tableNodeId(itemName);
     if (!builtNodes.has(tableId)) {
       builtNodes.add(tableId);
+
+      // Collect loopback data inline (mold/barrel items returned by this table)
+      const loopbackItemsData: TablePlannerNode['loopbackItems'] = [];
+      for (const product of variant.Products) {
+        if (!loopbackItems.has(product.Name)) continue;
+        const loopIngredient = variant.Ingredients.find(i => i.Name === product.Name && !i.IsStatic)!;
+        // Both input and return scale with upgrade
+        const grossAmount = loopIngredient.Ammount * (1 - effectiveReduction) * cycles;
+        const returnAmount = product.Ammount * (1 - effectiveReduction) * cycles;
+        const netAmount = grossAmount - returnAmount;
+        loopbackItemsData.push({ itemName: product.Name, grossAmount, returnAmount, netAmount });
+      }
+
       const tableNode: TablePlannerNode = {
         type: 'table',
         id: tableId,
@@ -256,7 +280,8 @@ export function buildGraph(opts: BuildOptions): PlannerGraph {
         recipe,
         variant,
         cycles,
-        availableRecipes: recipes
+        availableRecipes: recipes,
+        ...(loopbackItemsData.length > 0 ? { loopbackItems: loopbackItemsData } : {})
       };
       nodes.push(tableNode);
       addEdge(tableId, itemId);  // table produces primary item
@@ -266,33 +291,11 @@ export function buildGraph(opts: BuildOptions): PlannerGraph {
         if (product.Name === itemName) continue;
 
         if (loopbackItems.has(product.Name)) {
-          // Loopback node: item is both consumed and returned by this table
-          const loopbackId = `loopback:${product.Name}:from:${itemName}`;
-          const loopIngredient = variant.Ingredients.find(i => i.Name === product.Name && !i.IsStatic)!;
-          const grossAmount = loopIngredient.Ammount * cycles;
-          const returnAmount = product.Ammount * (1 - effectiveReduction) * cycles;
-          const netAmount = grossAmount - returnAmount;
-
-          if (!builtNodes.has(loopbackId)) {
-            builtNodes.add(loopbackId);
-            const loopbackNode: LoopbackPlannerNode = {
-              type: 'loopback',
-              id: loopbackId,
-              itemName: product.Name,
-              tableId,
-              grossAmount,
-              returnAmount,
-              netAmount
-            };
-            nodes.push(loopbackNode);
-          }
-
-          addEdge(tableId, loopbackId);   // table → loopback (return flow)
-          addEdge(loopbackId, tableId);   // loopback → table (input flow)
-
-          if (netAmount > 0) {
-            buildNodes(product.Name, netAmount);
-            addEdge(itemNodeId(product.Name), loopbackId);
+          // Loopback is now inline in the table; only add supply edge if net > 0
+          const lb = loopbackItemsData.find(l => l.itemName === product.Name)!;
+          if (lb.netAmount > 0) {
+            buildNodes(product.Name, lb.netAmount);
+            addEdge(itemNodeId(product.Name), tableId);
           }
           continue;
         }
@@ -314,7 +317,7 @@ export function buildGraph(opts: BuildOptions): PlannerGraph {
                 type: 'byproduct',
                 id: byproductId,
                 itemName: product.Name,
-                amount: product.Ammount * cycles
+                amount: product.Ammount * (1 - effectiveReduction) * cycles
               };
               nodes.push(byproductNode);
             }
@@ -325,7 +328,7 @@ export function buildGraph(opts: BuildOptions): PlannerGraph {
 
     // Recurse into ingredients, building edges as we go
     for (const ingredient of variant.Ingredients) {
-      // Loopback items are handled via their loopback node, not here
+      // Loopback items are handled inline in the table node (net supply edge added above)
       if (loopbackItems.has(ingredient.Name)) continue;
 
       const effectivePerCycle = ingredient.IsStatic
