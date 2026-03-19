@@ -38,7 +38,7 @@
 
   let selectedProduct = $state('Steel Bar');
   let amount = $state(100);
-  let globalUpgrade = $state(0);
+  let globalUpgrade = $state(0.50);
 
   let choices = $state<UserChoices>({
     recipeByItem: new Map(),
