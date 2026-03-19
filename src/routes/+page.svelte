@@ -1,13 +1,13 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { dev } from '$app/environment';
-  import { writable } from 'svelte/store';
+  import { writable, get } from 'svelte/store';
   import { SvelteFlow, Controls, Background, MiniMap } from '@xyflow/svelte';
   import '@xyflow/svelte/dist/style.css';
 
   import type { Node, Edge } from '@xyflow/svelte';
   import { UPGRADE_LEVELS } from '$lib/types.js';
-  import type { RecipeObject, Variant, TagsFile, RecipeFile, UserChoices, TablePlannerNode, RawPlannerNode, MarketPlannerNode, TagPlannerNode } from '$lib/types.js';
+  import type { RecipeObject, Variant, TagsFile, RecipeFile, UserChoices, TablePlannerNode, RawPlannerNode, MarketPlannerNode, TagPlannerNode, ByproductPlannerNode, ByproductResolveOption } from '$lib/types.js';
   import { buildRecipeIndex } from '$lib/recipeIndex.js';
   import { buildTagsIndex } from '$lib/tagsIndex.js';
   import { buildGraph } from '$lib/planner.js';
@@ -19,6 +19,8 @@
   import ByproductNode from '$lib/components/ByproductNode.svelte';
   import ProfessionGroupNode from '$lib/components/ProfessionGroupNode.svelte';
   import TablePane from '$lib/components/TablePane.svelte';
+  import ResolveModal from '$lib/components/ResolveModal.svelte';
+  import FitViewOnDemand from '$lib/components/FitViewOnDemand.svelte';
 
   // ── Custom node type registry ────────────────────────────────────
   const nodeTypes = {
@@ -52,7 +54,9 @@
   let plannerRawNodes = $state<RawPlannerNode[]>([]);
   let plannerMarketNodes = $state<MarketPlannerNode[]>([]);
   let plannerUnresolvedTagNodes = $state<TagPlannerNode[]>([]);
+  let plannerByproductNodes = $state<ByproductPlannerNode[]>([]);
   let showReport = $state(false);
+  let showResolve = $state(false);
   let darkMode = $state(true);
   let groupByProfession = $state(false);
 
@@ -69,6 +73,7 @@
   const flowNodes = writable<Node[]>([]);
   const flowEdges = writable<Edge[]>([]);
   let graphBuilding = $state(false);
+  let fitViewPending = $state(false);
 
   // ── Data loading ─────────────────────────────────────────────────
   const RECIPES_URL = dev
@@ -100,16 +105,61 @@
 
       loading = false;
 
-      // Auto-plan on load
-      await replan();
+      // Auto-plan on load — fresh layout so viewport fits
+      await replan(false);
     } catch (e) {
       error = e instanceof Error ? e.message : String(e);
       loading = false;
     }
   });
 
+  // ── Byproduct resolve options ─────────────────────────────────────
+  // Computes all ways a byproduct can be used: directly satisfying an unresolved tag,
+  // or by crafting it into a primary product that satisfies an unresolved tag.
+  function computeResolveOptions(
+    itemName: string,
+    unresolvedTags: TagPlannerNode[]
+  ): ByproductResolveOption[] {
+    if (!recipeIndex || !tagsIndex) return [];
+    const unresolved = new Map(unresolvedTags.map(n => [n.tag, n.amount]));
+    const options: ByproductResolveOption[] = [];
+    const seen = new Set<string>();
+
+    for (const tag of tagsIndex.itemToTags.get(itemName) ?? []) {
+      if (!unresolved.has(tag)) continue;
+      const key = `${itemName}:${tag}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      options.push({ outputItem: itemName, tag, tagAmount: unresolved.get(tag)! });
+    }
+
+    for (const recipe of recipeIndex.byIngredient.get(itemName) ?? []) {
+      const variant = recipe.Variants.find(v => v.Name === recipe.DefaultVariant) ?? recipe.Variants[0];
+      const primary = variant?.Products[0];
+      if (!primary) continue;
+      for (const tag of tagsIndex.itemToTags.get(primary.Name) ?? []) {
+        if (!unresolved.has(tag)) continue;
+        const key = `${primary.Name}:${tag}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        options.push({
+          outputItem: primary.Name,
+          tag,
+          tagAmount: unresolved.get(tag)!,
+          via: { tableName: recipe.CraftingTable },
+        });
+      }
+    }
+
+    options.sort((a, b) => {
+      const d = (a.via ? 1 : 0) - (b.via ? 1 : 0);
+      return d !== 0 ? d : a.outputItem.localeCompare(b.outputItem);
+    });
+    return options;
+  }
+
   // ── Planning ─────────────────────────────────────────────────────
-  async function replan() {
+  async function replan(preservePositions = true) {
     if (!recipeIndex || !tagsIndex) return;
     graphBuilding = true;
 
@@ -127,14 +177,28 @@
       plannerRawNodes = plannerGraph.nodes.filter((n): n is RawPlannerNode => n.type === 'raw');
       plannerMarketNodes = plannerGraph.nodes.filter((n): n is MarketPlannerNode => n.type === 'market');
       plannerUnresolvedTagNodes = plannerGraph.nodes.filter(
-        (n): n is TagPlannerNode => n.type === 'tag' && n.amount > 0 && (n.selectedItem === null || n.byproductSupply !== undefined)
+        (n): n is TagPlannerNode =>
+          n.type === 'tag' && n.amount > 0 &&
+          (n.selectedItem === null || (n.byproductContributors?.length ?? 0) > 0)
       );
+      plannerByproductNodes = plannerGraph.nodes.filter((n): n is ByproductPlannerNode => n.type === 'byproduct');
 
       const { buildFlowGraph } = await import('$lib/graphBuilder.js');
       const flow = await buildFlowGraph(plannerGraph, groupByProfession);
 
+      let layoutNodes = flow.nodes;
+
+      if (preservePositions) {
+        const currentNodes = get(flowNodes);
+        const currentMap = new Map(currentNodes.map(n => [n.id, n]));
+        layoutNodes = flow.nodes.map(n => {
+          const existing = currentMap.get(n.id);
+          return existing ? { ...n, position: existing.position } : n;
+        });
+      }
+
       // Inject callbacks into node data here (avoids infinite $effect loops)
-      flowNodes.set(flow.nodes.map(n => {
+      flowNodes.set(layoutNodes.map(n => {
         if (n.type === 'tableNode') {
           const tNode = n.data as TablePlannerNode;
           return {
@@ -155,9 +219,18 @@
         if (n.type === 'marketNode') {
           return { ...n, data: { ...n.data, onRecipeChange: handleRecipeChange } };
         }
+        if (n.type === 'byproductNode') {
+          const bpNode = n.data as ByproductPlannerNode;
+          const resolveOptions = computeResolveOptions(
+            bpNode.itemName,
+            plannerUnresolvedTagNodes
+          );
+          return { ...n, data: { ...n.data, resolveOptions, onResolve: handleTagSelect } };
+        }
         return n;
       }));
       flowEdges.set(flow.edges);
+      if (!preservePositions) fitViewPending = true;
     } finally {
       graphBuilding = false;
     }
@@ -172,7 +245,7 @@
       marketItems: new Set(),
       upgradeByTable: new Map()
     };
-    replan();
+    replan(false);
   }
 
   // ── Node event handlers ──────────────────────────────────────────
@@ -206,6 +279,15 @@
   function handleUpgradeChange(tableName: string, value: number) {
     choices.upgradeByTable.set(tableName, value);
     choices = { ...choices, upgradeByTable: new Map(choices.upgradeByTable) };
+    replan();
+  }
+
+  function handleResolveApply(tagChoices: Map<string, string>) {
+    for (const [tag, item] of tagChoices) {
+      choices.itemByTag.set(tag, item);
+    }
+    choices = { ...choices, itemByTag: new Map(choices.itemByTag) };
+    showResolve = false;
     replan();
   }
 </script>
@@ -248,15 +330,24 @@
       </label>
 
       <button onclick={handlePlan} disabled={loading || graphBuilding}>
-        {graphBuilding ? 'Planning…' : 'Plan!'}
+        Plan!
       </button>
 
       <button onclick={() => showReport = true} disabled={loading || $flowNodes.length === 0}>
         Generate Report
       </button>
 
+      <button onclick={() => showResolve = true} disabled={loading || $flowNodes.length === 0}>
+        Resolve
+      </button>
+
+      <button onclick={() => replan(false)} disabled={loading || graphBuilding || $flowNodes.length === 0}
+        title="Reset node positions and re-run auto-layout">
+        Re-layout
+      </button>
+
       <label class="checkbox-label">
-        <input type="checkbox" bind:checked={groupByProfession} onchange={replan} />
+        <input type="checkbox" bind:checked={groupByProfession} onchange={() => replan(false)} />
         Group by Profession
       </label>
 
@@ -272,22 +363,22 @@
         <div class="status">Loading game data…</div>
       {:else if error}
         <div class="status error">Error: {error}</div>
-      {:else if graphBuilding}
-        <div class="status">Building graph…</div>
-      {:else if $flowNodes.length === 0}
-        <div class="status">Select a product and click Plan!</div>
       {:else}
         <SvelteFlow
           nodes={flowNodes}
           edges={flowEdges}
           {nodeTypes}
-          fitView
           minZoom={0.05}
         >
+          <FitViewOnDemand {fitViewPending} onFitViewDone={() => { fitViewPending = false; }} />
           <Controls />
           <Background />
           <MiniMap />
         </SvelteFlow>
+
+        {#if $flowNodes.length === 0}
+          <div class="status">Select a product and click Plan!</div>
+        {/if}
       {/if}
     </div>
 
@@ -340,6 +431,23 @@
         </section>
       {/if}
 
+      {#if plannerByproductNodes.length > 0}
+        <section>
+          <h3>Byproducts</h3>
+          <table>
+            <tbody>
+              {#each [...plannerByproductNodes].sort((a, b) => b.amount - a.amount) as n}
+                <tr>
+                  <td class="item-name">{n.itemName}</td>
+                  <td class="item-name muted">from {n.id.split(':from:')[1]}</td>
+                  <td class="item-amt">{fmt(n.amount)}</td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        </section>
+      {/if}
+
       <section>
         <h3>Market Purchases</h3>
         {#if plannerMarketNodes.length === 0}
@@ -356,6 +464,18 @@
       </section>
     </div>
   </div>
+{/if}
+
+{#if showResolve && recipeIndex && tagsIndex}
+  <ResolveModal
+    byproductNodes={plannerByproductNodes}
+    unresolvedTagNodes={plannerUnresolvedTagNodes}
+    {recipeIndex}
+    {tagsIndex}
+    inChainItems={new Set(plannerTableNodes.map(n => n.itemName))}
+    onApply={handleResolveApply}
+    onClose={() => showResolve = false}
+  />
 {/if}
 
 <style>
@@ -520,6 +640,10 @@
 
   .item-name {
     padding: 3px 8px 3px 0;
+  }
+
+  .item-name.muted {
+    color: #777; font-size: 11px;
   }
 
   .item-amt {
