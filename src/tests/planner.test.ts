@@ -111,6 +111,7 @@ describe('buildGraph', () => {
     if (woodTag?.type === 'tag') {
       expect(woodTag.selectedItem).toBeNull();
       expect(woodTag.availableItems).toEqual(['Birch Log', 'Oak Log', 'Pine Log']);
+      expect(woodTag.craftableItems).toEqual([]);
     }
   });
 
@@ -318,13 +319,17 @@ describe('buildGraph', () => {
       globalUpgrade: 0
     });
 
-    // TagNode for "Crushed Rock" should have selectedItem='Crushed Granite' (auto-byproduct)
+    // TagNode for "Crushed Rock" should be auto-resolved by byproduct contributor
     const tagNode = graph.nodes.find(n => n.type === 'tag' && (n as { tag: string }).tag === 'Crushed Rock');
     expect(tagNode).toBeDefined();
     if (tagNode?.type === 'tag') {
-      expect(tagNode.selectedItem).toBe('Crushed Granite');
+      expect(tagNode.selectedItem).toBeNull(); // auto-byproduct; not a user choice
       expect(tagNode.amount).toBe(0);
-      expect(tagNode.byproductSupply).toBe(2);
+      expect(tagNode.byproductContributors).toBeDefined();
+      expect(tagNode.byproductContributors).toHaveLength(1);
+      expect(tagNode.byproductContributors![0].itemName).toBe('Crushed Granite');
+      expect(tagNode.byproductContributors![0].contribution).toBe(2);
+      expect(tagNode.craftableItems).toEqual(['Crushed Granite']); // Crushed Granite is produced by slabRecipe
     }
 
     // Fix B: table:Stone Slab → tag:Crushed Rock (byproduct routes to tag directly)
@@ -342,6 +347,119 @@ describe('buildGraph', () => {
     // No dead-end byproduct node for Crushed Granite
     const byproductNode = graph.nodes.find(n => n.type === 'byproduct' && (n as { itemName: string }).itemName === 'Crushed Granite');
     expect(byproductNode).toBeUndefined();
+  });
+
+  it('partial byproduct coverage + user-chosen item covers only remainder', () => {
+    // packRecipe: 2 Stone Slab + 3 Stone Path → 1 Stone Pack
+    // Stone Slab (slabRecipe): 2 Stone → 1 Stone Slab + 2 Crushed Granite
+    // Stone Path (pathRecipe): 2 Crushed Rock (tag) → 1 Stone Path
+    // Tags: Crushed Rock includes Crushed Granite and Crushed Sandstone
+    //
+    // Plan: 1 Stone Pack
+    //   → 2 Stone Slabs: 2 cycles → 4 Crushed Granite byproduct
+    //   → 3 Stone Paths: 3 cycles × 2 = 6 Crushed Rock needed
+    //   → Byproduct covers 4, user picks Crushed Sandstone for remaining 2
+    const packRecipe: RecipeObject = {
+      Key: 'StonePack',
+      Untranslated: 'Stone Pack Recipe',
+      BaseCraftTime: 3,
+      BaseLaborCost: 15,
+      BaseXPGain: 1,
+      CraftingTable: 'Masonry Table',
+      CraftingTableCanUseModules: false,
+      DefaultVariant: 'Stone Pack',
+      NumberOfVariants: 1,
+      SkillNeeds: [],
+      Variants: [{
+        Key: 'StonePack',
+        Name: 'Stone Pack',
+        Ingredients: [
+          { IsSpecificItem: true, Tag: null, Name: 'Stone Slab', Ammount: 2, IsStatic: false },
+          { IsSpecificItem: true, Tag: null, Name: 'Stone Path', Ammount: 3, IsStatic: false }
+        ],
+        Products: [{ Name: 'Stone Pack', Ammount: 1 }]
+      }]
+    };
+
+    const recipeIndex = buildRecipeIndex([slabRecipe, pathRecipe, packRecipe]);
+    const tagsIndex = buildTagsIndex(crushedRockTags);
+    const choices: UserChoices = {
+      recipeByItem: new Map(),
+      variantByItem: new Map(),
+      itemByTag: new Map([['Crushed Rock', 'Crushed Sandstone']]),
+      marketItems: new Set(),
+      upgradeByTable: new Map()
+    };
+    const graph = buildGraph({
+      targetItem: 'Stone Pack',
+      totalAmount: 1,
+      recipeIndex,
+      tagsIndex,
+      choices,
+      globalUpgrade: 0
+    });
+
+    // TagNode: byproduct covers 4 of 6, user-chosen covers remaining 2
+    const tagNode = graph.nodes.find(n => n.type === 'tag' && (n as { tag: string }).tag === 'Crushed Rock');
+    expect(tagNode).toBeDefined();
+    if (tagNode?.type === 'tag') {
+      expect(tagNode.byproductContributors).toBeDefined();
+      expect(tagNode.byproductContributors![0].itemName).toBe('Crushed Granite');
+      expect(tagNode.byproductContributors![0].contribution).toBe(4);
+      expect(tagNode.amount).toBe(2); // 6 - 4 = 2 remaining
+      expect(tagNode.selectedItem).toBe('Crushed Sandstone');
+    }
+
+    // Crushed Sandstone raw node should request only 2 (the remainder), not 6
+    const sandstoneNode = graph.nodes.find(n =>
+      n.type === 'raw' && (n as { itemName: string }).itemName === 'Crushed Sandstone'
+    );
+    expect(sandstoneNode).toBeDefined();
+    if (sandstoneNode?.type === 'raw') {
+      expect(sandstoneNode.amount).toBe(2);
+    }
+  });
+
+  it('craftable tag options populate craftableItems', () => {
+    // tagRecipe: Wooden Plank needs tag "Wood" (Birch Log, Oak Log, Pine Log)
+    // Add a recipe that crafts "Birch Log" so it shows as craftable
+    const birchRecipe: RecipeObject = {
+      Key: 'BirchLog',
+      Untranslated: 'Birch Log Recipe',
+      BaseCraftTime: 1,
+      BaseLaborCost: 5,
+      BaseXPGain: 0,
+      CraftingTable: 'Carpentry Table',
+      CraftingTableCanUseModules: false,
+      DefaultVariant: 'Birch Log',
+      NumberOfVariants: 1,
+      SkillNeeds: [],
+      Variants: [{
+        Key: 'BirchLog',
+        Name: 'Birch Log',
+        Ingredients: [
+          { IsSpecificItem: true, Tag: null, Name: 'Wood Pulp', Ammount: 5, IsStatic: false }
+        ],
+        Products: [{ Name: 'Birch Log', Ammount: 1 }]
+      }]
+    };
+
+    const recipeIndex = buildRecipeIndex([tagRecipe, birchRecipe]);
+    const tagsIndex = buildTagsIndex(sampleTags);
+    const graph = buildGraph({
+      targetItem: 'Wooden Plank',
+      totalAmount: 10,
+      recipeIndex,
+      tagsIndex,
+      choices: emptyChoices(),
+      globalUpgrade: 0
+    });
+
+    const tagNode = graph.nodes.find(n => n.type === 'tag' && (n as { tag: string }).tag === 'Wood');
+    expect(tagNode).toBeDefined();
+    if (tagNode?.type === 'tag') {
+      expect(tagNode.craftableItems).toEqual(['Birch Log']);
+    }
   });
 
   it('graph has edges connecting nodes', () => {

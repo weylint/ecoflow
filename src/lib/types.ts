@@ -75,8 +75,9 @@ export interface TagPlannerNode {
   tag: string;
   amount: number;           // net remaining after byproduct coverage
   availableItems: string[];
-  selectedItem: string | null;
-  byproductSupply?: number; // amount auto-covered by a byproduct item
+  selectedItem: string | null;  // user-explicit choice only (not auto-byproduct)
+  byproductContributors?: { itemName: string; contribution: number }[];  // auto-resolved byproducts
+  craftableItems: string[];     // subset of availableItems that have recipes
 }
 export interface MarketPlannerNode {
   type: 'market';
@@ -85,6 +86,14 @@ export interface MarketPlannerNode {
   amount: number;
   availableRecipes: RecipeObject[];  // so user can switch back to crafting
 }
+// Resolution option for a byproduct: one way to use it (directly or via a crafting recipe)
+export interface ByproductResolveOption {
+  outputItem: string;           // item that satisfies the tag (may equal itemName for direct)
+  tag: string;                  // unresolved tag this would satisfy
+  tagAmount: number;
+  via?: { tableName: string };  // undefined = direct tag match; set = crafted first
+}
+
 export interface ByproductPlannerNode {
   type: 'byproduct';
   id: string;

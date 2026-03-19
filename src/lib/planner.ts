@@ -133,8 +133,8 @@ export function buildGraph(opts: BuildOptions): PlannerGraph {
       } else if (ingredient.Tag) {
         const tag = ingredient.Tag;
         tagRequirements.set(tag, (tagRequirements.get(tag) ?? 0) + ingredientTotal);
-        const selectedItem = choices.itemByTag.get(tag);
-        if (selectedItem) resolveScaled(selectedItem, ingredientTotal);
+        // Do not resolveScaled for user-chosen tag items here — deferred to post-pass-1
+        // so byproduct allocation happens first and user item only covers the remainder.
       }
     }
   }
@@ -142,17 +142,29 @@ export function buildGraph(opts: BuildOptions): PlannerGraph {
   resolveScaled(targetItem, totalAmount);
 
   // ── Post-pass 1: match byproduct items to tag requirements ────────
-  const byproductForTag = new Map<string, string>(); // tag → byproduct item name
+  // Each tag can be satisfied by multiple byproducts — allocate greedily until requirement is met.
+  const byproductForTag = new Map<string, { itemName: string; contribution: number }[]>();
 
-  for (const [itemName] of byproductSupply) {
-    const tags = tagsIndex.itemToTags.get(itemName) ?? [];
-    for (const tag of tags) {
-      if (tagRequirements.has(tag) && !choices.itemByTag.has(tag) && !byproductForTag.has(tag)) {
-        byproductForTag.set(tag, itemName);
-        // Register the item as required so Pass 2 routes it (but no item node — tag IS the node)
-        const tagAmt = tagRequirements.get(tag)!;
-        requirements.set(itemName, (requirements.get(itemName) ?? 0) + tagAmt);
-      }
+  for (const [tag, tagAmt] of tagRequirements) {
+    let remaining = tagAmt;
+    const contributors: { itemName: string; contribution: number }[] = [];
+    for (const [itemName, supply] of byproductSupply) {
+      if (remaining <= 0) break;
+      if (!(tagsIndex.itemToTags.get(itemName) ?? []).includes(tag)) continue;
+      const contribution = Math.min(supply, remaining);
+      contributors.push({ itemName, contribution });
+      // Register item as required so Pass 2 routes it to the tag
+      requirements.set(itemName, (requirements.get(itemName) ?? 0) + contribution);
+      remaining -= contribution;
+    }
+    if (contributors.length > 0) byproductForTag.set(tag, contributors);
+
+    // If user chose an item for this tag, resolve only the remainder after byproduct coverage
+    const userChosenItem = choices.itemByTag.get(tag);
+    if (userChosenItem) {
+      const totalBpContribution = contributors.reduce((s, c) => s + c.contribution, 0);
+      const remainingForUser = Math.max(0, tagAmt - totalBpContribution);
+      if (remainingForUser > 0) resolveScaled(userChosenItem, remainingForUser);
     }
   }
 
@@ -300,8 +312,9 @@ export function buildGraph(opts: BuildOptions): PlannerGraph {
           continue;
         }
 
-        // Fix B: if this byproduct resolves a tag, route table → tag directly
-        const feedsTag = [...byproductForTag.entries()].find(([, v]) => v === product.Name)?.[0];
+        // Fix B: if this byproduct contributes to a tag, route table → tag directly
+        const feedsTag = [...byproductForTag.entries()]
+          .find(([, contribs]) => contribs.some(c => c.itemName === product.Name))?.[0];
         if (feedsTag) {
           addEdge(tableId, tagNodeId(feedsTag));
         } else {
@@ -346,33 +359,34 @@ export function buildGraph(opts: BuildOptions): PlannerGraph {
 
         addEdge(tagId, tableId);
 
-        const resolvedItem = choices.itemByTag.get(tag) ?? byproductForTag.get(tag) ?? null;
-        const isByproductResolver = resolvedItem !== null && resolvedItem === byproductForTag.get(tag);
-        const bpSupply = isByproductResolver
-          ? (byproductSupply.get(resolvedItem!) ?? 0)
-          : 0;
-        const tagNet = Math.max(0, tagTotal - bpSupply);
+        const userChosenItem = choices.itemByTag.get(tag) ?? null;
+        const bpContributors = byproductForTag.get(tag) ?? [];
+        const totalBpContribution = bpContributors.reduce((sum, c) => sum + c.contribution, 0);
+        const tagNet = Math.max(0, tagTotal - totalBpContribution);
 
         if (!builtNodes.has(tagId)) {
           builtNodes.add(tagId);
+          const craftableItems = (tagsIndex.byTag.get(tag) ?? [])
+            .filter(item => recipeIndex.byProduct.has(item));
           const tagNode: TagPlannerNode = {
             type: 'tag',
             id: tagId,
             tag,
             amount: tagNet,
             availableItems: tagsIndex.byTag.get(tag) ?? [],
-            selectedItem: resolvedItem,
-            byproductSupply: bpSupply > 0 ? bpSupply : undefined
+            selectedItem: userChosenItem,
+            byproductContributors: bpContributors.length > 0 ? bpContributors : undefined,
+            craftableItems,
           };
           nodes.push(tagNode);
         }
 
-        if (resolvedItem && !isByproductResolver) {
+        if (userChosenItem) {
           // Fix A: item → tag (not item → table directly)
-          addEdge(itemNodeId(resolvedItem), tagId);
-          buildNodes(resolvedItem, ingredientTotal);
+          addEdge(itemNodeId(userChosenItem), tagId);
+          buildNodes(userChosenItem, tagNet);
         }
-        // If byproductResolver: table→tag edge already added in byproduct loop (Fix B)
+        // Fix B: table→tag edges already added for each byproduct contributor in byproduct loop
       }
     }
   }

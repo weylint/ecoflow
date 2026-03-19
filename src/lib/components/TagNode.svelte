@@ -10,6 +10,8 @@
 
   let { data }: Props = $props();
 
+  const fmt = (n: number) => n % 1 === 0 ? String(n) : n.toFixed(2);
+
   function handleSelect(e: Event) {
     const select = e.target as HTMLSelectElement;
     if (select.value && data.onTagSelect) {
@@ -25,27 +27,29 @@
 
   <div class="body">
     <div class="amount">
-      {#if data.amount === 0}
+      {#if data.amount === 0 && data.byproductContributors?.length}
         ✓ from byproduct
       {:else}
-        × {data.amount % 1 === 0 ? data.amount : data.amount.toFixed(2)}
+        × {fmt(data.amount)}
       {/if}
     </div>
-    {#if data.byproductSupply}
-      <div class="supply">+{data.byproductSupply % 1 === 0 ? data.byproductSupply : data.byproductSupply.toFixed(2)} byproduct</div>
+    {#if data.byproductContributors}
+      {#each data.byproductContributors as c}
+        <div class="supply">+{fmt(c.contribution)} {c.itemName}</div>
+      {/each}
     {/if}
 
     <div class="picker-row">
       <select value={data.selectedItem ?? ''} onchange={handleSelect}>
         <option value="">— pick item —</option>
         {#each data.availableItems as item}
-          <option value={item}>{item}</option>
+          <option value={item}>{item}{data.craftableItems?.includes(item) ? ' ⚙' : ''}</option>
         {/each}
       </select>
     </div>
   </div>
 
-  {#if data.selectedItem}
+  {#if data.selectedItem || data.byproductContributors?.length}
     <Handle type="target" position={Position.Left} />
   {/if}
 </div>
