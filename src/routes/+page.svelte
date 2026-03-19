@@ -54,6 +54,7 @@
   let plannerUnresolvedTagNodes = $state<TagPlannerNode[]>([]);
   let showReport = $state(false);
   let darkMode = $state(true);
+  let groupByProfession = $state(false);
 
   $effect(() => {
     document.documentElement.classList.toggle('dark', darkMode);
@@ -122,7 +123,7 @@
         (n): n is TagPlannerNode => n.type === 'tag' && n.amount > 0 && (n.selectedItem === null || n.byproductSupply !== undefined)
       );
 
-      const flow = await buildFlowGraph(plannerGraph);
+      const flow = await buildFlowGraph(plannerGraph, groupByProfession);
 
       // Inject callbacks into node data here (avoids infinite $effect loops)
       flowNodes.set(flow.nodes.map(n => {
@@ -245,6 +246,11 @@
       <button onclick={() => showReport = true} disabled={loading || $flowNodes.length === 0}>
         Generate Report
       </button>
+
+      <label class="checkbox-label">
+        <input type="checkbox" bind:checked={groupByProfession} onchange={replan} />
+        Group by Profession
+      </label>
 
       <button class="theme-toggle" onclick={() => darkMode = !darkMode} title="Toggle light/dark mode">
         {darkMode ? 'Light Mode' : 'Dark Mode'}
@@ -510,11 +516,20 @@
     color: #666; font-style: italic; font-size: 12px;
   }
 
+  .checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: #b0b0b0;
+    cursor: pointer;
+    margin-left: auto;
+  }
+
   .theme-toggle {
     background: #2a2a2a;
     border: 1px solid #555;
     color: #b0b0b0;
-    margin-left: auto;
   }
 
   /* ── Light mode overrides ─────────────────────────────────────── */
@@ -538,6 +553,7 @@
     color: #e0ffe0;
   }
   :global(html.light) button:hover:not(:disabled) { background: #1e8044; }
+  :global(html.light) .checkbox-label { color: #444; }
   :global(html.light) .theme-toggle {
     background: #e8e8e8;
     border-color: #bbb;

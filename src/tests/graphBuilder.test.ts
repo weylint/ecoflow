@@ -46,8 +46,14 @@ const sampleGraph: PlannerGraph = {
 describe('buildFlowGraph', () => {
   it('all PlannerNodes produce corresponding SvelteFlow nodes', async () => {
     const flow = await buildFlowGraph(sampleGraph);
+    expect(flow.nodes).toHaveLength(3);
+  });
+
+  it('groupByProfession adds profession group nodes', async () => {
+    const flow = await buildFlowGraph(sampleGraph, true);
     // 3 planner nodes + 1 professionGroup container node
     expect(flow.nodes).toHaveLength(4);
+    expect(flow.nodes.some(n => n.type === 'professionGroup')).toBe(true);
   });
 
   it('edge count matches PlannerGraph edges', async () => {

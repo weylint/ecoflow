@@ -34,7 +34,7 @@ function labeledEdge(id: string, source: string, target: string, label: string):
   };
 }
 
-export async function buildFlowGraph(plannerGraph: PlannerGraph): Promise<FlowGraph> {
+export async function buildFlowGraph(plannerGraph: PlannerGraph, groupByProfession = false): Promise<FlowGraph> {
   if (plannerGraph.nodes.length === 0) {
     return { nodes: [], edges: [] };
   }
@@ -109,24 +109,23 @@ export async function buildFlowGraph(plannerGraph: PlannerGraph): Promise<FlowGr
     reverseIdMap.set(safe, node.id);
   }
 
-  // ── Build skill groups ──────────────────────────────────────────────
-  const tableLayoutNodes = layoutNodes.filter(n => n.type === 'table') as TablePlannerNode[];
-  const nonTableLayoutNodes = layoutNodes.filter(n => n.type !== 'table');
-
-  // skill label → original node IDs
+  // ── Build skill groups (only when groupByProfession is enabled) ────
   const skillGroups = new Map<string, string[]>();
-  for (const t of tableLayoutNodes) {
-    const skill = t.recipe?.SkillNeeds?.[0]?.Skill ?? 'No Skill Required';
-    if (!skillGroups.has(skill)) skillGroups.set(skill, []);
-    skillGroups.get(skill)!.push(t.id);
+  const groupELKIdToSkill = new Map<string, string>();
+
+  if (groupByProfession) {
+    const tableLayoutNodes = layoutNodes.filter(n => n.type === 'table') as TablePlannerNode[];
+    for (const t of tableLayoutNodes) {
+      const skill = t.recipe?.SkillNeeds?.[0]?.Skill ?? 'No Skill Required';
+      if (!skillGroups.has(skill)) skillGroups.set(skill, []);
+      skillGroups.get(skill)!.push(t.id);
+    }
+    for (const [skill] of skillGroups) {
+      groupELKIdToSkill.set(elkNodeId(`group:${skill}`), skill);
+    }
   }
 
-  // ELK IDs for each compound group
-  const groupELKIdToSkill = new Map<string, string>(); // ELK compound id → skill label
-  for (const [skill] of skillGroups) {
-    const groupELKId = elkNodeId(`group:${skill}`);
-    groupELKIdToSkill.set(groupELKId, skill);
-  }
+  const tableNodeIds = new Set(Array.from(skillGroups.values()).flat());
 
   // ── Build ELK children ─────────────────────────────────────────────
   const elkGroupNodes = Array.from(skillGroups.entries()).map(([skill, ids]) => ({
@@ -143,11 +142,13 @@ export async function buildFlowGraph(plannerGraph: PlannerGraph): Promise<FlowGr
     }))
   }));
 
-  const elkFlatNodes = nonTableLayoutNodes.map(n => ({
-    id: idMap.get(n.id)!,
-    width: NODE_WIDTH,
-    height: NODE_HEIGHT
-  }));
+  const elkFlatNodes = layoutNodes
+    .filter(n => !tableNodeIds.has(n.id))
+    .map(n => ({
+      id: idMap.get(n.id)!,
+      width: NODE_WIDTH,
+      height: NODE_HEIGHT
+    }));
 
   // Feed all edges (plain + synthetic) to ELK so it knows the connections
   const allEdgesForElk = [
