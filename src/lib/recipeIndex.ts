@@ -2,6 +2,7 @@ import type { RecipeObject } from './types.js';
 
 export interface RecipeIndex {
   byProduct: Map<string, RecipeObject[]>;
+  byIngredient: Map<string, RecipeObject[]>;  // item name → recipes that consume it
   allCraftableNames: string[];
 }
 
@@ -57,8 +58,23 @@ export function buildRecipeIndex(recipes: RecipeObject[]): RecipeIndex {
     });
   }
 
+  const byIngredient = new Map<string, RecipeObject[]>();
+  for (const recipe of recipes) {
+    const defaultVariant =
+      recipe.Variants.find(v => v.Name === recipe.DefaultVariant) ??
+      recipe.Variants[0];
+    if (!defaultVariant) continue;
+    for (const ingredient of defaultVariant.Ingredients) {
+      if (!ingredient.IsSpecificItem) continue;
+      const list = byIngredient.get(ingredient.Name) ?? [];
+      list.push(recipe);
+      byIngredient.set(ingredient.Name, list);
+    }
+  }
+
   return {
     byProduct,
+    byIngredient,
     allCraftableNames: [...byProduct.keys()].sort()
   };
 }
