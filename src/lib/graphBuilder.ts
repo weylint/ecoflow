@@ -1,4 +1,4 @@
-import type { PlannerGraph, PlannerNode } from './types.js';
+import type { PlannerGraph, PlannerNode, ItemPlannerNode, TablePlannerNode } from './types.js';
 import type { Node, Edge } from '@xyflow/svelte';
 import ELK from 'elkjs/lib/elk.bundled.js';
 
@@ -11,10 +11,27 @@ export interface FlowGraph {
 
 const NODE_WIDTH = 220;
 const NODE_HEIGHT = 140;
+const GROUP_PADDING = { top: 40, right: 20, bottom: 20, left: 20 };
 
 function elkNodeId(id: string): string {
   // ELK needs IDs without special characters in some cases; we encode them
   return id.replace(/[^a-zA-Z0-9_-]/g, '_');
+}
+
+function fmt(n: number): string {
+  return Number.isInteger(n) ? String(n) : n.toFixed(2);
+}
+
+const LABEL_STYLE = 'color: #ffffff; background: #2563eb; font-size: 11px; font-weight: 500; border-radius: 4px; padding: 2px 6px;';
+
+function labeledEdge(id: string, source: string, target: string, label: string): Edge {
+  return {
+    id,
+    source,
+    target,
+    label,
+    labelStyle: LABEL_STYLE,
+  };
 }
 
 export async function buildFlowGraph(plannerGraph: PlannerGraph): Promise<FlowGraph> {
@@ -22,25 +39,123 @@ export async function buildFlowGraph(plannerGraph: PlannerGraph): Promise<FlowGr
     return { nodes: [], edges: [] };
   }
 
-  // Map from original planner node id → elk-safe id
+  // ── Index item nodes for edge-label conversion ─────────────────────
+  const itemNodes = new Map<string, ItemPlannerNode>();
+  for (const n of plannerGraph.nodes) {
+    if (n.type === 'item') itemNodes.set(n.id, n as ItemPlannerNode);
+  }
+
+  // ── Build replacement edges for item nodes ─────────────────────────
+  // item nodes sit between two other nodes → merge into one labeled edge.
+  const itemIn  = new Map<string, string[]>(); // itemId → [sourceIds]
+  const itemOut = new Map<string, string[]>(); // itemId → [targetIds]
+
+  for (const edge of plannerGraph.edges) {
+    if (itemNodes.has(edge.target)) {
+      if (!itemIn.has(edge.target)) itemIn.set(edge.target, []);
+      itemIn.get(edge.target)!.push(edge.source);
+    }
+    if (itemNodes.has(edge.source)) {
+      if (!itemOut.has(edge.source)) itemOut.set(edge.source, []);
+      itemOut.get(edge.source)!.push(edge.target);
+    }
+  }
+
+  // Only mark edges for skipping after confirming the item node will be converted
+  // (safety: nodes with no connection on either side fall back to staying as nodes)
+  const skipEdgeIds = new Set<string>();
+  const skipNodeIds = new Set<string>();
+  const syntheticEdges: Edge[] = [];
+
+  for (const [itemId, item] of itemNodes) {
+    const sources = itemIn.get(itemId)  ?? [];
+    const targets = itemOut.get(itemId) ?? [];
+
+    if (sources.length === 0 || targets.length === 0) continue;
+
+    skipNodeIds.add(itemId);
+    for (const edge of plannerGraph.edges) {
+      if (edge.source === itemId || edge.target === itemId) skipEdgeIds.add(edge.id);
+    }
+
+    let label: string;
+    if (item.amount === 0) {
+      label = `${item.itemName} · ✓`;
+    } else {
+      label = `${item.itemName} · ×${fmt(item.amount)}`;
+      if (item.byproductSupply) label += ` (+${fmt(item.byproductSupply)} bp)`;
+    }
+
+    for (const src of sources) {
+      for (const tgt of targets) {
+        syntheticEdges.push(labeledEdge(`lbl:${src}→${itemId}→${tgt}`, src, tgt, label));
+      }
+    }
+  }
+
+  const plainEdges: Edge[] = plannerGraph.edges
+    .filter(e => !skipEdgeIds.has(e.id))
+    .map(e => ({ id: e.id, source: e.source, target: e.target, type: 'default' } as Edge));
+
+  // ── ELK layout ─────────────────────────────────────────────────────
+  const layoutNodes = plannerGraph.nodes.filter(n => !skipNodeIds.has(n.id));
+
   const idMap = new Map<string, string>();
   const reverseIdMap = new Map<string, string>();
 
-  const regularNodes = plannerGraph.nodes;
-
-  for (const node of regularNodes) {
+  for (const node of layoutNodes) {
     const safe = elkNodeId(node.id);
     idMap.set(node.id, safe);
     reverseIdMap.set(safe, node.id);
   }
 
-  const elkNodes = regularNodes.map(n => ({
+  // ── Build skill groups ──────────────────────────────────────────────
+  const tableLayoutNodes = layoutNodes.filter(n => n.type === 'table') as TablePlannerNode[];
+  const nonTableLayoutNodes = layoutNodes.filter(n => n.type !== 'table');
+
+  // skill label → original node IDs
+  const skillGroups = new Map<string, string[]>();
+  for (const t of tableLayoutNodes) {
+    const skill = t.recipe?.SkillNeeds?.[0]?.Skill ?? 'No Skill Required';
+    if (!skillGroups.has(skill)) skillGroups.set(skill, []);
+    skillGroups.get(skill)!.push(t.id);
+  }
+
+  // ELK IDs for each compound group
+  const groupELKIdToSkill = new Map<string, string>(); // ELK compound id → skill label
+  for (const [skill] of skillGroups) {
+    const groupELKId = elkNodeId(`group:${skill}`);
+    groupELKIdToSkill.set(groupELKId, skill);
+  }
+
+  // ── Build ELK children ─────────────────────────────────────────────
+  const elkGroupNodes = Array.from(skillGroups.entries()).map(([skill, ids]) => ({
+    id: elkNodeId(`group:${skill}`),
+    layoutOptions: {
+      'elk.algorithm': 'layered',
+      'elk.direction': 'RIGHT',
+      'elk.padding': `[top=${GROUP_PADDING.top},right=${GROUP_PADDING.right},bottom=${GROUP_PADDING.bottom},left=${GROUP_PADDING.left}]`,
+    },
+    children: ids.map(id => ({
+      id: idMap.get(id)!,
+      width: NODE_WIDTH,
+      height: NODE_HEIGHT
+    }))
+  }));
+
+  const elkFlatNodes = nonTableLayoutNodes.map(n => ({
     id: idMap.get(n.id)!,
     width: NODE_WIDTH,
     height: NODE_HEIGHT
   }));
 
-  const elkEdges = plannerGraph.edges
+  // Feed all edges (plain + synthetic) to ELK so it knows the connections
+  const allEdgesForElk = [
+    ...plainEdges,
+    ...syntheticEdges,
+  ];
+
+  const elkEdges = allEdgesForElk
     .filter(e => idMap.has(e.source) && idMap.has(e.target))
     .map(e => ({
       id: elkNodeId(e.id),
@@ -56,48 +171,90 @@ export async function buildFlowGraph(plannerGraph: PlannerGraph): Promise<FlowGr
       'elk.layered.spacing.nodeNodeBetweenLayers': '80',
       'elk.spacing.nodeNode': '40'
     },
-    children: elkNodes,
+    children: [...elkFlatNodes, ...elkGroupNodes],
     edges: elkEdges
   };
 
   const posMap = new Map<string, { x: number; y: number }>();
+  // group skill → { x, y, width, height } for SvelteFlow group nodes
+  const groupLayout = new Map<string, { x: number; y: number; width: number; height: number }>();
 
   try {
     const layouted = await elk.layout(graph);
     for (const child of layouted.children ?? []) {
-      const originalId = reverseIdMap.get(child.id);
-      if (originalId) {
-        posMap.set(originalId, { x: child.x ?? 0, y: child.y ?? 0 });
+      const skill = groupELKIdToSkill.get(child.id);
+      if (skill) {
+        // compound node: record group layout and recurse into children
+        groupLayout.set(skill, {
+          x: child.x ?? 0,
+          y: child.y ?? 0,
+          width: child.width ?? NODE_WIDTH,
+          height: child.height ?? NODE_HEIGHT
+        });
+        for (const grandchild of child.children ?? []) {
+          const originalId = reverseIdMap.get(grandchild.id);
+          if (originalId) {
+            posMap.set(originalId, { x: grandchild.x ?? 0, y: grandchild.y ?? 0 });
+          }
+        }
+      } else {
+        const originalId = reverseIdMap.get(child.id);
+        if (originalId) {
+          posMap.set(originalId, { x: child.x ?? 0, y: child.y ?? 0 });
+        }
       }
     }
   } catch {
-    // Fallback: simple grid layout for regular nodes
-    regularNodes.forEach((n, i) => {
+    // Fallback: simple grid layout, no grouping
+    layoutNodes.forEach((n, i) => {
       posMap.set(n.id, { x: (i % 5) * 280, y: Math.floor(i / 5) * 180 });
     });
   }
 
-  const nodes: Node[] = plannerGraph.nodes.map(n => ({
-    id: n.id,
-    type: plannerNodeType(n),
-    position: posMap.get(n.id) ?? { x: 0, y: 0 },
-    data: n as unknown as Record<string, unknown>
-  }));
+  // Build SvelteFlow group nodes for each skill
+  const groupNodes: Node[] = [];
+  for (const [skill, layout] of groupLayout) {
+    groupNodes.push({
+      id: `group:${skill}`,
+      type: 'professionGroup',
+      position: { x: layout.x, y: layout.y },
+      style: `width: ${layout.width}px; height: ${layout.height}px;`,
+      data: { skill } as unknown as Record<string, unknown>,
+      zIndex: -1
+    });
+  }
 
-  const edges: Edge[] = plannerGraph.edges.map(e => ({
-    id: e.id,
-    source: e.source,
-    target: e.target,
-    type: 'default'
-  }));
+  // Build the set of table node IDs → their skill group, for parentId assignment
+  const tableToSkill = new Map<string, string>();
+  for (const [skill, ids] of skillGroups) {
+    for (const id of ids) tableToSkill.set(id, skill);
+  }
 
-  return { nodes, edges };
+  const nodes: Node[] = [
+    ...groupNodes,
+    ...layoutNodes.map(n => {
+      const skill = tableToSkill.get(n.id);
+      const base: Node = {
+        id: n.id,
+        type: plannerNodeType(n),
+        position: posMap.get(n.id) ?? { x: 0, y: 0 },
+        data: n as unknown as Record<string, unknown>
+      };
+      if (skill && groupLayout.has(skill)) {
+        base.parentId = `group:${skill}`;
+        base.extent = 'parent';
+      }
+      return base;
+    })
+  ];
+
+  return { nodes, edges: [...plainEdges, ...syntheticEdges] };
 }
 
 function plannerNodeType(node: PlannerNode): string {
   switch (node.type) {
     case 'table':     return 'tableNode';
-    case 'item':      return 'itemNode';
+    case 'item':      return 'itemNode';   // fallback, normally converted to edge labels
     case 'raw':       return 'rawNode';
     case 'tag':       return 'tagNode';
     case 'market':    return 'marketNode';

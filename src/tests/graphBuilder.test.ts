@@ -6,12 +6,23 @@ import type { PlannerGraph } from '$lib/types.js';
 vi.mock('elkjs/lib/elk.bundled.js', () => {
   return {
     default: class MockELK {
-      async layout(graph: { children: Array<{ id: string; width: number; height: number }> }) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      async layout(graph: { children: Array<any> }) {
         return {
           children: graph.children.map((n, i) => ({
             ...n,
             x: i * 300,
-            y: 0
+            y: 0,
+            width: n.width ?? 220,
+            height: n.height ?? 140,
+            // recurse into compound node children
+            children: n.children?.map((child: { id: string; width?: number; height?: number }, j: number) => ({
+              ...child,
+              x: j * 280,
+              y: 40,
+              width: child.width ?? 220,
+              height: child.height ?? 140
+            }))
           })),
           edges: []
         };
@@ -35,7 +46,8 @@ const sampleGraph: PlannerGraph = {
 describe('buildFlowGraph', () => {
   it('all PlannerNodes produce corresponding SvelteFlow nodes', async () => {
     const flow = await buildFlowGraph(sampleGraph);
-    expect(flow.nodes).toHaveLength(3);
+    // 3 planner nodes + 1 professionGroup container node
+    expect(flow.nodes).toHaveLength(4);
   });
 
   it('edge count matches PlannerGraph edges', async () => {

@@ -13,21 +13,21 @@
   import { buildFlowGraph } from '$lib/graphBuilder.js';
 
   import TableNode from '$lib/components/TableNode.svelte';
-  import ItemNode from '$lib/components/ItemNode.svelte';
   import RawNode from '$lib/components/RawNode.svelte';
   import TagNode from '$lib/components/TagNode.svelte';
   import MarketNode from '$lib/components/MarketNode.svelte';
   import ByproductNode from '$lib/components/ByproductNode.svelte';
+  import ProfessionGroupNode from '$lib/components/ProfessionGroupNode.svelte';
   import TablePane from '$lib/components/TablePane.svelte';
 
   // ── Custom node type registry ────────────────────────────────────
   const nodeTypes = {
     tableNode: TableNode,
-    itemNode: ItemNode,
     rawNode: RawNode,
     tagNode: TagNode,
     marketNode: MarketNode,
-    byproductNode: ByproductNode
+    byproductNode: ByproductNode,
+    professionGroup: ProfessionGroupNode
   };
 
   // ── State ────────────────────────────────────────────────────────
@@ -53,6 +53,12 @@
   let plannerMarketNodes = $state<MarketPlannerNode[]>([]);
   let plannerUnresolvedTagNodes = $state<TagPlannerNode[]>([]);
   let showReport = $state(false);
+  let darkMode = $state(true);
+
+  $effect(() => {
+    document.documentElement.classList.toggle('dark', darkMode);
+    document.documentElement.classList.toggle('light', !darkMode);
+  });
 
   function fmt(n: number): string {
     return Number.isInteger(n) ? String(n) : n.toFixed(2);
@@ -239,6 +245,10 @@
       <button onclick={() => showReport = true} disabled={loading || $flowNodes.length === 0}>
         Generate Report
       </button>
+
+      <button class="theme-toggle" onclick={() => darkMode = !darkMode} title="Toggle light/dark mode">
+        {darkMode ? 'Light Mode' : 'Dark Mode'}
+      </button>
     </div>
   </header>
 
@@ -329,12 +339,20 @@
 {/if}
 
 <style>
+  :global(html) { color-scheme: dark; }
+  :global(html.light) { color-scheme: light; }
+
   :global(body) {
     margin: 0;
     padding: 0;
     font-family: system-ui, -apple-system, sans-serif;
     background: #121212;
     color: #e0e0e0;
+  }
+
+  :global(html.light body) {
+    background: #f0f4f8;
+    color: #1a1a1a;
   }
 
   .app {
@@ -491,4 +509,136 @@
   .empty {
     color: #666; font-style: italic; font-size: 12px;
   }
+
+  .theme-toggle {
+    background: #2a2a2a;
+    border: 1px solid #555;
+    color: #b0b0b0;
+    margin-left: auto;
+  }
+
+  /* ── Light mode overrides ─────────────────────────────────────── */
+
+  /* App chrome */
+  :global(html.light) .toolbar {
+    background: #ffffff;
+    border-bottom-color: #d0d0d0;
+  }
+  :global(html.light) h1 { color: #1a6b9a; }
+  :global(html.light) label { color: #444; }
+  :global(html.light) select,
+  :global(html.light) input[type="number"] {
+    background: #ffffff;
+    border-color: #bbb;
+    color: #1a1a1a;
+  }
+  :global(html.light) button {
+    background: #1a6b3a;
+    border-color: #2a9b5a;
+    color: #e0ffe0;
+  }
+  :global(html.light) button:hover:not(:disabled) { background: #1e8044; }
+  :global(html.light) .theme-toggle {
+    background: #e8e8e8;
+    border-color: #bbb;
+    color: #444;
+  }
+  :global(html.light) .theme-toggle:hover { background: #d8d8d8; }
+  :global(html.light) .status { color: #555; }
+  :global(html.light) .status.error { color: #c0392b; }
+
+  /* SvelteFlow canvas */
+  :global(html.dark .svelte-flow) { background: #141414; }
+  :global(html.light .svelte-flow) { background: #f8fafc; }
+  :global(html.light .svelte-flow__edge path),
+  :global(html.light .svelte-flow__edge polyline) { stroke: #6b7280; }
+  :global(html.light .svelte-flow__edge-label) { color: #1a1a1a; }
+  :global(html.light .svelte-flow__controls button) {
+    background: #ffffff; color: #333; border-color: #ccc;
+  }
+  :global(html.light .svelte-flow__controls button:hover) { background: #f0f0f0; }
+  :global(html.light .svelte-flow__minimap) { background: #e8ecf0; }
+  :global(html.light .svelte-flow__background pattern circle),
+  :global(html.light .svelte-flow__background pattern rect) { fill: #c0c8d0; }
+
+  /* TableNode */
+  :global(html.light .table-node) {
+    background: #dbeafe; border-color: #2563eb; color: #1e3a5f;
+  }
+  :global(html.light .table-node .header) {
+    background: #bfdbfe; border-bottom-color: #2563eb; color: #1e3a5f;
+  }
+  :global(html.light .table-node .cycles) { color: #1d4ed8; }
+  :global(html.light .table-node .picker-row label) { color: #374151; }
+  :global(html.light .table-node select) {
+    background: #eff6ff; border-color: #2563eb; color: #1e3a5f;
+  }
+  :global(html.light .table-node .returnables) { border-top-color: #2563eb; }
+  :global(html.light .table-node .lb-name) { color: #374151; }
+
+  /* RawNode */
+  :global(html.light .raw-node) {
+    background: #f0f0f0; border-color: #888; color: #222;
+  }
+  :global(html.light .raw-node .label) { color: #777; }
+  :global(html.light .raw-node .amount) { color: #555; }
+
+  /* ByproductNode */
+  :global(html.light .byproduct-node) {
+    background: #f3e8ff; border-color: #9333ea; color: #3b0764;
+  }
+  :global(html.light .byproduct-node .label) { color: #7c3aed; }
+  :global(html.light .byproduct-node .amount) { color: #6d28d9; }
+
+  /* TagNode */
+  :global(html.light .tag-node) {
+    background: #fef3c7; border-color: #d97706; color: #451a03;
+  }
+  :global(html.light .tag-node .header) {
+    background: #fde68a; border-bottom-color: #d97706; color: #92400e;
+  }
+  :global(html.light .tag-node .amount) { color: #92400e; }
+  :global(html.light .tag-node .picker-row select) {
+    background: #fffbeb; border-color: #d97706; color: #451a03;
+  }
+
+  /* MarketNode */
+  :global(html.light .market-node) {
+    background: #dcfce7; border-color: #16a34a; color: #052e16;
+  }
+  :global(html.light .market-node .header) {
+    background: #bbf7d0; border-bottom-color: #16a34a; color: #166534;
+  }
+  :global(html.light .market-node .amount) { color: #166534; }
+  :global(html.light .market-node select) {
+    background: #f0fdf4; border-color: #16a34a; color: #052e16;
+  }
+
+  /* TablePane */
+  :global(html.light) .canvas-container :global(aside.table-pane) {
+    background: #ffffff; border-left-color: #d0d0d0;
+  }
+  :global(html.light .table-pane .pane-header) {
+    background: #f0f0f0; border-bottom-color: #d0d0d0; color: #1a6b9a;
+  }
+  :global(html.light .table-pane .skill-group) { border-bottom-color: #e0e0e0; }
+  :global(html.light .table-pane .skill-header) { background: #f8f8f8; color: #555; }
+  :global(html.light .table-pane .table-entry) { border-bottom-color: #e8e8e8; }
+  :global(html.light .table-pane .entry-item) { color: #666; }
+  :global(html.light .table-pane .entry-table) { color: #1a3a5c; }
+  :global(html.light .table-pane .entry-cycles) { color: #1d4ed8; }
+  :global(html.light .table-pane .entry-row label) { color: #555; }
+  :global(html.light .table-pane .entry-row select) {
+    background: #f5f5f5; border-color: #bbb; color: #1a1a1a;
+  }
+
+  /* Report modal */
+  :global(html.light) .report-panel {
+    background: #ffffff; border-color: #d0d0d0; color: #1a1a1a;
+  }
+  :global(html.light) .report-header h2 { color: #1a6b9a; }
+  :global(html.light) .report-panel h3 { color: #374151; }
+  :global(html.light) .item-amt { color: #1d4ed8; }
+  :global(html.light) .close-btn { color: #555; }
+  :global(html.light) .empty { color: #888; }
 </style>
