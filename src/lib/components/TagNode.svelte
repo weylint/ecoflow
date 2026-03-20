@@ -20,7 +20,7 @@
   }
 </script>
 
-<div class="tag-node">
+<div class="tag-node" class:resolved={!!data.selectedItem}>
   <Handle type="source" position={Position.Right} />
 
   <div class="header">TAG: {data.tag}</div>
@@ -40,10 +40,12 @@
     {/if}
 
     <div class="picker-row">
-      <select value={data.selectedItem ?? ''} onchange={handleSelect}>
-        <option value="">— pick item —</option>
+      <select onchange={handleSelect}>
+        <option value="" selected={!data.selectedItem}>— pick item —</option>
         {#each data.availableItems as item}
-          <option value={item}>{item}{data.craftableItems?.includes(item) ? ' ⚙' : ''}</option>
+          <option value={item} selected={item === data.selectedItem}>
+            {item}{data.craftableItems?.includes(item) ? ' ⚙' : ''}
+          </option>
         {/each}
       </select>
     </div>
@@ -94,6 +96,21 @@
     font-size: 11px;
     color: #4ec870;
     margin-top: 2px;
+  }
+
+  .tag-node.resolved {
+    background: #2e1e0a;
+    border-color: #7a5220;
+  }
+
+  .tag-node.resolved .header {
+    background: #1e1208;
+    border-bottom-color: #7a5220;
+    color: #c09050;
+  }
+
+  .tag-node.resolved .amount {
+    color: #c09050;
   }
 
   .picker-row select {

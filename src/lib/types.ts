@@ -45,6 +45,31 @@ export const UPGRADE_LEVELS = [
 // Byproducts that are waste products and should never satisfy tag requirements
 export const EXCLUDED_BYPRODUCTS = new Set(['Garbage', 'Wet Tailings', 'Tailings']);
 
+// Default item selections for common tags
+export const DEFAULT_TAG_CHOICES: Record<string, string> = {
+  'Fat':              'Oil',
+  'Grain':            'Wheat',
+  'Silica':           'Crushed Sandstone',
+  'Fruit':            'Huckleberries',
+  'Natural Fiber':    'Plant Fibers',
+  'Mortared Stone':   'Mortared Stone',
+  'Rock':             'Sandstone',
+  'Crop Seed':        'Flax Seed',
+  'Crushed Rock':     'Crushed Sandstone',
+  'Fried Vegetable':  'Fried Tomatoes',
+  'Ore':              'Iron Ore',
+  'Salad':            'Fruit Salad',
+  'Baked Vegetable':  'Baked Tomato',
+  'Wood Board':       'Board',
+  'Hewn Log':         'Hewn Log',
+  'Composite Lumber': 'Composite Lumber',
+  'Lumber':           'Lumber',
+  'Basic Research':   'Geology Research Paper Basic',
+  'Ashlar Stone':       'Ashlar Sandstone',
+  'Fertilizer Filler':  'Pulp Filler',
+  'Oil':                'Oil',
+};
+
 export interface LayoutOptions {
   thoroughness: number;
   nodePlacement: 'BRANDES_KOPP' | 'LINEAR_SEGMENTS' | 'NETWORK_SIMPLEX';

@@ -6,7 +6,7 @@
   import '@xyflow/svelte/dist/style.css';
 
   import type { Node, Edge } from '@xyflow/svelte';
-  import { UPGRADE_LEVELS, EXCLUDED_BYPRODUCTS, DEFAULT_LAYOUT_OPTIONS } from '$lib/types.js';
+  import { UPGRADE_LEVELS, EXCLUDED_BYPRODUCTS, DEFAULT_LAYOUT_OPTIONS, DEFAULT_TAG_CHOICES } from '$lib/types.js';
   import type { LayoutOptions } from '$lib/types.js';
   import type { RecipeObject, Variant, TagsFile, RecipeFile, UserChoices, TablePlannerNode, RawPlannerNode, MarketPlannerNode, TagPlannerNode, ByproductPlannerNode, ByproductResolveOption } from '$lib/types.js';
   import { buildRecipeIndex } from '$lib/recipeIndex.js';
@@ -43,10 +43,12 @@
   let amount = $state(100);
   let globalUpgrade = $state(0.50);
 
+  let tagDefaults = $state(new Map<string, string>(Object.entries(DEFAULT_TAG_CHOICES)));
+
   let choices = $state<UserChoices>({
     recipeByItem: new Map(),
     variantByItem: new Map(),
-    itemByTag: new Map(),
+    itemByTag: new Map(Object.entries(DEFAULT_TAG_CHOICES)),
     marketItems: new Set(),
     upgradeByTable: new Map()
   });
@@ -173,7 +175,7 @@
         totalAmount: amount,
         recipeIndex,
         tagsIndex,
-        choices,
+        choices: $state.snapshot(choices) as UserChoices,
         globalUpgrade
       });
 
@@ -245,7 +247,7 @@
     choices = {
       recipeByItem: new Map(),
       variantByItem: new Map(),
-      itemByTag: new Map(),
+      itemByTag: new Map(tagDefaults),  // restore configurable defaults
       marketItems: new Set(),
       upgradeByTable: new Map()
     };
@@ -500,11 +502,12 @@
   <div class="report-overlay" role="dialog" aria-modal="true">
     <div class="report-panel layout-settings-panel">
       <div class="report-header">
-        <h2>Layout Settings</h2>
+        <h2>Settings</h2>
         <button class="close-btn" onclick={() => showLayoutSettings = false}>✕</button>
       </div>
 
       <section>
+        <h3 class="settings-section-title">Layout</h3>
         <label class="settings-row">
           <span class="settings-label">Thoroughness</span>
           <select
@@ -529,6 +532,32 @@
             <option value="NETWORK_SIMPLEX">NETWORK_SIMPLEX</option>
           </select>
         </label>
+      </section>
+
+      <section>
+        <h3 class="settings-section-title">Tag Defaults</h3>
+        {#each tagDefaults.entries() as [tag, item]}
+          <label class="settings-row">
+            <span class="settings-label">{tag}</span>
+            {#if tagsIndex}
+              <select
+                value={item}
+                onchange={e => {
+                  const newItem = (e.target as HTMLSelectElement).value;
+                  tagDefaults.set(tag, newItem);
+                  choices.itemByTag.set(tag, newItem);
+                  replan();
+                }}
+              >
+                {#each tagsIndex.byTag.get(tag) ?? [] as opt}
+                  <option value={opt}>{opt}</option>
+                {/each}
+              </select>
+            {:else}
+              <span class="settings-value">{item}</span>
+            {/if}
+          </label>
+        {/each}
       </section>
     </div>
   </div>
@@ -859,7 +888,25 @@
 
   .layout-settings-panel {
     min-width: 320px;
-    max-width: 400px;
+    max-width: 420px;
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+
+  .settings-section-title {
+    margin: 12px 0 4px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #666;
+  }
+
+  :global(html.light) .settings-section-title { color: #999; }
+
+  .settings-value {
+    font-size: 13px;
+    color: #888;
   }
 
   .settings-row {
