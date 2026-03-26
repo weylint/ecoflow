@@ -58,6 +58,15 @@
   let plannerMarketNodes = $state<MarketPlannerNode[]>([]);
   let plannerUnresolvedTagNodes = $state<TagPlannerNode[]>([]);
   let plannerByproductNodes = $state<ByproductPlannerNode[]>([]);
+  const laborByProfession = $derived.by(() => {
+    const map = new Map<string, number>();
+    for (const n of plannerTableNodes) {
+      const prof = n.recipe.SkillNeeds[0]?.Skill ?? 'No Skill Required';
+      map.set(prof, (map.get(prof) ?? 0) + n.recipe.BaseLaborCost * n.cycles);
+    }
+    return [...map.entries()].sort((a, b) => b[1] - a[1]);
+  });
+
   let showReport = $state(false);
   let showResolve = $state(false);
   let showLayoutSettings = $state(false);
@@ -74,6 +83,11 @@
     return Number.isInteger(n) ? String(n) : n.toFixed(2);
   }
 
+  function fmtLabor(n: number): string {
+    const k = n / 1000;
+    return (k % 1 === 0 ? String(k) : k.toFixed(1).replace('.', ',')) + 'k';
+  }
+
   // SvelteFlow v0.1.x requires writable stores, not $state arrays
   const flowNodes = writable<Node[]>([]);
   const flowEdges = writable<Edge[]>([]);
@@ -88,11 +102,25 @@
     ? './tags.json'
     : 'https://white-tiger.play.eco/api/v1/plugins/EcoPriceCalculator/tags';
 
+  async function fetchWithFallback(url: string, fallback: string): Promise<Response> {
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), 4000);
+    try {
+      const res = await fetch(url, { signal: controller.signal });
+      clearTimeout(id);
+      if (res.ok) return res;
+      return fetch(fallback);
+    } catch {
+      clearTimeout(id);
+      return fetch(fallback);
+    }
+  }
+
   onMount(async () => {
     try {
       const [recipesRes, tagsRes] = await Promise.all([
-        fetch(RECIPES_URL),
-        fetch(TAGS_URL)
+        fetchWithFallback(RECIPES_URL, './recipes.json'),
+        fetchWithFallback(TAGS_URL, './tags.json')
       ]);
 
       if (!recipesRes.ok || !tagsRes.ok) throw new Error('Failed to load data files');
@@ -482,6 +510,19 @@
           </table>
         {/if}
       </section>
+
+      {#if laborByProfession.length > 0}
+        <section>
+          <h3>Labor (by Profession)</h3>
+          <table>
+            <tbody>
+              {#each laborByProfession as [prof, labor]}
+                <tr><td class="item-name">{prof}</td><td class="item-amt">{fmtLabor(labor)}</td></tr>
+              {/each}
+            </tbody>
+          </table>
+        </section>
+      {/if}
     </div>
   </div>
 {/if}
