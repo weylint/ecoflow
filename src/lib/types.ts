@@ -93,6 +93,7 @@ export interface TablePlannerNode {
   recipe: RecipeObject;
   variant: Variant;
   cycles: number;           // ceil(requiredAmount / productAmount)
+  effectiveReduction: number;
   availableRecipes: RecipeObject[];
   loopbackItems?: { itemName: string; grossAmount: number; returnAmount: number; netAmount: number }[];
 }

@@ -67,6 +67,36 @@
     return [...map.entries()].sort((a, b) => b[1] - a[1]);
   });
 
+  let compareUpgrade = $state<number | null>(null);
+
+  const comparisonReport = $derived.by(() => {
+    if (compareUpgrade === null || !recipeIndex || !tagsIndex) return null;
+    const snap = $state.snapshot(choices) as UserChoices;
+    const pg = buildGraph({
+      targetItem: selectedProduct,
+      totalAmount: amount,
+      recipeIndex,
+      tagsIndex,
+      choices: { ...snap, upgradeByTable: new Map() },
+      globalUpgrade: compareUpgrade
+    });
+    const rawNodes = pg.nodes.filter((n): n is RawPlannerNode => n.type === 'raw');
+    const cmpTableNodes = pg.nodes.filter((n): n is TablePlannerNode => n.type === 'table');
+    const unresolvedTagNodes = pg.nodes.filter((n): n is TagPlannerNode => n.type === 'tag' && n.amount > 0 && n.selectedItem === null);
+    const byproductNodes = pg.nodes.filter((n): n is ByproductPlannerNode => n.type === 'byproduct');
+    const laborMap = new Map<string, number>();
+    for (const n of cmpTableNodes) {
+      const prof = n.recipe.SkillNeeds[0]?.Skill ?? 'No Skill Required';
+      laborMap.set(prof, (laborMap.get(prof) ?? 0) + n.recipe.BaseLaborCost * n.cycles);
+    }
+    return {
+      rawByItem:        new Map(rawNodes.map(n => [n.itemName, n.amount])),
+      tagByName:        new Map(unresolvedTagNodes.map(n => [n.tag, n.amount])),
+      byproductByKey:   new Map(byproductNodes.map(n => [n.id, n.amount])),
+      laborByProfession: [...laborMap.entries()].sort((a, b) => b[1] - a[1])
+    };
+  });
+
   let showReport = $state(false);
   let showResolve = $state(false);
   let showLayoutSettings = $state(false);
@@ -86,6 +116,13 @@
   function fmtLabor(n: number): string {
     const k = n / 1000;
     return (k % 1 === 0 ? String(k) : k.toFixed(1).replace('.', ',')) + 'k';
+  }
+
+  function fmtDeltaPct(cur: number, cmp: number): string {
+    if (cur === 0 && cmp === 0) return '—';
+    if (cur === 0) return 'new';
+    const pct = Math.round((cmp - cur) / cur * 100);
+    return (pct > 0 ? '+' : '') + pct + '%';
   }
 
   // SvelteFlow v0.1.x requires writable stores, not $state arrays
@@ -445,51 +482,156 @@
 
 {#if showReport}
   <div class="report-overlay" role="dialog" aria-modal="true">
-    <div class="report-panel">
+    <div class="report-panel" class:wide={!!comparisonReport}>
       <div class="report-header">
         <h2>Production Report</h2>
-        <button class="close-btn" onclick={() => showReport = false}>✕</button>
+        <button class="close-btn" onclick={() => { showReport = false; compareUpgrade = null; }}>✕</button>
+      </div>
+      <div class="compare-row">
+        <span class="compare-label">Compare with:</span>
+        <select
+          onchange={e => {
+            const v = (e.target as HTMLSelectElement).value;
+            compareUpgrade = v === '' ? null : Number(v);
+          }}
+        >
+          <option value="">— none —</option>
+          {#each UPGRADE_LEVELS as lvl}
+            <option value={lvl.value} selected={lvl.value === compareUpgrade}>{lvl.label}</option>
+          {/each}
+        </select>
       </div>
 
       <section>
         <h3>Raw Ingredients</h3>
-        {#if plannerRawNodes.length === 0}
+        {#if plannerRawNodes.length === 0 && !comparisonReport}
           <p class="empty">None</p>
         {:else}
+          {@const allRawItems = [...new Set([
+            ...plannerRawNodes.map(n => n.itemName),
+            ...(comparisonReport ? comparisonReport.rawByItem.keys() : [])
+          ])].sort((a, b) => {
+            const ca = plannerRawNodes.find(n => n.itemName === a)?.amount ?? 0;
+            const cb = plannerRawNodes.find(n => n.itemName === b)?.amount ?? 0;
+            return cb - ca;
+          })}
           <table>
+            {#if comparisonReport}
+              <thead><tr>
+                <th class="item-name"></th>
+                <th class="item-amt col-hdr">Current</th>
+                <th class="item-amt col-hdr">Compare</th>
+                <th class="item-amt col-hdr">Δ%</th>
+              </tr></thead>
+            {/if}
             <tbody>
-              {#each [...plannerRawNodes].sort((a, b) => b.amount - a.amount) as n}
-                <tr><td class="item-name">{n.itemName}</td><td class="item-amt">{fmt(n.amount)}</td></tr>
+              {#each allRawItems as itemName}
+                {@const cur = plannerRawNodes.find(n => n.itemName === itemName)?.amount ?? 0}
+                {#if comparisonReport}
+                  {@const cmp = comparisonReport.rawByItem.get(itemName) ?? 0}
+                  <tr>
+                    <td class="item-name">{itemName}</td>
+                    <td class="item-amt">{fmt(cur)}</td>
+                    <td class="item-amt">{fmt(cmp)}</td>
+                    <td class="item-amt" class:delta-neg={cmp < cur} class:delta-pos={cmp > cur}>{fmtDeltaPct(cur, cmp)}</td>
+                  </tr>
+                {:else}
+                  <tr><td class="item-name">{itemName}</td><td class="item-amt">{fmt(cur)}</td></tr>
+                {/if}
               {/each}
             </tbody>
           </table>
         {/if}
       </section>
 
-      {#if plannerUnresolvedTagNodes.length > 0}
+      {#if plannerUnresolvedTagNodes.length > 0 || (comparisonReport?.tagByName.size ?? 0) > 0}
+        {@const allTags = [...new Set([
+          ...plannerUnresolvedTagNodes.map(n => n.tag),
+          ...(comparisonReport ? comparisonReport.tagByName.keys() : [])
+        ])].sort((a, b) => {
+          const ca = plannerUnresolvedTagNodes.find(n => n.tag === a)?.amount ?? 0;
+          const cb = plannerUnresolvedTagNodes.find(n => n.tag === b)?.amount ?? 0;
+          return cb - ca;
+        })}
         <section>
           <h3>Unresolved Tags</h3>
           <table>
+            {#if comparisonReport}
+              <thead><tr>
+                <th class="item-name"></th>
+                <th class="item-amt col-hdr">Current</th>
+                <th class="item-amt col-hdr">Compare</th>
+                <th class="item-amt col-hdr">Δ%</th>
+              </tr></thead>
+            {/if}
             <tbody>
-              {#each [...plannerUnresolvedTagNodes].sort((a, b) => b.amount - a.amount) as n}
-                <tr><td class="item-name">{n.tag}</td><td class="item-amt">{fmt(n.amount)}</td></tr>
+              {#each allTags as tag}
+                {@const cur = plannerUnresolvedTagNodes.find(n => n.tag === tag)?.amount ?? 0}
+                {#if comparisonReport}
+                  {@const cmp = comparisonReport.tagByName.get(tag) ?? 0}
+                  <tr>
+                    <td class="item-name">{tag}</td>
+                    <td class="item-amt">{fmt(cur)}</td>
+                    <td class="item-amt">{fmt(cmp)}</td>
+                    <td class="item-amt" class:delta-neg={cmp < cur} class:delta-pos={cmp > cur}>{fmtDeltaPct(cur, cmp)}</td>
+                  </tr>
+                {:else}
+                  <tr><td class="item-name">{tag}</td><td class="item-amt">{fmt(cur)}</td></tr>
+                {/if}
               {/each}
             </tbody>
           </table>
         </section>
       {/if}
 
-      {#if plannerByproductNodes.length > 0}
+      {#if plannerByproductNodes.length > 0 || (comparisonReport?.byproductByKey.size ?? 0) > 0}
+        {@const allBpKeys = [...new Set([
+          ...plannerByproductNodes.map(n => n.id),
+          ...(comparisonReport ? comparisonReport.byproductByKey.keys() : [])
+        ])]}
+        {@const showBpCmp = comparisonReport !== null && allBpKeys.some(key => {
+          const cur = plannerByproductNodes.find(n => n.id === key)?.amount ?? 0;
+          const cmp = comparisonReport.byproductByKey.get(key) ?? 0;
+          return Math.abs(cmp - cur) > 0.001;
+        })}
         <section>
           <h3>Byproducts</h3>
           <table>
+            {#if showBpCmp}
+              <thead><tr>
+                <th class="item-name"></th>
+                <th class="item-name"></th>
+                <th class="item-amt col-hdr">Current</th>
+                <th class="item-amt col-hdr">Compare</th>
+                <th class="item-amt col-hdr">Δ%</th>
+              </tr></thead>
+            {/if}
             <tbody>
-              {#each [...plannerByproductNodes].sort((a, b) => b.amount - a.amount) as n}
-                <tr>
-                  <td class="item-name">{n.itemName}</td>
-                  <td class="item-name muted">from {n.id.split(':from:')[1]}</td>
-                  <td class="item-amt">{fmt(n.amount)}</td>
-                </tr>
+              {#each (showBpCmp ? allBpKeys : plannerByproductNodes.map(n => n.id)).sort((a, b) => {
+                const ca = plannerByproductNodes.find(n => n.id === a)?.amount ?? 0;
+                const cb = plannerByproductNodes.find(n => n.id === b)?.amount ?? 0;
+                return cb - ca;
+              }) as key}
+                {@const node = plannerByproductNodes.find(n => n.id === key)}
+                {@const itemName = node?.itemName ?? key.split(':')[1]}
+                {@const producer = key.split(':from:')[1]}
+                {@const cur = node?.amount ?? 0}
+                {#if showBpCmp}
+                  {@const cmp = comparisonReport!.byproductByKey.get(key) ?? 0}
+                  <tr>
+                    <td class="item-name">{itemName}</td>
+                    <td class="item-name muted">from {producer}</td>
+                    <td class="item-amt">{fmt(cur)}</td>
+                    <td class="item-amt">{fmt(cmp)}</td>
+                    <td class="item-amt" class:delta-neg={cmp < cur} class:delta-pos={cmp > cur}>{fmtDeltaPct(cur, cmp)}</td>
+                  </tr>
+                {:else}
+                  <tr>
+                    <td class="item-name">{itemName}</td>
+                    <td class="item-name muted">from {producer}</td>
+                    <td class="item-amt">{fmt(cur)}</td>
+                  </tr>
+                {/if}
               {/each}
             </tbody>
           </table>
@@ -512,12 +654,39 @@
       </section>
 
       {#if laborByProfession.length > 0}
+        {@const allProfs = [...new Set([
+          ...laborByProfession.map(([p]) => p),
+          ...(comparisonReport ? comparisonReport.laborByProfession.map(([p]) => p) : [])
+        ])].sort((a, b) => {
+          const la = laborByProfession.find(([p]) => p === a)?.[1] ?? 0;
+          const lb = laborByProfession.find(([p]) => p === b)?.[1] ?? 0;
+          return lb - la;
+        })}
         <section>
           <h3>Labor (by Profession)</h3>
           <table>
+            {#if comparisonReport}
+              <thead><tr>
+                <th class="item-name"></th>
+                <th class="item-amt col-hdr">Current</th>
+                <th class="item-amt col-hdr">Compare</th>
+                <th class="item-amt col-hdr">Δ%</th>
+              </tr></thead>
+            {/if}
             <tbody>
-              {#each laborByProfession as [prof, labor]}
-                <tr><td class="item-name">{prof}</td><td class="item-amt">{fmtLabor(labor)}</td></tr>
+              {#each allProfs as prof}
+                {@const cur = laborByProfession.find(([p]) => p === prof)?.[1] ?? 0}
+                {#if comparisonReport}
+                  {@const cmp = comparisonReport.laborByProfession.find(([p]) => p === prof)?.[1] ?? 0}
+                  <tr>
+                    <td class="item-name">{prof}</td>
+                    <td class="item-amt">{fmtLabor(cur)}</td>
+                    <td class="item-amt">{fmtLabor(cmp)}</td>
+                    <td class="item-amt" class:delta-neg={cmp < cur} class:delta-pos={cmp > cur}>{fmtDeltaPct(cur, cmp)}</td>
+                  </tr>
+                {:else}
+                  <tr><td class="item-name">{prof}</td><td class="item-amt">{fmtLabor(cur)}</td></tr>
+                {/if}
               {/each}
             </tbody>
           </table>
@@ -738,6 +907,27 @@
     padding: 24px; min-width: 360px; max-width: 520px; max-height: 80vh;
     overflow-y: auto; color: #e0e0e0;
   }
+
+  .report-panel.wide { max-width: 700px; }
+
+  .compare-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 0 12px; font-size: 12px;
+  }
+
+  .compare-label { color: #888; white-space: nowrap; }
+
+  .compare-row select {
+    background: #2a2a2a; border: 1px solid #555; color: #e0e0e0;
+    border-radius: 4px; padding: 2px 6px; font-size: 12px;
+  }
+
+  .col-hdr {
+    font-size: 11px; color: #888; font-weight: normal; padding-bottom: 4px;
+  }
+
+  .delta-neg { color: #4ec870; }
+  .delta-pos { color: #f08080; }
 
   .report-header {
     display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;

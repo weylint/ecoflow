@@ -296,6 +296,7 @@ export function buildGraph(opts: BuildOptions): PlannerGraph {
         recipe,
         variant,
         cycles,
+        effectiveReduction,
         availableRecipes: recipes,
         ...(loopbackItemsData.length > 0 ? { loopbackItems: loopbackItemsData } : {})
       };

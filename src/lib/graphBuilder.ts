@@ -44,10 +44,12 @@ export async function buildFlowGraph(
     return { nodes: [], edges: [] };
   }
 
-  // ── Index item nodes for edge-label conversion ─────────────────────
+  // ── Index item and table nodes for edge-label conversion ───────────
   const itemNodes = new Map<string, ItemPlannerNode>();
+  const tableNodes = new Map<string, TablePlannerNode>();
   for (const n of plannerGraph.nodes) {
     if (n.type === 'item') itemNodes.set(n.id, n as ItemPlannerNode);
+    if (n.type === 'table') tableNodes.set(n.id, n as TablePlannerNode);
   }
 
   // ── Build replacement edges for item nodes ─────────────────────────
@@ -64,6 +66,25 @@ export async function buildFlowGraph(
       if (!itemOut.has(edge.source)) itemOut.set(edge.source, []);
       itemOut.get(edge.source)!.push(edge.target);
     }
+  }
+
+  // Pre-compute total consumer amounts per item node, used as % denominator.
+  // Sums Pass-2 net-cycle amounts so the denominator matches the numerators exactly.
+  const itemConsumerTotal = new Map<string, number>();
+  for (const [itemId, item] of itemNodes) {
+    const targets = itemOut.get(itemId) ?? [];
+    let total = 0;
+    for (const tgt of targets) {
+      const tgtTable = tableNodes.get(tgt);
+      if (tgtTable) {
+        const ing = tgtTable.variant.Ingredients.find(i => i.Name === item.itemName);
+        if (ing) {
+          const perCycle = ing.IsStatic ? ing.Ammount : ing.Ammount * (1 - tgtTable.effectiveReduction);
+          total += perCycle * tgtTable.cycles;
+        }
+      }
+    }
+    if (total > 0) itemConsumerTotal.set(itemId, total);
   }
 
   // Only mark edges for skipping after confirming the item node will be converted
@@ -83,17 +104,36 @@ export async function buildFlowGraph(
       if (edge.source === itemId || edge.target === itemId) skipEdgeIds.add(edge.id);
     }
 
-    let label: string;
+    // Fallback label using the item's total net amount (used for non-table targets)
+    let totalLabel: string;
     if (item.amount === 0) {
-      label = `${item.itemName} · ✓`;
+      totalLabel = `${item.itemName} · ✓`;
     } else {
-      label = `${item.itemName} · ×${fmt(item.amount)}`;
-      if (item.byproductSupply) label += ` (+${fmt(item.byproductSupply)} bp)`;
+      totalLabel = `${item.itemName} · ×${fmt(item.amount)}`;
+      if (item.byproductSupply) totalLabel += ` (+${fmt(item.byproductSupply)} bp)`;
     }
 
     for (const src of sources) {
       for (const tgt of targets) {
-        syntheticEdges.push(labeledEdge(`lbl:${src}→${itemId}→${tgt}`, src, tgt, label));
+        let edgeLabel = totalLabel;
+        const tgtTable = tableNodes.get(tgt);
+        if (tgtTable) {
+          const ing = tgtTable.variant.Ingredients.find(i => i.Name === item.itemName);
+          if (ing) {
+            const perCycle = ing.IsStatic
+              ? ing.Ammount
+              : ing.Ammount * (1 - tgtTable.effectiveReduction);
+            const amt = perCycle * tgtTable.cycles;
+            const itemTotal = itemConsumerTotal.get(itemId) ?? 0;
+            if (itemTotal > 0) {
+              const pct = Math.round(amt / itemTotal * 100);
+              edgeLabel = `${item.itemName} · ×${fmt(amt)} (${pct}%)`;
+            } else {
+              edgeLabel = `${item.itemName} · ×${fmt(amt)}`;
+            }
+          }
+        }
+        syntheticEdges.push(labeledEdge(`lbl:${src}→${itemId}→${tgt}`, src, tgt, edgeLabel));
       }
     }
   }
