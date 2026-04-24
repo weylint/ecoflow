@@ -1,7 +1,7 @@
 <script lang="ts">
   import { Handle, Position } from '@xyflow/svelte';
-  import type { TablePlannerNode, RecipeObject, Variant } from '../types.js';
-  import { UPGRADE_LEVELS } from '../types.js';
+  import type { TablePlannerNode, RecipeObject, Variant, AppliedTalent, ECO12_UPGRADE_LEVELS, ECO13_UPGRADE_LEVELS } from '../types.js';
+  import { ECO12_UPGRADE_LEVELS as ECO12 } from '../types.js';
 
   interface Props {
     data: TablePlannerNode & {
@@ -10,6 +10,7 @@
       onMarketSelect?: (itemName: string) => void;
       onUpgradeChange?: (tableName: string, value: number) => void;
       currentUpgrade?: number;
+      upgradeLevels?: typeof ECO12_UPGRADE_LEVELS | typeof ECO13_UPGRADE_LEVELS;
     };
   }
 
@@ -94,16 +95,29 @@
       </div>
     {/if}
 
-    <div class="picker-row">
-      <!-- svelte-ignore a11y_label_has_associated_control -->
-      <label>Upgrade:
-        <select value={data.currentUpgrade ?? 0} onchange={handleUpgradeSelect}>
-          {#each UPGRADE_LEVELS as lvl}
-            <option value={lvl.value}>{lvl.label} ({lvl.value * 100}%)</option>
-          {/each}
-        </select>
-      </label>
-    </div>
+    {#if data.recipe.CraftingTableCanUseModules}
+      <div class="picker-row">
+        <!-- svelte-ignore a11y_label_has_associated_control -->
+        <label>Upgrade:
+          <select value={data.currentUpgrade ?? 0} onchange={handleUpgradeSelect}>
+            {#each (data.upgradeLevels ?? ECO12) as lvl}
+              <option value={lvl.value}>{lvl.label} ({lvl.value * 100}%)</option>
+            {/each}
+          </select>
+        </label>
+      </div>
+    {/if}
+
+    {#if data.appliedTalents?.length}
+      <div class="talents">
+        {#each data.appliedTalents as talent}
+          <span class="talent-chip">
+            {talent.name} −{Math.round(talent.reduction * 100)}%
+            <span class="talent-tooltip">{talent.description}</span>
+          </span>
+        {/each}
+      </div>
+    {/if}
 
     {#if data.loopbackItems?.length}
       <div class="returnables">
@@ -131,6 +145,7 @@
     min-width: 180px;
     font-size: 13px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    overflow: visible;
   }
 
   .header {
@@ -206,4 +221,47 @@
   .lb-gross { color: #e07070; }
   .lb-return { color: #70e070; }
   .lb-net { color: #e0e070; }
+
+  .talents {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+    margin-top: 2px;
+    border-top: 1px solid #4a7fb5;
+    padding-top: 4px;
+  }
+
+  .talent-chip {
+    position: relative;
+    font-size: 10px;
+    background: #1a3a5c;
+    border: 1px solid #4a90c4;
+    border-radius: 3px;
+    padding: 1px 4px;
+    color: #7ec8e3;
+    cursor: default;
+    white-space: nowrap;
+  }
+
+  .talent-tooltip {
+    display: none;
+    position: absolute;
+    bottom: calc(100% + 4px);
+    left: 0;
+    z-index: 1000;
+    background: #0d1f33;
+    border: 1px solid #4a90c4;
+    border-radius: 4px;
+    padding: 5px 7px;
+    color: #e8f4fd;
+    font-size: 11px;
+    white-space: normal;
+    width: 200px;
+    line-height: 1.4;
+    pointer-events: none;
+  }
+
+  .talent-chip:hover .talent-tooltip {
+    display: block;
+  }
 </style>

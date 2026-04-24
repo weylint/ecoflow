@@ -12,7 +12,8 @@ import type {
   ByproductPlannerNode,
   UserChoices
 } from './types.js';
-import { EXCLUDED_BYPRODUCTS } from './types.js';
+import type { TalentIndex } from './talentIndex.js';
+import { EXCLUDED_BYPRODUCTS, RAW_OVERRIDES } from './types.js';
 import type { RecipeIndex } from './recipeIndex.js';
 import type { TagsIndex } from './tagsIndex.js';
 
@@ -23,6 +24,7 @@ interface BuildOptions {
   tagsIndex: TagsIndex;
   choices: UserChoices;
   globalUpgrade: number;  // 0.0 – 1.0 default reduction; per-table overrides in choices.upgradeByTable
+  talentData?: TalentIndex;  // recipe Key → reduction + talent details (Eco 13 only)
 }
 
 // Node IDs are prefixed with their type to avoid collisions between,
@@ -36,7 +38,7 @@ function getDefaultVariant(recipe: RecipeObject): Variant {
 }
 
 export function buildGraph(opts: BuildOptions): PlannerGraph {
-  const { targetItem, totalAmount, recipeIndex, tagsIndex, choices, globalUpgrade } = opts;
+  const { targetItem, totalAmount, recipeIndex, tagsIndex, choices, globalUpgrade, talentData } = opts;
 
   // Accumulate total requirements and byproduct supply
   const requirements = new Map<string, number>();
@@ -71,7 +73,7 @@ export function buildGraph(opts: BuildOptions): PlannerGraph {
     requirements.set(itemName, (requirements.get(itemName) ?? 0) + amount);
 
     const recipes = recipeIndex.byProduct.get(itemName) ?? [];
-    if (recipes.length === 0 || choices.marketItems.has(itemName)) return;
+    if (recipes.length === 0 || choices.marketItems.has(itemName) || RAW_OVERRIDES.has(itemName)) return;
 
     const recipe = choices.recipeByItem.get(itemName) ?? recipes[0];
     const variant =
@@ -86,7 +88,11 @@ export function buildGraph(opts: BuildOptions): PlannerGraph {
     const isTruePrimary = variant.Products[0]?.Name === itemName;
     if (!isTruePrimary) return;
 
-    const effectiveReduction = choices.upgradeByTable.get(recipe.CraftingTable) ?? globalUpgrade;
+    const upgradeReduction = recipe.CraftingTableCanUseModules
+      ? (choices.upgradeByTable.get(recipe.CraftingTable) ?? globalUpgrade)
+      : 0;
+    const talentReduction = Math.min(talentData?.get(recipe.Key)?.totalReduction ?? 0, 1);
+    const effectiveReduction = 1 - (1 - upgradeReduction) * (1 - talentReduction);
 
     const primaryProduct = variant.Products.find(p => p.Name === itemName) ?? variant.Products[0];
     const primaryAmmount = primaryProduct?.Ammount ?? 1;
@@ -203,8 +209,8 @@ export function buildGraph(opts: BuildOptions): PlannerGraph {
       return;
     }
 
-    if (recipes.length === 0) {
-      // Raw resource — leaf node
+    if (recipes.length === 0 || RAW_OVERRIDES.has(itemName)) {
+      // Raw resource — leaf node (no recipe, or overridden to gathered)
       if (!builtNodes.has(itemId)) {
         builtNodes.add(itemId);
         const rawNode: RawPlannerNode = { type: 'raw', id: itemId, itemName, amount: net };
@@ -258,7 +264,11 @@ export function buildGraph(opts: BuildOptions): PlannerGraph {
       return;
     }
 
-    const effectiveReduction = choices.upgradeByTable.get(recipe.CraftingTable) ?? globalUpgrade;
+    const upgradeReduction = recipe.CraftingTableCanUseModules
+      ? (choices.upgradeByTable.get(recipe.CraftingTable) ?? globalUpgrade)
+      : 0;
+    const talentReduction = Math.min(talentData?.get(recipe.Key)?.totalReduction ?? 0, 1);
+    const effectiveReduction = 1 - (1 - upgradeReduction) * (1 - talentReduction);
 
     const primaryProduct = variant.Products.find(p => p.Name === itemName) ?? variant.Products[0];
     const primaryAmmount = primaryProduct?.Ammount ?? 1;
@@ -297,6 +307,7 @@ export function buildGraph(opts: BuildOptions): PlannerGraph {
         variant,
         cycles,
         effectiveReduction,
+        appliedTalents: talentData?.get(recipe.Key)?.talents ?? [],
         availableRecipes: recipes,
         ...(loopbackItemsData.length > 0 ? { loopbackItems: loopbackItemsData } : {})
       };

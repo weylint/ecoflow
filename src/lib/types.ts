@@ -33,7 +33,7 @@ export interface Product { Name: string; Ammount: number }  // intentional doubl
 export interface TagsFile { Tags: Record<string, string[]> }
 
 // ── Upgrade levels ─────────────────────────────────────────────────
-export const UPGRADE_LEVELS = [
+export const ECO12_UPGRADE_LEVELS = [
   { label: 'Upgrade 0', value: 0 },
   { label: 'Upgrade 1', value: 0.15 },
   { label: 'Upgrade 2', value: 0.25 },
@@ -42,12 +42,94 @@ export const UPGRADE_LEVELS = [
   { label: 'Upgrade 5', value: 0.50 },
 ] as const;
 
+export const ECO13_UPGRADE_LEVELS = [
+  { label: 'Upgrade 0', value: 0 },
+  { label: 'Upgrade 1', value: 0.05 },
+  { label: 'Upgrade 2', value: 0.10 },
+  { label: 'Upgrade 3', value: 0.15 },
+  { label: 'Upgrade 4', value: 0.20 },
+  { label: 'Upgrade 5', value: 0.25 },
+] as const;
+
+export function getUpgradeLevels(mode: 'eco12' | 'eco13') {
+  return mode === 'eco13' ? ECO13_UPGRADE_LEVELS : ECO12_UPGRADE_LEVELS;
+}
+
 // Byproducts that are waste products and should never satisfy tag requirements
 export const EXCLUDED_BYPRODUCTS = new Set(['Garbage', 'Wet Tailings', 'Tailings']);
+
+// Recipes that are intentionally multi-profession and should not incur cross-profession markup
+// on their own inputs (the chains feeding into them are still marked up normally).
+export const EDM_MARKUP_EXCLUDED_RECIPES = new Set([
+  'Laser Upgrade',
+  'Laser Internals',
+  'Laser Body',
+  'Final Assembly Instructions',
+  'Exquisite Meal',
+  'Premium Meal',
+  'Enhanced Precision Tools',
+  'Laser Blueprint',
+  'Special Alloy',
+  'Enhanced Meal',
+  'Balanced Meal',
+  'Precision Tools',
+  // Profession upgrade recipes that feed into Laser Upgrade (produced from Adv/Basic/Modern Upgrade 4)
+  'Advanced Baking Upgrade',
+  'Advanced Cooking Upgrade',
+  'Advanced Masonry Upgrade',
+  'Advanced Smelting Upgrade',
+  'Baking Upgrade',
+  'Basic Engineering Upgrade',
+  'Blacksmith Upgrade',
+  'Butchery Upgrade',
+  'Campfire Cooking Upgrade',
+  'Carpentry Advanced Upgrade',
+  'Composites Upgrade',
+  'Cooking Upgrade',
+  'Electronics Upgrade',
+  'Farming Upgrade',
+  'Fertilizers Upgrade',
+  'Gathering Advanced Upgrade',
+  'Glassworking Modern Upgrade',
+  'Hunting Upgrade',
+  'Industry Upgrade',
+  'Logging Advanced Upgrade',
+  'Masonry Advanced Upgrade',
+  'Mechanics Modern Upgrade',
+  'Milling Upgrade',
+  'Mining Advanced Upgrade',
+  'Oil Drilling Upgrade',
+  'Painting Upgrade',
+  'Paper Milling Upgrade',
+  'Pottery Upgrade',
+  'Shipwright Basic Upgrade',
+  'Smelting Upgrade',
+  'Tailoring Basic Upgrade',
+]);
+
+// Default recipe key for specific items (overrides recipeIndex sort order)
+export const DEFAULT_RECIPE_CHOICES: Record<string, string> = {
+  'Raw Fish': 'Clean Medium Fish',
+};
+
+// Items that are bought/gathered by default rather than crafted
+export const DEFAULT_MARKET_ITEMS: string[] = [];
+
+// Items forced to raw nodes even when a recipe exists (gathered, not craftable in practice)
+export const RAW_OVERRIDES: Set<string> = new Set(['Dirt', 'Plant Fibers']);
 
 // Default item selections for common tags
 export const DEFAULT_TAG_CHOICES: Record<string, string> = {
   'Fat':              'Oil',
+  'Wood':             'Redwood Log',
+  'Medium Fish':      'Salmon',
+  'Raw Food':         'Tomato',
+  'Campfire Salad':   'Beet Campfire Salad',
+  'Tiny Leather Carcass': 'Turkey Carcass',
+  'Greens':           'Fiddleheads',
+  'Tiny Fur Carcass': 'Otter Carcass',
+  'Petals':           'Rose',
+  'Vegetable':        'Tomato',
   'Grain':            'Wheat',
   'Silica':           'Crushed Sandstone',
   'Fruit':            'Huckleberries',
@@ -68,6 +150,7 @@ export const DEFAULT_TAG_CHOICES: Record<string, string> = {
   'Ashlar Stone':       'Ashlar Sandstone',
   'Fertilizer Filler':  'Pulp Filler',
   'Oil':                'Oil',
+  'Fungus':             'Crimini Mushrooms',
 };
 
 export interface LayoutOptions {
@@ -85,6 +168,12 @@ export const DEFAULT_LAYOUT_OPTIONS: LayoutOptions = {
 // ── Planner graph types ────────────────────────────────────────────
 export type PlannerNodeType = 'table' | 'item' | 'raw' | 'tag';
 
+export interface AppliedTalent {
+  name: string;        // display_name stripped of ": SkillName" suffix
+  description: string;
+  reduction: number;   // this talent's stated reduction fraction (e.g. 0.60)
+}
+
 export interface TablePlannerNode {
   type: 'table';
   id: string;
@@ -94,6 +183,7 @@ export interface TablePlannerNode {
   variant: Variant;
   cycles: number;           // ceil(requiredAmount / productAmount)
   effectiveReduction: number;
+  appliedTalents: AppliedTalent[];
   availableRecipes: RecipeObject[];
   loopbackItems?: { itemName: string; grossAmount: number; returnAmount: number; netAmount: number }[];
 }
@@ -161,4 +251,34 @@ export interface UserChoices {
   itemByTag: Map<string, string>;             // tag name → chosen specific item
   marketItems: Set<string>;                   // items to buy instead of craft
   upgradeByTable: Map<string, number>;        // CraftingTable name → reduction fraction
+}
+
+export interface TalentEffect {
+  effect?: string;
+  penalty: boolean;
+  skills?: string[];
+  recipes?: string[];
+  craft_stations?: string[];
+  item_tags?: string[];
+  unlocks?: string[];
+}
+
+export interface TalentEntry {
+  display_name: string;
+  description: string;
+  level: number;
+  class: string;
+  max_takes: number;
+  effects?: TalentEffect[];
+}
+
+export interface ProfessionSkill {
+  skill: string;
+  talents: TalentEntry[];
+}
+
+export interface ProfessionData {
+  profession: string;
+  source_file: string;
+  skills: ProfessionSkill[];
 }

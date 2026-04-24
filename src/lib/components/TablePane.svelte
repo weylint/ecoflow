@@ -1,17 +1,17 @@
 <script lang="ts">
-  import type { TablePlannerNode, RecipeObject } from '../types.js';
-  import { UPGRADE_LEVELS } from '../types.js';
+  import type { TablePlannerNode, RecipeObject, ECO12_UPGRADE_LEVELS, ECO13_UPGRADE_LEVELS } from '../types.js';
 
   interface Props {
     tableNodes: TablePlannerNode[];
     upgradeByTable: Map<string, number>;
     globalUpgrade: number;
+    upgradeLevels: typeof ECO12_UPGRADE_LEVELS | typeof ECO13_UPGRADE_LEVELS;
     onRecipeChange: (itemName: string, recipe: RecipeObject) => void;
     onUpgradeChange: (tableName: string, value: number) => void;
     onMarketSelect: (itemName: string) => void;
   }
 
-  let { tableNodes, upgradeByTable, globalUpgrade, onRecipeChange, onUpgradeChange, onMarketSelect }: Props = $props();
+  let { tableNodes, upgradeByTable, globalUpgrade, upgradeLevels, onRecipeChange, onUpgradeChange, onMarketSelect }: Props = $props();
 
   function formatTime(seconds: number): string {
     const s = Math.round(seconds);
@@ -48,7 +48,7 @@
         <div class="table-entry">
           <div class="entry-item">{node.itemName}</div>
           <div class="entry-table">{node.table}</div>
-          <div class="entry-cycles">×{node.cycles} runs · {formatTime(node.cycles * node.recipe.BaseCraftTime * 60 * (1 - (upgradeByTable.get(node.table) ?? globalUpgrade)))}</div>
+          <div class="entry-cycles">×{node.cycles} runs · {formatTime(node.cycles * node.recipe.BaseCraftTime * 60 * (1 - (node.recipe.CraftingTableCanUseModules ? (upgradeByTable.get(node.table) ?? globalUpgrade) : 0)))}</div>
 
           <div class="entry-row">
             <!-- svelte-ignore a11y_label_has_associated_control -->
@@ -70,19 +70,21 @@
             </label>
           </div>
 
-          <div class="entry-row">
-            <!-- svelte-ignore a11y_label_has_associated_control -->
-            <label>Upgrade:
-              <select
-                value={upgradeByTable.get(node.table) ?? globalUpgrade}
-                onchange={(e) => onUpgradeChange(node.table, Number((e.target as HTMLSelectElement).value))}
-              >
-                {#each UPGRADE_LEVELS as lvl}
-                  <option value={lvl.value}>{lvl.label} ({lvl.value * 100}%)</option>
-                {/each}
-              </select>
-            </label>
-          </div>
+          {#if node.recipe.CraftingTableCanUseModules}
+            <div class="entry-row">
+              <!-- svelte-ignore a11y_label_has_associated_control -->
+              <label>Upgrade:
+                <select
+                  value={upgradeByTable.get(node.table) ?? globalUpgrade}
+                  onchange={(e) => onUpgradeChange(node.table, Number((e.target as HTMLSelectElement).value))}
+                >
+                  {#each upgradeLevels as lvl}
+                    <option value={lvl.value}>{lvl.label} ({lvl.value * 100}%)</option>
+                  {/each}
+                </select>
+              </label>
+            </div>
+          {/if}
         </div>
       {/each}
     </div>
