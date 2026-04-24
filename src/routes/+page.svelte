@@ -1,17 +1,24 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { dev } from '$app/environment';
+  import { dev, browser } from '$app/environment';
   import { writable, get } from 'svelte/store';
   import { SvelteFlow, Controls, Background, MiniMap, Panel } from '@xyflow/svelte';
   import '@xyflow/svelte/dist/style.css';
 
-  import type { Node, Edge } from '@xyflow/svelte';
-  import { UPGRADE_LEVELS, EXCLUDED_BYPRODUCTS, DEFAULT_LAYOUT_OPTIONS, DEFAULT_TAG_CHOICES } from '$lib/types.js';
-  import type { LayoutOptions } from '$lib/types.js';
+  import type { Node, Edge, NodeTypes, EdgeTypes } from '@xyflow/svelte';
+  import { ECO12_UPGRADE_LEVELS, ECO13_UPGRADE_LEVELS, getUpgradeLevels, EXCLUDED_BYPRODUCTS, DEFAULT_LAYOUT_OPTIONS, DEFAULT_TAG_CHOICES, DEFAULT_RECIPE_CHOICES, DEFAULT_MARKET_ITEMS } from '$lib/types.js';
+  import type { LayoutOptions, PlannerGraph } from '$lib/types.js';
   import type { RecipeObject, Variant, TagsFile, RecipeFile, UserChoices, TablePlannerNode, RawPlannerNode, MarketPlannerNode, TagPlannerNode, ByproductPlannerNode, ByproductResolveOption } from '$lib/types.js';
+  import { DEFAULT_SETTINGS, loadSettings, saveSettings } from '$lib/settings.js';
+  import type { AppSettings } from '$lib/settings.js';
+  import { computeEdmReport, resolveItemEdmValue } from '$lib/edm.js';
+  import type { EdmReport, TransitionPathEntry } from '$lib/edm.js';
   import { buildRecipeIndex } from '$lib/recipeIndex.js';
   import { buildTagsIndex } from '$lib/tagsIndex.js';
+  import { buildTalentIndex } from '$lib/talentIndex.js';
+  import type { TalentIndex } from '$lib/talentIndex.js';
   import { buildGraph } from '$lib/planner.js';
+  import type { ProfessionData } from '$lib/types.js';
 
   import TableNode from '$lib/components/TableNode.svelte';
   import RawNode from '$lib/components/RawNode.svelte';
@@ -19,6 +26,7 @@
   import MarketNode from '$lib/components/MarketNode.svelte';
   import ByproductNode from '$lib/components/ByproductNode.svelte';
   import ProfessionGroupNode from '$lib/components/ProfessionGroupNode.svelte';
+  import LabeledEdge from '$lib/components/LabeledEdge.svelte';
   import TablePane from '$lib/components/TablePane.svelte';
   import ResolveModal from '$lib/components/ResolveModal.svelte';
   import FitViewOnDemand from '$lib/components/FitViewOnDemand.svelte';
@@ -31,17 +39,36 @@
     marketNode: MarketNode,
     byproductNode: ByproductNode,
     professionGroup: ProfessionGroupNode
-  };
+  } as unknown as NodeTypes;
+
+  const edgeTypes = {
+    labeledEdge: LabeledEdge
+  } as unknown as EdgeTypes;
 
   // ── State ────────────────────────────────────────────────────────
   let recipeIndex = $state<ReturnType<typeof buildRecipeIndex> | null>(null);
   let tagsIndex = $state<ReturnType<typeof buildTagsIndex> | null>(null);
+  let talentIndex = $state<TalentIndex>(new Map());
   let loading = $state(true);
   let error = $state<string | null>(null);
 
-  let selectedProduct = $state('Steel Bar');
-  let amount = $state(100);
-  let globalUpgrade = $state(0.50);
+  let settings = $state<AppSettings>({ ...DEFAULT_SETTINGS, edmValues: { ...DEFAULT_SETTINGS.edmValues }, edmTagDefaults: { ...DEFAULT_SETTINGS.edmTagDefaults } });
+  const upgradeLevels = $derived(getUpgradeLevels(settings.ecoMode));
+
+  const _urlParams = browser ? new URL(window.location.href).searchParams : null;
+  const _urlAmount = _urlParams ? parseInt(_urlParams.get('amount') ?? '', 10) : NaN;
+
+  let selectedProduct = $state(_urlParams?.get('product') ?? 'Steel Bar');
+  let amount = $state(_urlAmount > 0 ? _urlAmount : 100);
+
+  $effect(() => {
+    if (!browser) return;
+    const url = new URL(window.location.href);
+    url.searchParams.set('product', selectedProduct);
+    url.searchParams.set('amount', String(amount));
+    history.replaceState({}, '', url.toString());
+  });
+  let globalUpgrade = $state(0.25);  // Eco13 default max
 
   let tagDefaults = $state(new Map<string, string>(Object.entries(DEFAULT_TAG_CHOICES)));
 
@@ -49,7 +76,7 @@
     recipeByItem: new Map(),
     variantByItem: new Map(),
     itemByTag: new Map(Object.entries(DEFAULT_TAG_CHOICES)),
-    marketItems: new Set(),
+    marketItems: new Set(DEFAULT_MARKET_ITEMS),
     upgradeByTable: new Map()
   });
 
@@ -58,6 +85,27 @@
   let plannerMarketNodes = $state<MarketPlannerNode[]>([]);
   let plannerUnresolvedTagNodes = $state<TagPlannerNode[]>([]);
   let plannerByproductNodes = $state<ByproductPlannerNode[]>([]);
+  let lastPlannerGraph = $state<PlannerGraph | null>(null);
+
+  const edmReport = $derived.by((): EdmReport | null => {
+    if (!lastPlannerGraph) return null;
+    if (!tagsIndex) return null;
+    return computeEdmReport(lastPlannerGraph, settings, tagsIndex);
+  });
+
+  const edmGrouped = $derived.by(() => {
+    const groups = new Map<string | null, RawPlannerNode[]>();
+    for (const node of plannerRawNodes) {
+      const tags = tagsIndex?.itemToTags.get(node.itemName) ?? [];
+      const primaryTag =
+        tags.find(t => settings.edmTagDefaults[t] !== undefined) ?? tags[0] ?? null;
+      const bucket = groups.get(primaryTag) ?? [];
+      bucket.push(node);
+      groups.set(primaryTag, bucket);
+    }
+    return groups;
+  });
+
   const laborByProfession = $derived.by(() => {
     const map = new Map<string, number>();
     for (const n of plannerTableNodes) {
@@ -67,7 +115,7 @@
     return [...map.entries()].sort((a, b) => b[1] - a[1]);
   });
 
-  let compareUpgrade = $state<number | null>(null);
+  let compareUpgrade = $state<{ value: number; mode: 'eco12' | 'eco13' } | null>(null);
 
   const comparisonReport = $derived.by(() => {
     if (compareUpgrade === null || !recipeIndex || !tagsIndex) return null;
@@ -78,7 +126,8 @@
       recipeIndex,
       tagsIndex,
       choices: { ...snap, upgradeByTable: new Map() },
-      globalUpgrade: compareUpgrade
+      globalUpgrade: compareUpgrade.value,
+      talentData: compareUpgrade.mode === 'eco13' ? talentIndex : undefined
     });
     const rawNodes = pg.nodes.filter((n): n is RawPlannerNode => n.type === 'raw');
     const cmpTableNodes = pg.nodes.filter((n): n is TablePlannerNode => n.type === 'table');
@@ -93,12 +142,14 @@
       rawByItem:        new Map(rawNodes.map(n => [n.itemName, n.amount])),
       tagByName:        new Map(unresolvedTagNodes.map(n => [n.tag, n.amount])),
       byproductByKey:   new Map(byproductNodes.map(n => [n.id, n.amount])),
-      laborByProfession: [...laborMap.entries()].sort((a, b) => b[1] - a[1])
+      laborByProfession: [...laborMap.entries()].sort((a, b) => b[1] - a[1]),
+      edmReport:        computeEdmReport(pg, settings, tagsIndex)
     };
   });
 
   let showReport = $state(false);
   let showResolve = $state(false);
+  let expandedTransition = $state<number | null>(null);
   let showLayoutSettings = $state(false);
   let layoutOptions = $state<LayoutOptions>({ ...DEFAULT_LAYOUT_OPTIONS });
   let darkMode = $state(true);
@@ -109,8 +160,18 @@
     document.documentElement.classList.toggle('light', !darkMode);
   });
 
+  $effect(() => {
+    // Persist settings to localStorage whenever they change.
+    // We snapshot to avoid capturing reactive proxies.
+    saveSettings($state.snapshot(settings) as AppSettings);
+  });
+
   function fmt(n: number): string {
     return Number.isInteger(n) ? String(n) : n.toFixed(2);
+  }
+
+  function fmtEdm(n: number): string {
+    return n.toFixed(2);
   }
 
   function fmtLabor(n: number): string {
@@ -154,10 +215,18 @@
   }
 
   onMount(async () => {
+    // Load persisted settings before first render/plan
+    const saved = loadSettings();
+    settings = saved;
+    // Initialise globalUpgrade to max of whichever mode was saved
+    const levels = getUpgradeLevels(saved.ecoMode);
+    globalUpgrade = levels[levels.length - 1].value;
+
     try {
-      const [recipesRes, tagsRes] = await Promise.all([
+      const [recipesRes, tagsRes, professionsRes] = await Promise.all([
         fetchWithFallback(RECIPES_URL, './recipes.json'),
-        fetchWithFallback(TAGS_URL, './tags.json')
+        fetchWithFallback(TAGS_URL, './tags.json'),
+        fetch('./professions.json')
       ]);
 
       if (!recipesRes.ok || !tagsRes.ok) throw new Error('Failed to load data files');
@@ -168,7 +237,20 @@
       recipeIndex = buildRecipeIndex(recipesData.Recipes);
       tagsIndex = buildTagsIndex(tagsData.Tags);
 
-      // Set default selection after options are available
+      if (professionsRes.ok) {
+        const professionsData: { professions: ProfessionData[] } = await professionsRes.json();
+        talentIndex = buildTalentIndex(professionsData.professions, recipesData.Recipes, tagsData.Tags);
+      }
+
+      // Apply default recipe selections (e.g. Clean Medium Fish for Raw Fish)
+      for (const [itemName, recipeKey] of Object.entries(DEFAULT_RECIPE_CHOICES)) {
+        if (!choices.recipeByItem.has(itemName)) {
+          const match = (recipeIndex.byProduct.get(itemName) ?? []).find(r => r.Key === recipeKey);
+          if (match) choices.recipeByItem.set(itemName, match);
+        }
+      }
+
+      // Validate product after data loads; fall back to first craftable if unknown
       if (!recipeIndex.allCraftableNames.includes(selectedProduct)) {
         selectedProduct = recipeIndex.allCraftableNames[0] ?? '';
       }
@@ -241,9 +323,11 @@
         recipeIndex,
         tagsIndex,
         choices: $state.snapshot(choices) as UserChoices,
-        globalUpgrade
+        globalUpgrade,
+        talentData: settings.ecoMode === 'eco13' ? talentIndex : undefined
       });
 
+      lastPlannerGraph = plannerGraph;
       plannerTableNodes = plannerGraph.nodes.filter((n): n is TablePlannerNode => n.type === 'table');
       plannerRawNodes = plannerGraph.nodes.filter((n): n is RawPlannerNode => n.type === 'raw');
       plannerMarketNodes = plannerGraph.nodes.filter((n): n is MarketPlannerNode => n.type === 'market');
@@ -271,7 +355,7 @@
       // Inject callbacks into node data here (avoids infinite $effect loops)
       flowNodes.set(layoutNodes.map(n => {
         if (n.type === 'tableNode') {
-          const tNode = n.data as TablePlannerNode;
+          const tNode = n.data as unknown as TablePlannerNode;
           return {
             ...n,
             data: {
@@ -280,7 +364,8 @@
               onVariantChange: handleVariantChange,
               onMarketSelect: handleMarketSelect,
               onUpgradeChange: handleUpgradeChange,
-              currentUpgrade: choices.upgradeByTable.get(tNode.table) ?? globalUpgrade
+              currentUpgrade: choices.upgradeByTable.get(tNode.table) ?? globalUpgrade,
+              upgradeLevels
             }
           };
         }
@@ -291,7 +376,7 @@
           return { ...n, data: { ...n.data, onRecipeChange: handleRecipeChange } };
         }
         if (n.type === 'byproductNode') {
-          const bpNode = n.data as ByproductPlannerNode;
+          const bpNode = n.data as unknown as ByproductPlannerNode;
           const resolveOptions = computeResolveOptions(
             bpNode.itemName,
             plannerUnresolvedTagNodes
@@ -309,11 +394,16 @@
 
   function handlePlan() {
     // Reset user choices when explicitly replanning with a new product/amount
+    const resetRecipes = new Map<string, RecipeObject>();
+    for (const [itemName, recipeKey] of Object.entries(DEFAULT_RECIPE_CHOICES)) {
+      const match = (recipeIndex?.byProduct.get(itemName) ?? []).find(r => r.Key === recipeKey);
+      if (match) resetRecipes.set(itemName, match);
+    }
     choices = {
-      recipeByItem: new Map(),
+      recipeByItem: resetRecipes,
       variantByItem: new Map(),
       itemByTag: new Map(tagDefaults),  // restore configurable defaults
-      marketItems: new Set(),
+      marketItems: new Set(DEFAULT_MARKET_ITEMS),
       upgradeByTable: new Map()
     };
     replan(false);
@@ -390,11 +480,30 @@
         <input type="number" bind:value={amount} min="1" step="1" disabled={loading} />
       </label>
 
+      <label class="checkbox-label eco-mode-label">
+        <input
+          type="checkbox"
+          checked={settings.ecoMode === 'eco13'}
+          onchange={(e) => {
+            const newMode = (e.target as HTMLInputElement).checked ? 'eco13' : 'eco12';
+            settings = { ...settings, ecoMode: newMode };
+            // Clamp globalUpgrade to nearest valid level in new mode
+            const newLevels = getUpgradeLevels(newMode);
+            const validValues = newLevels.map(l => l.value);
+            const closest = validValues.reduce((prev, cur) =>
+              Math.abs(cur - globalUpgrade) < Math.abs(prev - globalUpgrade) ? cur : prev
+            );
+            globalUpgrade = closest;
+          }}
+        />
+        Eco 13
+      </label>
+
       <!-- svelte-ignore a11y_label_has_associated_control -->
       <label>
         Upgrade (global):
         <select bind:value={globalUpgrade} disabled={loading}>
-          {#each UPGRADE_LEVELS as lvl}
+          {#each upgradeLevels as lvl}
             <option value={lvl.value}>{lvl.label} ({lvl.value * 100}%)</option>
           {/each}
         </select>
@@ -404,7 +513,12 @@
         Plan!
       </button>
 
-      <button onclick={() => showReport = true} disabled={loading || $flowNodes.length === 0}>
+      <button onclick={() => {
+        showReport = true;
+        const otherMode: 'eco12' | 'eco13' = settings.ecoMode === 'eco13' ? 'eco12' : 'eco13';
+        const otherLevels = getUpgradeLevels(otherMode);
+        compareUpgrade = { value: otherLevels[otherLevels.length - 1].value, mode: otherMode };
+      }} disabled={loading || $flowNodes.length === 0}>
         Generate Report
       </button>
 
@@ -443,6 +557,7 @@
           nodes={flowNodes}
           edges={flowEdges}
           {nodeTypes}
+          {edgeTypes}
           minZoom={0.05}
         >
           <FitViewOnDemand {fitViewPending} onFitViewDone={() => { fitViewPending = false; }} />
@@ -472,6 +587,7 @@
         tableNodes={plannerTableNodes}
         upgradeByTable={choices.upgradeByTable}
         {globalUpgrade}
+        {upgradeLevels}
         onRecipeChange={handleRecipeChange}
         onUpgradeChange={handleUpgradeChange}
         onMarketSelect={handleMarketSelect}
@@ -487,18 +603,28 @@
         <h2>Production Report</h2>
         <button class="close-btn" onclick={() => { showReport = false; compareUpgrade = null; }}>✕</button>
       </div>
+      <div class="report-body">
       <div class="compare-row">
         <span class="compare-label">Compare with:</span>
         <select
           onchange={e => {
             const v = (e.target as HTMLSelectElement).value;
-            compareUpgrade = v === '' ? null : Number(v);
+            if (v === '') { compareUpgrade = null; return; }
+            const [mode, val] = v.split(':');
+            compareUpgrade = { value: Number(val), mode: mode as 'eco12' | 'eco13' };
           }}
         >
           <option value="">— none —</option>
-          {#each UPGRADE_LEVELS as lvl}
-            <option value={lvl.value} selected={lvl.value === compareUpgrade}>{lvl.label}</option>
-          {/each}
+          <optgroup label="Eco 13">
+            {#each getUpgradeLevels('eco13') as lvl}
+              <option value="eco13:{lvl.value}" selected={compareUpgrade?.mode === 'eco13' && compareUpgrade?.value === lvl.value}>{lvl.label}</option>
+            {/each}
+          </optgroup>
+          <optgroup label="Eco 12">
+            {#each getUpgradeLevels('eco12') as lvl}
+              <option value="eco12:{lvl.value}" selected={compareUpgrade?.mode === 'eco12' && compareUpgrade?.value === lvl.value}>{lvl.label}</option>
+            {/each}
+          </optgroup>
         </select>
       </div>
 
@@ -522,25 +648,132 @@
                 <th class="item-amt col-hdr">Current</th>
                 <th class="item-amt col-hdr">Compare</th>
                 <th class="item-amt col-hdr">Δ%</th>
+                <th class="item-amt col-hdr">EDM/u</th>
+                <th class="item-amt col-hdr">EDM/{selectedProduct}</th>
+              </tr></thead>
+            {:else}
+              <thead><tr>
+                <th class="item-name"></th>
+                <th class="item-amt col-hdr">Amount</th>
+                <th class="item-amt col-hdr">EDM/u</th>
+                <th class="item-amt col-hdr">EDM/{selectedProduct}</th>
               </tr></thead>
             {/if}
             <tbody>
               {#each allRawItems as itemName}
                 {@const cur = plannerRawNodes.find(n => n.itemName === itemName)?.amount ?? 0}
+                {@const rawCost = edmReport?.rawCosts.find(r => r.itemName === itemName)}
+                {@const isMissing = rawCost ? rawCost.edmPerUnit === null : true}
                 {#if comparisonReport}
                   {@const cmp = comparisonReport.rawByItem.get(itemName) ?? 0}
                   <tr>
-                    <td class="item-name">{itemName}</td>
+                    <td class="item-name" class:edm-missing-name={isMissing}>{itemName}{#if isMissing} ⚠{/if}</td>
                     <td class="item-amt">{fmt(cur)}</td>
                     <td class="item-amt">{fmt(cmp)}</td>
                     <td class="item-amt" class:delta-neg={cmp < cur} class:delta-pos={cmp > cur}>{fmtDeltaPct(cur, cmp)}</td>
+                    <td class="item-amt" class:edm-missing={isMissing}>{rawCost?.edmPerUnit != null ? fmtEdm(rawCost.edmPerUnit) : '—'}</td>
+                    <td class="item-amt" class:edm-missing={isMissing}>{rawCost?.totalEdm != null ? fmtEdm(rawCost.totalEdm / amount) : '—'}</td>
                   </tr>
                 {:else}
-                  <tr><td class="item-name">{itemName}</td><td class="item-amt">{fmt(cur)}</td></tr>
+                  <tr>
+                    <td class="item-name" class:edm-missing-name={isMissing}>{itemName}{#if isMissing} ⚠{/if}</td>
+                    <td class="item-amt">{fmt(cur)}</td>
+                    <td class="item-amt" class:edm-missing={isMissing}>{rawCost?.edmPerUnit != null ? fmtEdm(rawCost.edmPerUnit) : '—'}</td>
+                    <td class="item-amt" class:edm-missing={isMissing}>{rawCost?.totalEdm != null ? fmtEdm(rawCost.totalEdm / amount) : '—'}</td>
+                  </tr>
                 {/if}
               {/each}
             </tbody>
           </table>
+
+          {#if edmReport}
+            {@const cmpEdm = comparisonReport?.edmReport ?? null}
+            {@const cmpLabel = compareUpgrade ? `${compareUpgrade.mode === 'eco13' ? 'Eco 13' : 'Eco 12'} ${getUpgradeLevels(compareUpgrade.mode).find(l => l.value === compareUpgrade!.value)?.label ?? ''}` : ''}
+            <div class="edm-summary">
+              {#if cmpEdm}
+                <span class="edm-row edm-compare-header">
+                  <span class="edm-label">per {selectedProduct}</span>
+                  <span class="edm-col-hdr">Current</span>
+                  <span class="edm-col-hdr">{cmpLabel}</span>
+                </span>
+                <span class="edm-row">
+                  <span class="edm-label">Base EDM:</span>
+                  <span class="edm-value">{edmReport.baseEdm != null ? fmtEdm(edmReport.baseEdm / amount) : '—'}</span>
+                  <span class="edm-value">{cmpEdm.baseEdm != null ? fmtEdm(cmpEdm.baseEdm / amount) : '—'}</span>
+                </span>
+                {#if edmReport.crossProfTransitions.length > 0 || (cmpEdm.crossProfTransitions?.length ?? 0) > 0}
+                  <span class="edm-row">
+                    <span class="edm-label">Prof. markup:</span>
+                    <span class="edm-value">{edmReport.markupEdm != null ? '+' + fmtEdm(edmReport.markupEdm / amount) : '—'}</span>
+                    <span class="edm-value">{cmpEdm.markupEdm != null ? '+' + fmtEdm(cmpEdm.markupEdm / amount) : '—'}</span>
+                  </span>
+                {/if}
+                <span class="edm-row edm-total">
+                  <span class="edm-label">EDM / {selectedProduct}:</span>
+                  <span class="edm-value">{edmReport.totalEdm != null ? fmtEdm(edmReport.totalEdm / amount) : '—'}</span>
+                  <span class="edm-value">{cmpEdm.totalEdm != null ? fmtEdm(cmpEdm.totalEdm / amount) : '—'}</span>
+                </span>
+              {:else}
+                <span class="edm-row edm-subheader"><span class="edm-label">per {selectedProduct}</span></span>
+                <span class="edm-row"><span class="edm-label">Base EDM:</span> <span class="edm-value">{edmReport.baseEdm != null ? fmtEdm(edmReport.baseEdm / amount) : '— (missing values)'}</span></span>
+                {#if edmReport.crossProfTransitions.length > 0}
+                  <span class="edm-row"><span class="edm-label">Profession markup:</span> <span class="edm-value">{edmReport.markupEdm != null ? '+' + fmtEdm(edmReport.markupEdm / amount) : '—'}</span></span>
+                {/if}
+                <span class="edm-row edm-total"><span class="edm-label">EDM / {selectedProduct}:</span> <span class="edm-value">{edmReport.totalEdm != null ? fmtEdm(edmReport.totalEdm / amount) : '— (missing values)'}</span></span>
+              {/if}
+            </div>
+
+            {#if edmReport.crossProfTransitions.length > 0}
+              <div class="cross-prof-list">
+                <div class="cross-prof-header">Cross-profession transitions (+{(settings.crossProfessionMarkup * 100).toFixed(0)}% markup each):</div>
+                {#each [...edmReport.crossProfTransitions].sort((a, b) => (b.markupAmount ?? -Infinity) - (a.markupAmount ?? -Infinity)) as t, i}
+                  {@const isExpanded = expandedTransition === i}
+                  <div
+                    class="cross-prof-row"
+                    class:cross-prof-expanded={isExpanded}
+                    role="button"
+                    tabindex="0"
+                    onclick={() => { expandedTransition = isExpanded ? null : i; }}
+                    onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); expandedTransition = isExpanded ? null : i; } }}
+                  >
+                    <span class="cross-prof-chevron">{isExpanded ? '▾' : '▸'}</span>
+                    <span class="cross-prof-profs">{t.fromProf} → {t.toProf}</span>
+                    <span class="cross-prof-item muted">via {t.itemName}</span>
+                    <span class="cross-prof-amt">{t.markupAmount != null ? '+' + fmtEdm(t.markupAmount / amount) : '—'} EDM</span>
+                  </div>
+                  {#if isExpanded}
+                    <div class="cross-prof-detail">
+                      <div class="cp-detail-title">Production chain for <strong>{t.itemName}</strong> ({t.fromProf})</div>
+                      {#each t.pathEntries as entry}
+                        <div class="cp-entry" style="padding-left: {entry.depth * 14 + 6}px">
+                          {#if entry.kind === 'table'}
+                            {@const perItem = entry.subtreeEdm != null && entry.outputAmount > 0 ? entry.subtreeEdm / entry.outputAmount : null}
+                            {@const markupPerItem = (entry.markupApplied && perItem != null) ? perItem * settings.crossProfessionMarkup : null}
+                            <span class="cp-entry-profession">[{entry.profession}]</span>
+                            <span class="cp-entry-table">{entry.tableName}</span>
+                            <span class="cp-entry-item muted">→ {entry.itemName}</span>
+                            <span class="cp-entry-amount muted">{fmt(entry.neededAmount)} needed / {fmt(entry.outputAmount)} produced</span>
+                            {#if entry.markupApplied}<span class="cp-entry-markup">+{(settings.crossProfessionMarkup * 100).toFixed(0)}%</span>{/if}
+                            <span class="cp-entry-edm">{entry.subtreeEdm != null ? fmtEdm(entry.subtreeEdm / amount) : '—'} EDM</span>
+                            <span class="cp-entry-per-item">{perItem != null ? fmtEdm(perItem) : '—'}/item{#if markupPerItem != null} <span class="cp-entry-markup-amt">+{fmtEdm(markupPerItem)}</span>{/if}</span>
+                          {:else}
+                            <span class="cp-entry-leaf-type muted">[{entry.nodeType}]</span>
+                            <span class="cp-entry-item">{entry.itemName}</span>
+                            <span class="cp-entry-amount muted">{entry.amount % 1 === 0 ? entry.amount : entry.amount.toFixed(2)} × {entry.edmPerUnit ?? '?'}</span>
+                            <span class="cp-entry-edm">{entry.totalEdm != null ? fmtEdm(entry.totalEdm / amount) : '—'} EDM</span>
+                          {/if}
+                        </div>
+                      {/each}
+                      <div class="cp-detail-footer">
+                        <span>Subtree base: {t.baseEdm != null ? fmtEdm(t.baseEdm / amount) : '—'} EDM</span>
+                        <span class="cp-markup-highlight">Markup (+{(settings.crossProfessionMarkup * 100).toFixed(0)}%): {t.markupAmount != null ? '+' + fmtEdm(t.markupAmount / amount) : '—'} EDM</span>
+                      </div>
+                    </div>
+                  {/if}
+                {/each}
+              </div>
+            {/if}
+          {/if}
         {/if}
       </section>
 
@@ -692,6 +925,7 @@
           </table>
         </section>
       {/if}
+      </div><!-- report-body -->
     </div>
   </div>
 {/if}
@@ -768,6 +1002,132 @@
             {/if}
           </label>
         {/each}
+      </section>
+
+      <section>
+        <h3 class="settings-section-title">EDM Values</h3>
+
+        <label class="settings-row">
+          <span class="settings-label">Cross-profession markup</span>
+          <div class="edm-markup-row">
+            <input
+              type="number"
+              class="edm-number-input"
+              min="0"
+              max="100"
+              step="1"
+              value={Math.round(settings.crossProfessionMarkup * 100)}
+              oninput={e => {
+                const v = Number((e.target as HTMLInputElement).value);
+                if (!isNaN(v)) settings = { ...settings, crossProfessionMarkup: v / 100 };
+              }}
+            />
+            <span class="edm-unit">%</span>
+          </div>
+        </label>
+
+        {#if plannerRawNodes.length > 0 && tagsIndex}
+          <div class="edm-resources-header">Raw resources (current plan):</div>
+          {#each [...edmGrouped.entries()].sort(([a], [b]) => (a ?? '￿').localeCompare(b ?? '￿')) as [tag, nodes]}
+            <div class="edm-tag-group">
+              <div class="edm-tag-header">
+                <span class="edm-tag-name">{tag ?? 'Ungrouped'}</span>
+                {#if tag !== null}
+                  <input
+                    type="number"
+                    class="edm-number-input"
+                    min="0"
+                    step="0.01"
+                    value={settings.edmTagDefaults[tag] ?? ''}
+                    placeholder="—"
+                    oninput={e => {
+                      const v = (e.target as HTMLInputElement).value;
+                      const num = parseFloat(v);
+                      const newDefaults = { ...settings.edmTagDefaults };
+                      if (v === '' || isNaN(num)) {
+                        delete newDefaults[tag];
+                      } else {
+                        newDefaults[tag] = num;
+                      }
+                      settings = { ...settings, edmTagDefaults: newDefaults };
+                    }}
+                  />
+                  <span class="edm-tag-unit">tag default</span>
+                {/if}
+              </div>
+
+              {#each [...nodes].sort((a, b) => a.itemName.localeCompare(b.itemName)) as node}
+                {@const hasException = settings.edmValues[node.itemName] !== undefined}
+                {@const effectiveVal = resolveItemEdmValue(node.itemName, settings, tagsIndex)}
+                {@const isMissing = effectiveVal === null}
+                <div class="settings-row edm-item-row" class:edm-missing-row={isMissing}>
+                  <span class="settings-label edm-item-label" class:edm-missing-name={isMissing}>
+                    {#if isMissing}⚠ {/if}{node.itemName}
+                  </span>
+                  <div class="edm-item-value">
+                    {#if hasException}
+                      <input
+                        type="number"
+                        class="edm-number-input"
+                        min="0"
+                        step="0.01"
+                        value={settings.edmValues[node.itemName]}
+                        oninput={e => {
+                          const v = (e.target as HTMLInputElement).value;
+                          const num = parseFloat(v);
+                          const newEdm = { ...settings.edmValues };
+                          if (v === '' || isNaN(num)) {
+                            delete newEdm[node.itemName];
+                          } else {
+                            newEdm[node.itemName] = num;
+                          }
+                          settings = { ...settings, edmValues: newEdm };
+                        }}
+                      />
+                      <button
+                        class="edm-icon-btn"
+                        title="Reset to tag default"
+                        onclick={() => {
+                          const newEdm = { ...settings.edmValues };
+                          delete newEdm[node.itemName];
+                          settings = { ...settings, edmValues: newEdm };
+                        }}
+                      >↩</button>
+                    {:else}
+                      <span class="edm-inherited-value">{effectiveVal !== null ? effectiveVal : '—'}</span>
+                      <button
+                        class="edm-icon-btn"
+                        title="Override for this item"
+                        onclick={() => {
+                          settings = { ...settings, edmValues: { ...settings.edmValues, [node.itemName]: effectiveVal ?? 0 } };
+                        }}
+                      >✎</button>
+                    {/if}
+                  </div>
+                </div>
+              {/each}
+            </div>
+          {/each}
+        {:else}
+          <p class="empty">Generate a plan first to see raw resources.</p>
+        {/if}
+
+        <button
+          class="export-edm-btn"
+          onclick={() => {
+            const snap = $state.snapshot(settings) as AppSettings;
+            const json = JSON.stringify({ edmValues: snap.edmValues, edmTagDefaults: snap.edmTagDefaults }, null, 2);
+            const blob = new Blob([json], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'edm-values.json';
+            a.click();
+            URL.revokeObjectURL(url);
+          }}
+        >
+          Export EDM as JSON
+        </button>
       </section>
     </div>
   </div>
@@ -904,11 +1264,14 @@
 
   .report-panel {
     background: #1e1e1e; border: 1px solid #444; border-radius: 8px;
-    padding: 24px; min-width: 360px; max-width: 520px; max-height: 80vh;
+    min-width: 360px; width: min(860px, 90vw); max-height: 85vh;
     overflow-y: auto; color: #e0e0e0;
+    display: flex; flex-direction: column;
   }
 
-  .report-panel.wide { max-width: 700px; }
+  .report-panel.wide { width: min(1100px, 92vw); }
+
+  .report-body { padding: 16px 24px 24px; overflow-y: visible; }
 
   .compare-row {
     display: flex; align-items: center; gap: 8px;
@@ -930,7 +1293,13 @@
   .delta-pos { color: #f08080; }
 
   .report-header {
-    display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 20px 24px 12px;
+    position: sticky; top: 0; z-index: 2;
+    background: #1e1e1e;
+    border-bottom: 1px solid #2a2a2a;
+    margin-bottom: 0;
+    flex-shrink: 0;
   }
 
   .report-header h2 {
@@ -1111,6 +1480,7 @@
   :global(html.light) .report-panel {
     background: #ffffff; border-color: #d0d0d0; color: #1a1a1a;
   }
+  :global(html.light) .report-header { background: #ffffff; border-bottom-color: #e0e0e0; }
   :global(html.light) .report-header h2 { color: #1a6b9a; }
   :global(html.light) .report-panel h3 { color: #374151; }
   :global(html.light) .item-amt { color: #1d4ed8; }
@@ -1118,10 +1488,18 @@
   :global(html.light) .empty { color: #888; }
 
   .layout-settings-panel {
-    min-width: 320px;
-    max-width: 420px;
+    min-width: 360px;
+    max-width: 500px;
     max-height: 80vh;
     overflow-y: auto;
+  }
+
+  .layout-settings-panel > section {
+    padding: 0 24px;
+  }
+
+  .layout-settings-panel > section:last-child {
+    padding-bottom: 20px;
   }
 
   .settings-section-title {
@@ -1168,6 +1546,249 @@
   :global(html.light) .layout-settings-panel select {
     background: #ffffff; border-color: #bbb; color: #1a1a1a;
   }
+
+  /* EDM styles */
+  .edm-summary {
+    margin-top: 10px;
+    padding: 8px 10px;
+    background: #252525;
+    border-radius: 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    font-size: 12px;
+  }
+
+  .edm-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .edm-label { color: #888; }
+  .edm-value { color: #7ec8e3; font-variant-numeric: tabular-nums; }
+  .edm-total .edm-label { color: #b0b0b0; font-weight: bold; }
+  .edm-total .edm-value { color: #90e0b0; font-weight: bold; }
+  .edm-subheader .edm-label { font-style: italic; font-size: 11px; }
+
+  .edm-compare-header { border-bottom: 1px solid #333; padding-bottom: 3px; margin-bottom: 2px; }
+  .edm-col-hdr { font-size: 10px; color: #666; text-align: right; flex: 1; }
+
+  .edm-missing { color: #d4a017 !important; }
+  .edm-missing-name { color: #d4a017; }
+
+  .cross-prof-list {
+    margin-top: 8px;
+    font-size: 11px;
+  }
+
+  .cross-prof-header {
+    color: #888;
+    margin-bottom: 4px;
+    font-style: italic;
+  }
+
+  .cross-prof-row {
+    display: flex;
+    gap: 8px;
+    align-items: baseline;
+    padding: 3px 4px;
+    border-radius: 3px;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .cross-prof-row:hover { background: rgba(255,255,255,0.05); }
+  .cross-prof-row.cross-prof-expanded { background: rgba(200,160,240,0.08); }
+
+  .cross-prof-chevron { color: #888; font-size: 9px; width: 10px; flex-shrink: 0; }
+  .cross-prof-profs { color: #c8a0f0; white-space: nowrap; }
+  .cross-prof-item { color: #666; font-size: 10px; flex: 1; }
+  .cross-prof-amt { color: #f0c070; white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+  .cross-prof-detail {
+    margin: 2px 0 6px 14px;
+    padding: 8px 10px;
+    border-left: 2px solid #5a3a7a;
+    background: rgba(90,58,122,0.1);
+    border-radius: 0 4px 4px 0;
+    font-size: 10px;
+  }
+
+  .cp-detail-title {
+    color: #aaa;
+    margin-bottom: 6px;
+    font-style: italic;
+  }
+
+  .cp-entry {
+    display: flex;
+    gap: 6px;
+    align-items: baseline;
+    padding: 1px 0;
+  }
+
+  .cp-entry-profession { color: #888; white-space: nowrap; }
+  .cp-entry-table { color: #c8a0f0; white-space: nowrap; }
+  .cp-entry-leaf-type { color: #666; white-space: nowrap; }
+  .cp-entry-item { color: #e0e0e0; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cp-entry-amount { color: #888; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .cp-entry-edm { color: #f0c070; white-space: nowrap; font-variant-numeric: tabular-nums; margin-left: auto; }
+  .cp-entry-markup { color: #f0a040; font-size: 9px; background: rgba(240,160,64,0.15); border: 1px solid rgba(240,160,64,0.4); border-radius: 2px; padding: 0 3px; white-space: nowrap; }
+  .cp-entry-per-item { color: #888; font-size: 9px; white-space: nowrap; margin-left: auto; }
+  .cp-entry-markup-amt { color: #f0a040; }
+
+  .cp-detail-footer {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 6px;
+    padding-top: 5px;
+    border-top: 1px solid #3a2a4a;
+    color: #888;
+  }
+
+  .cp-markup-highlight { color: #f0c070; }
+
+  /* EDM Settings */
+  .edm-resources-header {
+    font-size: 11px;
+    color: #666;
+    margin: 8px 0 4px;
+    font-style: italic;
+  }
+
+  .edm-number-input {
+    width: 80px;
+    background: #2a2a2a;
+    border: 1px solid #444;
+    color: #e0e0e0;
+    border-radius: 4px;
+    padding: 3px 6px;
+    font-size: 12px;
+    text-align: right;
+  }
+
+  .edm-markup-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .edm-unit { color: #888; font-size: 12px; }
+
+  .edm-missing-row { background: rgba(212, 160, 23, 0.07); border-radius: 3px; }
+
+  .edm-tag-group {
+    margin-bottom: 10px;
+    border: 1px solid #2a2a2a;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .edm-tag-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 8px;
+    background: #1e2a1e;
+    font-weight: 600;
+    font-size: 12px;
+  }
+
+  .edm-tag-name {
+    flex: 1;
+    color: #8ec88e;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .edm-tag-unit {
+    color: #555;
+    font-size: 10px;
+    font-weight: normal;
+  }
+
+  .edm-item-row {
+    padding: 2px 8px 2px 20px;
+    min-height: 28px;
+    border-top: 1px solid #1e1e1e;
+  }
+
+  .edm-item-label { font-size: 12px; }
+
+  .edm-item-value {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .edm-inherited-value {
+    display: inline-block;
+    width: 80px;
+    text-align: right;
+    color: #555;
+    font-size: 12px;
+    padding-right: 4px;
+  }
+
+  .edm-icon-btn {
+    background: none;
+    border: 1px solid #333;
+    color: #888;
+    font-size: 12px;
+    padding: 1px 5px;
+    cursor: pointer;
+    border-radius: 3px;
+    line-height: 1.4;
+  }
+
+  .edm-icon-btn:hover { border-color: #666; color: #ccc; background: #222; }
+
+  .export-edm-btn {
+    margin-top: 12px;
+    width: 100%;
+    background: #2a3a2a;
+    border: 1px solid #4a7a4a;
+    color: #90d090;
+    font-size: 12px;
+    padding: 6px 12px;
+    font-weight: normal;
+  }
+
+  .export-edm-btn:hover:not(:disabled) { background: #334433; }
+
+  .eco-mode-label { font-weight: bold; color: #7ec8e3 !important; }
+
+  :global(html.light) .edm-summary { background: #f0f4f8; }
+  :global(html.light) .edm-label { color: #666; }
+  :global(html.light) .edm-value { color: #1a6b9a; }
+  :global(html.light) .edm-total .edm-label { color: #333; }
+  :global(html.light) .edm-total .edm-value { color: #1a7a3a; }
+  :global(html.light) .cross-prof-row:hover { background: rgba(0,0,0,0.04); }
+  :global(html.light) .cross-prof-row.cross-prof-expanded { background: rgba(124,58,237,0.06); }
+  :global(html.light) .cross-prof-profs { color: #7c3aed; }
+  :global(html.light) .cross-prof-amt { color: #b45309; }
+  :global(html.light) .cross-prof-detail { border-left-color: #9f7aea; background: rgba(159,122,234,0.06); }
+  :global(html.light) .cp-entry-table { color: #7c3aed; }
+  :global(html.light) .cp-entry-item { color: #1a1a1a; }
+  :global(html.light) .cp-entry-edm { color: #b45309; }
+  :global(html.light) .cp-markup-highlight { color: #b45309; }
+  :global(html.light) .cp-detail-footer { border-top-color: #ddd; }
+  :global(html.light) .edm-number-input {
+    background: #fff; border-color: #bbb; color: #1a1a1a;
+  }
+  :global(html.light) .edm-tag-group { border-color: #d0d8d0; }
+  :global(html.light) .edm-tag-header { background: #e8f0e8; }
+  :global(html.light) .edm-tag-name { color: #3a7a3a; }
+  :global(html.light) .edm-item-row { border-top-color: #e8e8e8; }
+  :global(html.light) .edm-inherited-value { color: #aaa; }
+  :global(html.light) .edm-icon-btn { border-color: #ccc; color: #666; }
+  :global(html.light) .edm-icon-btn:hover { border-color: #888; color: #333; background: #f0f0f0; }
+  :global(html.light) .export-edm-btn {
+    background: #e8f5e8; border-color: #4a9a4a; color: #1a5a1a;
+  }
+  :global(html.light) .eco-mode-label { color: #1a6b9a !important; }
 
   :global(.direction-select) {
     background: #1e1e1e;

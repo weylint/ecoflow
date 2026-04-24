@@ -1,9 +1,13 @@
-import type { PlannerGraph, PlannerNode, ItemPlannerNode, TablePlannerNode, LayoutOptions } from './types.js';
+import type { PlannerGraph, PlannerNode, ItemPlannerNode, TablePlannerNode, RawPlannerNode, MarketPlannerNode, TagPlannerNode, LayoutOptions } from './types.js';
 import { DEFAULT_LAYOUT_OPTIONS } from './types.js';
 import type { Node, Edge } from '@xyflow/svelte';
 import ELK from 'elkjs/lib/elk.bundled.js';
 
 const elk = new ELK();
+
+interface EdgeLabelData {
+  tooltip?: string;
+}
 
 export interface FlowGraph {
   nodes: Node[];
@@ -13,6 +17,7 @@ export interface FlowGraph {
 const NODE_WIDTH = 220;
 const NODE_HEIGHT = 140;
 const GROUP_PADDING = { top: 40, right: 20, bottom: 20, left: 20 };
+const EDGE_LABEL_INLINE_LIMIT = 2;
 
 function elkNodeId(id: string): string {
   // ELK needs IDs without special characters in some cases; we encode them
@@ -25,13 +30,34 @@ function fmt(n: number): string {
 
 const LABEL_STYLE = 'color: #ffffff; background: #2563eb; font-size: 11px; font-weight: 500; border-radius: 4px; padding: 2px 6px;';
 
-function labeledEdge(id: string, source: string, target: string, label: string): Edge {
+function labeledEdge(id: string, source: string, target: string, label: string, tooltip?: string): Edge<Record<string, unknown>, 'labeledEdge'> {
   return {
     id,
     source,
     target,
+    type: 'labeledEdge',
     label,
     labelStyle: LABEL_STYLE,
+    data: tooltip ? { tooltip } : undefined,
+  };
+}
+
+function formatTransferList(entries: { itemName: string; amount: number }[], maxInline = EDGE_LABEL_INLINE_LIMIT): { label: string; tooltip?: string } {
+  const formatted = entries
+    .filter(entry => entry.amount > 0)
+    .map(entry => `${entry.itemName} ×${fmt(entry.amount)}`);
+
+  if (formatted.length === 0) {
+    return { label: '' };
+  }
+
+  if (formatted.length <= maxInline) {
+    return { label: formatted.join(', ') };
+  }
+
+  return {
+    label: `${formatted.slice(0, maxInline).join(', ')} +${formatted.length - maxInline} more`,
+    tooltip: formatted.join('\n')
   };
 }
 
@@ -47,9 +73,15 @@ export async function buildFlowGraph(
   // ── Index item and table nodes for edge-label conversion ───────────
   const itemNodes = new Map<string, ItemPlannerNode>();
   const tableNodes = new Map<string, TablePlannerNode>();
+  const rawNodes = new Map<string, RawPlannerNode>();
+  const marketNodes = new Map<string, MarketPlannerNode>();
+  const tagNodes = new Map<string, TagPlannerNode>();
   for (const n of plannerGraph.nodes) {
     if (n.type === 'item') itemNodes.set(n.id, n as ItemPlannerNode);
     if (n.type === 'table') tableNodes.set(n.id, n as TablePlannerNode);
+    if (n.type === 'raw') rawNodes.set(n.id, n as RawPlannerNode);
+    if (n.type === 'market') marketNodes.set(n.id, n as MarketPlannerNode);
+    if (n.type === 'tag') tagNodes.set(n.id, n as TagPlannerNode);
   }
 
   // ── Build replacement edges for item nodes ─────────────────────────
@@ -85,6 +117,97 @@ export async function buildFlowGraph(
       }
     }
     if (total > 0) itemConsumerTotal.set(itemId, total);
+  }
+
+  const directConsumerTotal = new Map<string, number>();
+  for (const [nodeId, raw] of rawNodes) {
+    const targets = plannerGraph.edges.filter(e => e.source === nodeId).map(e => e.target);
+    let total = 0;
+    for (const tgt of targets) {
+      const tgtTable = tableNodes.get(tgt);
+      if (!tgtTable) continue;
+      const ing = tgtTable.variant.Ingredients.find(i => i.IsSpecificItem && i.Name === raw.itemName);
+      if (!ing) continue;
+      const perCycle = ing.IsStatic ? ing.Ammount : ing.Ammount * (1 - tgtTable.effectiveReduction);
+      total += perCycle * tgtTable.cycles;
+    }
+    if (total > 0) directConsumerTotal.set(nodeId, total);
+  }
+  for (const [nodeId, market] of marketNodes) {
+    const targets = plannerGraph.edges.filter(e => e.source === nodeId).map(e => e.target);
+    let total = 0;
+    for (const tgt of targets) {
+      const tgtTable = tableNodes.get(tgt);
+      if (!tgtTable) continue;
+      const ing = tgtTable.variant.Ingredients.find(i => i.IsSpecificItem && i.Name === market.itemName);
+      if (!ing) continue;
+      const perCycle = ing.IsStatic ? ing.Ammount : ing.Ammount * (1 - tgtTable.effectiveReduction);
+      total += perCycle * tgtTable.cycles;
+    }
+    if (total > 0) directConsumerTotal.set(nodeId, total);
+  }
+
+  const tagConsumerTotal = new Map<string, number>();
+  for (const [nodeId, tagNode] of tagNodes) {
+    const targets = plannerGraph.edges.filter(e => e.source === nodeId).map(e => e.target);
+    let total = 0;
+    for (const tgt of targets) {
+      const tgtTable = tableNodes.get(tgt);
+      if (!tgtTable) continue;
+      const ing = tgtTable.variant.Ingredients.find(i => !i.IsSpecificItem && i.Tag === tagNode.tag);
+      if (!ing) continue;
+      const perCycle = ing.IsStatic ? ing.Ammount : ing.Ammount * (1 - tgtTable.effectiveReduction);
+      total += perCycle * tgtTable.cycles;
+    }
+    if (total > 0) tagConsumerTotal.set(nodeId, total);
+  }
+
+  const tagEdgeLabels = new Map<string, { label: string; tooltip?: string }>();
+  for (const [nodeId, tagNode] of tagNodes) {
+    const targets = plannerGraph.edges.filter(e => e.source === nodeId).map(e => e.target);
+    if (targets.length === 0) continue;
+
+    const remainingSupply = [
+      ...(tagNode.byproductContributors ?? []).map(contributor => ({
+        itemName: contributor.itemName,
+        remaining: contributor.contribution,
+      })),
+      ...(tagNode.selectedItem && tagNode.amount > 0
+        ? [{ itemName: tagNode.selectedItem, remaining: tagNode.amount }]
+        : []),
+    ];
+
+    for (const tgt of targets) {
+      const tgtTable = tableNodes.get(tgt);
+      if (!tgtTable) continue;
+
+      const ing = tgtTable.variant.Ingredients.find(i => !i.IsSpecificItem && i.Tag === tagNode.tag);
+      if (!ing) continue;
+
+      let remainingNeed = (ing.IsStatic ? ing.Ammount : ing.Ammount * (1 - tgtTable.effectiveReduction)) * tgtTable.cycles;
+      const allocations: { itemName: string; amount: number }[] = [];
+
+      for (const supply of remainingSupply) {
+        if (remainingNeed <= 0) break;
+        if (supply.remaining <= 0) continue;
+
+        const used = Math.min(supply.remaining, remainingNeed);
+        allocations.push({ itemName: supply.itemName, amount: used });
+        supply.remaining -= used;
+        remainingNeed -= used;
+      }
+
+      if (allocations.length === 0) continue;
+
+      const total = tagConsumerTotal.get(nodeId) ?? 0;
+      const allocatedTotal = allocations.reduce((sum, entry) => sum + entry.amount, 0);
+      const transfer = formatTransferList(allocations);
+      const pctSuffix = total > 0 ? ` (${Math.round(allocatedTotal / total * 100)}%)` : '';
+      tagEdgeLabels.set(`${nodeId}->${tgt}`, {
+        label: `${transfer.label}${pctSuffix}`,
+        tooltip: transfer.tooltip,
+      });
+    }
   }
 
   // Only mark edges for skipping after confirming the item node will be converted
@@ -140,7 +263,36 @@ export async function buildFlowGraph(
 
   const plainEdges: Edge[] = plannerGraph.edges
     .filter(e => !skipEdgeIds.has(e.id))
-    .map(e => ({ id: e.id, source: e.source, target: e.target, type: 'default' } as Edge));
+    .map(e => {
+      const tgtTable = tableNodes.get(e.target);
+      const rawNode = rawNodes.get(e.source);
+      const marketNode = marketNodes.get(e.source);
+
+      if (tgtTable && (rawNode || marketNode)) {
+        const itemName = rawNode?.itemName ?? marketNode?.itemName ?? '';
+        const ing = tgtTable.variant.Ingredients.find(i => i.IsSpecificItem && i.Name === itemName);
+        if (ing) {
+          const perCycle = ing.IsStatic ? ing.Ammount : ing.Ammount * (1 - tgtTable.effectiveReduction);
+          const amt = perCycle * tgtTable.cycles;
+          const total = directConsumerTotal.get(e.source) ?? 0;
+          if (total > 0) {
+            const pct = Math.round(amt / total * 100);
+            return labeledEdge(e.id, e.source, e.target, `${itemName} · ×${fmt(amt)} (${pct}%)`);
+          }
+          return labeledEdge(e.id, e.source, e.target, `${itemName} · ×${fmt(amt)}`);
+        }
+      }
+
+      const tagNode = tagNodes.get(e.source);
+      if (tgtTable && tagNode) {
+        const transfer = tagEdgeLabels.get(`${e.source}->${e.target}`);
+        if (transfer) {
+          return labeledEdge(e.id, e.source, e.target, transfer.label, transfer.tooltip);
+        }
+      }
+
+      return { id: e.id, source: e.source, target: e.target, type: 'default' } as Edge;
+    });
 
   // ── ELK layout ─────────────────────────────────────────────────────
   const layoutNodes = plannerGraph.nodes.filter(n => !skipNodeIds.has(n.id));
