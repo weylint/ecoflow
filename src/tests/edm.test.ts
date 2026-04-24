@@ -4,7 +4,7 @@ import { buildRecipeIndex } from '$lib/recipeIndex.js';
 import { buildTagsIndex } from '$lib/tagsIndex.js';
 import { computeEdmReport } from '$lib/edm.js';
 import type { AppSettings } from '$lib/settings.js';
-import type { RecipeObject, UserChoices } from '$lib/types.js';
+import type { PlannerGraph, RecipeObject, UserChoices } from '$lib/types.js';
 
 function emptyChoices(): UserChoices {
   return {
@@ -212,5 +212,72 @@ describe('computeEdmReport', () => {
       expect(sandstoneLeaf.amount).toBe(140);
       expect(sandstoneLeaf.totalEdm).toBeCloseTo(7, 6);
     }
+  });
+
+  it('does not recurse forever when transition detail paths contain cycles', () => {
+    const cyclicGraph: PlannerGraph = {
+      nodes: [
+        {
+          type: 'table',
+          id: 'table:A',
+          itemName: 'A',
+          table: 'Machine A',
+          recipe: {
+            Key: 'A',
+            SkillNeeds: [{ Skill: 'Engineering', Level: 1 }]
+          } as RecipeObject,
+          variant: {
+            Key: 'A',
+            Name: 'A',
+            Ingredients: [{ IsSpecificItem: true, Tag: null, Name: 'B', Ammount: 1, IsStatic: false }],
+            Products: [{ Name: 'A', Ammount: 1 }]
+          },
+          cycles: 1,
+          effectiveReduction: 0,
+          appliedTalents: [],
+          availableRecipes: []
+        },
+        {
+          type: 'item',
+          id: 'item:A',
+          itemName: 'A',
+          amount: 1
+        },
+        {
+          type: 'table',
+          id: 'table:B',
+          itemName: 'B',
+          table: 'Machine B',
+          recipe: {
+            Key: 'B',
+            SkillNeeds: [{ Skill: 'Smelting', Level: 1 }]
+          } as RecipeObject,
+          variant: {
+            Key: 'B',
+            Name: 'B',
+            Ingredients: [{ IsSpecificItem: true, Tag: null, Name: 'A', Ammount: 1, IsStatic: false }],
+            Products: [{ Name: 'B', Ammount: 1 }]
+          },
+          cycles: 1,
+          effectiveReduction: 0,
+          appliedTalents: [],
+          availableRecipes: []
+        },
+        {
+          type: 'item',
+          id: 'item:B',
+          itemName: 'B',
+          amount: 1
+        }
+      ],
+      edges: [
+        { id: 'table:A->item:A', source: 'table:A', target: 'item:A' },
+        { id: 'item:B->table:A', source: 'item:B', target: 'table:A' },
+        { id: 'table:B->item:B', source: 'table:B', target: 'item:B' },
+        { id: 'item:A->table:B', source: 'item:A', target: 'table:B' }
+      ]
+    };
+
+    expect(() => computeEdmReport(cyclicGraph, settings, buildTagsIndex({}))).not.toThrow();
   });
 });

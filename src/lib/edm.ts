@@ -125,148 +125,151 @@ export function computeEdmReport(graph: PlannerGraph, settings: AppSettings, tag
     neededAmount: number,
     depth: number,
     consumerCtx: { prof: string; level: number; recipeKey: string } | null = null,
-    visited = new Set<string>()
+    activePath = new Set<string>()
   ): LocalPathResult {
-    const visitKey = `${nodeId}:${neededAmount.toFixed(6)}`;
-    if (visited.has(visitKey)) return { entries: [], subtreeEdm: 0 };
-    visited.add(visitKey);
+    if (activePath.has(nodeId)) return { entries: [], subtreeEdm: 0 };
+    activePath.add(nodeId);
 
-    const node = nodeMap.get(nodeId);
-    if (!node) return { entries: [], subtreeEdm: 0 };
+    try {
+      const node = nodeMap.get(nodeId);
+      if (!node) return { entries: [], subtreeEdm: 0 };
 
-    if (node.type === 'raw') {
-      const rawNode = node as RawPlannerNode;
-      const edmPerUnit = resolveItemEdmValue(rawNode.itemName, settings, tagsIndex);
-      const totalEdm = edmPerUnit !== null ? neededAmount * edmPerUnit : null;
-      return {
-        entries: [{
-          kind: 'leaf',
-          depth,
-          itemName: rawNode.itemName,
-          nodeType: 'raw',
-          amount: neededAmount,
-          edmPerUnit,
-          totalEdm,
-        }],
-        subtreeEdm: totalEdm,
-      };
-    }
+      if (node.type === 'raw') {
+        const rawNode = node as RawPlannerNode;
+        const edmPerUnit = resolveItemEdmValue(rawNode.itemName, settings, tagsIndex);
+        const totalEdm = edmPerUnit !== null ? neededAmount * edmPerUnit : null;
+        return {
+          entries: [{
+            kind: 'leaf',
+            depth,
+            itemName: rawNode.itemName,
+            nodeType: 'raw',
+            amount: neededAmount,
+            edmPerUnit,
+            totalEdm,
+          }],
+          subtreeEdm: totalEdm,
+        };
+      }
 
-    if (node.type === 'market') {
-      const marketNode = node as MarketPlannerNode;
-      const edmPerUnit = resolveItemEdmValue(marketNode.itemName, settings, tagsIndex);
-      const totalEdm = edmPerUnit !== null ? neededAmount * edmPerUnit : null;
-      return {
-        entries: [{
-          kind: 'leaf',
-          depth,
-          itemName: marketNode.itemName,
-          nodeType: 'market',
-          amount: neededAmount,
-          edmPerUnit,
-          totalEdm,
-        }],
-        subtreeEdm: totalEdm,
-      };
-    }
+      if (node.type === 'market') {
+        const marketNode = node as MarketPlannerNode;
+        const edmPerUnit = resolveItemEdmValue(marketNode.itemName, settings, tagsIndex);
+        const totalEdm = edmPerUnit !== null ? neededAmount * edmPerUnit : null;
+        return {
+          entries: [{
+            kind: 'leaf',
+            depth,
+            itemName: marketNode.itemName,
+            nodeType: 'market',
+            amount: neededAmount,
+            edmPerUnit,
+            totalEdm,
+          }],
+          subtreeEdm: totalEdm,
+        };
+      }
 
-    if (node.type === 'table') {
-      const tableNode = node as TablePlannerNode;
-      const profession = tableNode.recipe.SkillNeeds[0]?.Skill ?? '';
-      const level = tableNode.recipe.SkillNeeds[0]?.Level ?? 0;
-      const primaryOutputPerCycle = tableNode.variant.Products.find(p => p.Name === tableNode.itemName)?.Ammount ?? 1;
-      const cycles = Math.ceil(neededAmount / primaryOutputPerCycle);
-      const outputAmount = cycles * primaryOutputPerCycle;
+      if (node.type === 'table') {
+        const tableNode = node as TablePlannerNode;
+        const profession = tableNode.recipe.SkillNeeds[0]?.Skill ?? '';
+        const level = tableNode.recipe.SkillNeeds[0]?.Level ?? 0;
+        const primaryOutputPerCycle = tableNode.variant.Products.find(p => p.Name === tableNode.itemName)?.Ammount ?? 1;
+        const cycles = Math.ceil(neededAmount / primaryOutputPerCycle);
+        const outputAmount = cycles * primaryOutputPerCycle;
 
-      const markupApplied = consumerCtx !== null &&
-        !EDM_MARKUP_EXCLUDED_RECIPES.has(consumerCtx.recipeKey) &&
-        isSpecializedSkill(consumerCtx.prof, consumerCtx.level) &&
-        isSpecializedSkill(profession, level) &&
-        profession !== consumerCtx.prof;
+        const markupApplied = consumerCtx !== null &&
+          !EDM_MARKUP_EXCLUDED_RECIPES.has(consumerCtx.recipeKey) &&
+          isSpecializedSkill(consumerCtx.prof, consumerCtx.level) &&
+          isSpecializedSkill(profession, level) &&
+          profession !== consumerCtx.prof;
 
-      const childEntries: TransitionPathEntry[] = [];
-      let total: number | null = 0;
-      const myCtx = { prof: profession, level, recipeKey: tableNode.recipe.Key };
+        const childEntries: TransitionPathEntry[] = [];
+        let total: number | null = 0;
+        const myCtx = { prof: profession, level, recipeKey: tableNode.recipe.Key };
 
-      for (const ingredient of tableNode.variant.Ingredients) {
-        const ingredientNeeded = (ingredient.IsStatic
-          ? ingredient.Ammount
-          : ingredient.Ammount * (1 - tableNode.effectiveReduction)) * cycles;
+        for (const ingredient of tableNode.variant.Ingredients) {
+          const ingredientNeeded = (ingredient.IsStatic
+            ? ingredient.Ammount
+            : ingredient.Ammount * (1 - tableNode.effectiveReduction)) * cycles;
 
-        const inputId = ingredient.IsSpecificItem
-          ? itemNodeId(ingredient.Name)
-          : tagNodeId(ingredient.Tag as string);
+          const inputId = ingredient.IsSpecificItem
+            ? itemNodeId(ingredient.Name)
+            : tagNodeId(ingredient.Tag as string);
 
-        let child: LocalPathResult;
-        if (ingredient.IsSpecificItem) {
-          child = buildLocalPath(inputId, ingredientNeeded, depth + 1, myCtx, visited);
-        } else {
-          const tagNode = nodeMap.get(inputId);
-          if (tagNode?.type === 'tag' && (tagNode as TagPlannerNode).selectedItem) {
-            child = buildLocalPath(
-              itemNodeId((tagNode as TagPlannerNode).selectedItem as string),
-              ingredientNeeded,
-              depth + 1,
-              myCtx,
-              visited
-            );
+          let child: LocalPathResult;
+          if (ingredient.IsSpecificItem) {
+            child = buildLocalPath(inputId, ingredientNeeded, depth + 1, myCtx, activePath);
           } else {
-            child = buildLocalPath(inputId, ingredientNeeded, depth + 1, myCtx, visited);
+            const tagNode = nodeMap.get(inputId);
+            if (tagNode?.type === 'tag' && (tagNode as TagPlannerNode).selectedItem) {
+              child = buildLocalPath(
+                itemNodeId((tagNode as TagPlannerNode).selectedItem as string),
+                ingredientNeeded,
+                depth + 1,
+                myCtx,
+                activePath
+              );
+            } else {
+              child = buildLocalPath(inputId, ingredientNeeded, depth + 1, myCtx, activePath);
+            }
+          }
+
+          childEntries.push(...child.entries);
+
+          const producerTable = resolveProducerTable(inputId);
+          const producerProf = producerTable?.recipe.SkillNeeds[0]?.Skill ?? '';
+          const producerLevel = producerTable?.recipe.SkillNeeds[0]?.Level ?? 0;
+          const profChanged =
+            !EDM_MARKUP_EXCLUDED_RECIPES.has(tableNode.recipe.Key) &&
+            isSpecializedSkill(profession, level) &&
+            isSpecializedSkill(producerProf, producerLevel) &&
+            producerProf !== profession;
+          const markup = profChanged ? settings.crossProfessionMarkup : 0;
+
+          if (child.subtreeEdm === null) {
+            total = null;
+          } else if (total !== null) {
+            total += child.subtreeEdm * (1 + markup);
           }
         }
 
-        childEntries.push(...child.entries);
+        const entry: TablePathEntry = {
+          kind: 'table',
+          depth,
+          tableName: tableNode.table,
+          itemName: tableNode.itemName,
+          profession,
+          neededAmount,
+          subtreeEdm: total,
+          cycles,
+          outputAmount,
+          markupApplied,
+        };
 
-        const producerTable = resolveProducerTable(inputId);
-        const producerProf = producerTable?.recipe.SkillNeeds[0]?.Skill ?? '';
-        const producerLevel = producerTable?.recipe.SkillNeeds[0]?.Level ?? 0;
-        const profChanged =
-          !EDM_MARKUP_EXCLUDED_RECIPES.has(tableNode.recipe.Key) &&
-          isSpecializedSkill(profession, level) &&
-          isSpecializedSkill(producerProf, producerLevel) &&
-          producerProf !== profession;
-        const markup = profChanged ? settings.crossProfessionMarkup : 0;
+        return { entries: [entry, ...childEntries], subtreeEdm: total };
+      }
 
+      const producer = producerTableOf.get(nodeId);
+      if (producer) {
+        return buildLocalPath(producer.id, neededAmount, depth, consumerCtx, activePath);
+      }
+
+      let total: number | null = 0;
+      const entries: TransitionPathEntry[] = [];
+      for (const sourceId of edgesByTarget.get(nodeId) ?? []) {
+        const child = buildLocalPath(sourceId, neededAmount, depth, consumerCtx, activePath);
+        entries.push(...child.entries);
         if (child.subtreeEdm === null) {
           total = null;
         } else if (total !== null) {
-          total += child.subtreeEdm * (1 + markup);
+          total += child.subtreeEdm;
         }
       }
-
-      const entry: TablePathEntry = {
-        kind: 'table',
-        depth,
-        tableName: tableNode.table,
-        itemName: tableNode.itemName,
-        profession,
-        neededAmount,
-        subtreeEdm: total,
-        cycles,
-        outputAmount,
-        markupApplied,
-      };
-
-      return { entries: [entry, ...childEntries], subtreeEdm: total };
+      return { entries, subtreeEdm: total };
+    } finally {
+      activePath.delete(nodeId);
     }
-
-    const producer = producerTableOf.get(nodeId);
-    if (producer) {
-      return buildLocalPath(producer.id, neededAmount, depth, consumerCtx, visited);
-    }
-
-    let total: number | null = 0;
-    const entries: TransitionPathEntry[] = [];
-    for (const sourceId of edgesByTarget.get(nodeId) ?? []) {
-      const child = buildLocalPath(sourceId, neededAmount, depth, consumerCtx, visited);
-      entries.push(...child.entries);
-      if (child.subtreeEdm === null) {
-        total = null;
-      } else if (total !== null) {
-        total += child.subtreeEdm;
-      }
-    }
-    return { entries, subtreeEdm: total };
   }
   // Tracks nodes currently being computed — used to detect cycles.
   // When a cycle is detected, we return 0 instead of null to avoid

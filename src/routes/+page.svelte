@@ -186,6 +186,18 @@
     return (pct > 0 ? '+' : '') + pct + '%';
   }
 
+  function openReport() {
+    expandedTransition = null;
+    compareUpgrade = null;
+    showReport = true;
+  }
+
+  function closeReport() {
+    showReport = false;
+    compareUpgrade = null;
+    expandedTransition = null;
+  }
+
   // SvelteFlow v0.1.x requires writable stores, not $state arrays
   const flowNodes = writable<Node[]>([]);
   const flowEdges = writable<Edge[]>([]);
@@ -513,12 +525,7 @@
         Plan!
       </button>
 
-      <button onclick={() => {
-        showReport = true;
-        const otherMode: 'eco12' | 'eco13' = settings.ecoMode === 'eco13' ? 'eco12' : 'eco13';
-        const otherLevels = getUpgradeLevels(otherMode);
-        compareUpgrade = { value: otherLevels[otherLevels.length - 1].value, mode: otherMode };
-      }} disabled={loading || $flowNodes.length === 0}>
+      <button onclick={openReport} disabled={loading || $flowNodes.length === 0}>
         Generate Report
       </button>
 
@@ -601,7 +608,7 @@
     <div class="report-panel" class:wide={!!comparisonReport}>
       <div class="report-header">
         <h2>Production Report</h2>
-        <button class="close-btn" onclick={() => { showReport = false; compareUpgrade = null; }}>✕</button>
+        <button class="close-btn" onclick={closeReport}>✕</button>
       </div>
       <div class="report-body">
       <div class="compare-row">
