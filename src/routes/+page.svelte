@@ -188,7 +188,9 @@
 
   function openReport() {
     expandedTransition = null;
-    compareUpgrade = null;
+    const otherMode: 'eco12' | 'eco13' = settings.ecoMode === 'eco13' ? 'eco12' : 'eco13';
+    const otherLevels = getUpgradeLevels(otherMode);
+    compareUpgrade = { value: otherLevels[otherLevels.length - 1].value, mode: otherMode };
     showReport = true;
   }
 
