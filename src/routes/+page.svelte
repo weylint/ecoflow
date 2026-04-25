@@ -710,6 +710,13 @@
                   <span class="edm-value">{edmReport.baseEdm != null ? fmtEdm(edmReport.baseEdm / amount) : '—'}</span>
                   <span class="edm-value">{cmpEdm.baseEdm != null ? fmtEdm(cmpEdm.baseEdm / amount) : '—'}</span>
                 </span>
+                {#if edmReport.laborFoodEdm !== null || cmpEdm.laborFoodEdm !== null}
+                  <span class="edm-row">
+                    <span class="edm-label">Food EDM:</span>
+                    <span class="edm-value">{edmReport.laborFoodEdm !== null ? '+' + fmtEdm(edmReport.laborFoodEdm / amount) : '—'}</span>
+                    <span class="edm-value">{cmpEdm.laborFoodEdm !== null ? '+' + fmtEdm(cmpEdm.laborFoodEdm / amount) : '—'}</span>
+                  </span>
+                {/if}
                 {#if edmReport.crossProfTransitions.length > 0 || (cmpEdm.crossProfTransitions?.length ?? 0) > 0}
                   <span class="edm-row">
                     <span class="edm-label">Prof. markup:</span>
@@ -725,6 +732,9 @@
               {:else}
                 <span class="edm-row edm-subheader"><span class="edm-label">per {selectedProduct}</span></span>
                 <span class="edm-row"><span class="edm-label">Base EDM:</span> <span class="edm-value">{edmReport.baseEdm != null ? fmtEdm(edmReport.baseEdm / amount) : '— (missing values)'}</span></span>
+                {#if edmReport.laborFoodEdm !== null}
+                  <span class="edm-row"><span class="edm-label">Food EDM:</span> <span class="edm-value">+{fmtEdm(edmReport.laborFoodEdm / amount)}</span></span>
+                {/if}
                 {#if edmReport.crossProfTransitions.length > 0}
                   <span class="edm-row"><span class="edm-label">Profession markup:</span> <span class="edm-value">{edmReport.markupEdm != null ? '+' + fmtEdm(edmReport.markupEdm / amount) : '—'}</span></span>
                 {/if}
@@ -1034,6 +1044,40 @@
             <span class="edm-unit">%</span>
           </div>
         </label>
+
+        <label class="settings-row">
+          <span class="settings-label">Include food cost</span>
+          <input
+            type="checkbox"
+            checked={settings.foodCostEnabled}
+            onchange={e => { settings = { ...settings, foodCostEnabled: (e.target as HTMLInputElement).checked }; }}
+          />
+        </label>
+
+        {#if settings.foodCostEnabled}
+          <div class="edm-food-tiers">
+            <div class="edm-food-tier-header">EDM per 1k calories:</div>
+            {#each [['baseline', 'Baseline'], ['basic', 'Basic'], ['advanced', 'Advanced'], ['modern', 'Modern']] as [tier, label]}
+              <label class="settings-row edm-food-tier-row">
+                <span class="settings-label edm-food-tier-label">{label}</span>
+                <div class="edm-markup-row">
+                  <input
+                    type="number"
+                    class="edm-number-input"
+                    min="0"
+                    step="0.1"
+                    value={settings.foodTierCosts[tier as keyof typeof settings.foodTierCosts]}
+                    oninput={e => {
+                      const v = Number((e.target as HTMLInputElement).value);
+                      if (!isNaN(v)) settings = { ...settings, foodTierCosts: { ...settings.foodTierCosts, [tier]: v } };
+                    }}
+                  />
+                  <span class="edm-unit">EDM</span>
+                </div>
+              </label>
+            {/each}
+          </div>
+        {/if}
 
         {#if plannerRawNodes.length > 0 && tagsIndex}
           <div class="edm-resources-header">Raw resources (current plan):</div>

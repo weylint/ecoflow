@@ -62,7 +62,9 @@ const settings: AppSettings = {
   ecoMode: 'eco13',
   edmValues: { Sandstone: 0.05 },
   edmTagDefaults: {},
-  crossProfessionMarkup: 0.1
+  crossProfessionMarkup: 0.1,
+  foodCostEnabled: false,
+  foodTierCosts: { baseline: 1, basic: 3, advanced: 8, modern: 20 },
 };
 
 describe('computeEdmReport', () => {
@@ -163,7 +165,9 @@ describe('computeEdmReport', () => {
       ecoMode: 'eco13',
       edmValues: { Sandstone: 0.05 },
       edmTagDefaults: {},
-      crossProfessionMarkup: 0.1
+      crossProfessionMarkup: 0.1,
+      foodCostEnabled: false,
+      foodTierCosts: { baseline: 1, basic: 3, advanced: 8, modern: 20 },
     };
 
     const recipeIndex = buildRecipeIndex([

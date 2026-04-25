@@ -1,8 +1,17 @@
+export interface FoodTierCosts {
+  baseline: number;
+  basic: number;
+  advanced: number;
+  modern: number;
+}
+
 export interface AppSettings {
   ecoMode: 'eco12' | 'eco13';
   edmValues: Record<string, number>;
   edmTagDefaults: Record<string, number>;
   crossProfessionMarkup: number;
+  foodCostEnabled: boolean;
+  foodTierCosts: FoodTierCosts;
 }
 
 export const DEFAULT_EDM_TAG_DEFAULTS: Record<string, number> = {
@@ -49,11 +58,20 @@ export const DEFAULT_EDM_VALUES: Record<string, number> = {
   'Urchin':       0.2,
 };
 
+export const DEFAULT_FOOD_TIER_COSTS: FoodTierCosts = {
+  baseline: 1,
+  basic: 3,
+  advanced: 8,
+  modern: 20,
+};
+
 export const DEFAULT_SETTINGS: AppSettings = {
   ecoMode: 'eco13',
   edmValues: { ...DEFAULT_EDM_VALUES },
   edmTagDefaults: { ...DEFAULT_EDM_TAG_DEFAULTS },
   crossProfessionMarkup: 0.25,
+  foodCostEnabled: false,
+  foodTierCosts: { ...DEFAULT_FOOD_TIER_COSTS },
 };
 
 const STORAGE_KEY = 'eco-planner-settings';
@@ -68,6 +86,8 @@ export function loadSettings(): AppSettings {
       edmValues: { ...DEFAULT_EDM_VALUES, ...(parsed.edmValues ?? {}) },
       edmTagDefaults: { ...DEFAULT_EDM_TAG_DEFAULTS, ...(parsed.edmTagDefaults ?? {}) },
       crossProfessionMarkup: parsed.crossProfessionMarkup ?? DEFAULT_SETTINGS.crossProfessionMarkup,
+      foodCostEnabled: parsed.foodCostEnabled ?? DEFAULT_SETTINGS.foodCostEnabled,
+      foodTierCosts: { ...DEFAULT_FOOD_TIER_COSTS, ...(parsed.foodTierCosts ?? {}) },
     };
   } catch {
     return { ...DEFAULT_SETTINGS, edmValues: { ...DEFAULT_EDM_VALUES }, edmTagDefaults: { ...DEFAULT_EDM_TAG_DEFAULTS } };

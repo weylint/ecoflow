@@ -44,10 +44,50 @@ export interface CrossProfTransition {
   pathEntries: TransitionPathEntry[];
 }
 
+export type FoodTier = 'baseline' | 'basic' | 'advanced' | 'modern';
+
+export const PROFESSION_FOOD_TIER: Record<string, FoodTier> = {
+  // Baseline — raw gathering only
+  'Farming':   'baseline',
+  'Butchery':  'baseline',
+  'Mining':    'baseline',
+  'Logging':   'baseline',
+  'Gathering': 'baseline',
+  'Hunting':   'baseline',
+  // Basic — green professions
+  'Masonry':         'basic',
+  'Carpentry':       'basic',
+  'Shipwright':      'basic',
+  'Basic Engineer':  'basic',
+  'Tailoring':       'basic',
+  'Milling':         'basic',
+  'Smelting':        'basic',
+  'Fertilizers':     'basic',
+  'Blacksmith':      'basic',
+  'Pottery':         'basic',
+  'Glassworking':    'basic',
+  'Painting':        'basic',
+  'Cooking':         'basic',
+  'Baking':          'basic',
+  // Advanced — yellow professions
+  'Mechanics':        'advanced',
+  'Paper Milling':    'advanced',
+  'Advanced Smelting':'advanced',
+  'Advanced Cooking': 'advanced',
+  'Advanced Bakery':  'advanced',
+  // Modern — red professions
+  'Electronics':      'modern',
+  'Industry':         'modern',
+  'Oil Drilling':     'modern',
+  'Advanced Masonry': 'modern',
+  'Composites':       'modern',
+};
+
 export interface EdmReport {
   rawCosts: RawCost[];
   crossProfTransitions: CrossProfTransition[];
   baseEdm: number | null;
+  laborFoodEdm: number | null;
   markupEdm: number | null;
   totalEdm: number | null;
   missingItems: string[];
@@ -69,6 +109,14 @@ export function computeEdmReport(graph: PlannerGraph, settings: AppSettings, tag
   const itemNodeId = (name: string) => `item:${name}`;
   const tagNodeId = (tag: string) => `tag:${tag}`;
   const nodeMap = new Map<string, PlannerNode>(graph.nodes.map(n => [n.id, n]));
+
+  function tableFoodEdm(node: TablePlannerNode): number {
+    if (!settings.foodCostEnabled) return 0;
+    const prof = node.recipe.SkillNeeds[0]?.Skill ?? '';
+    const tier = PROFESSION_FOOD_TIER[prof] ?? 'basic';
+    const calories = node.recipe.BaseLaborCost * node.cycles / 2;
+    return (calories / 1000) * settings.foodTierCosts[tier];
+  }
 
   // edgesByTarget[targetId] = [sourceIds] — i.e. what feeds into targetId
   const edgesByTarget = new Map<string, string[]>();
@@ -234,6 +282,8 @@ export function computeEdmReport(graph: PlannerGraph, settings: AppSettings, tag
           }
         }
 
+        if (total !== null) total += tableFoodEdm(tableNode);
+
         const entry: TablePathEntry = {
           kind: 'table',
           depth,
@@ -346,7 +396,7 @@ export function computeEdmReport(graph: PlannerGraph, settings: AppSettings, tag
           total += inputEdm * (1 + markup);
         }
       }
-      result = total;
+      result = total !== null ? total + tableFoodEdm(tableNode) : null;
 
     } else {
       // item / tag / byproduct — pass through to producer table if directly known,
@@ -401,8 +451,16 @@ export function computeEdmReport(graph: PlannerGraph, settings: AppSettings, tag
     ? crossProfTransitions.reduce((sum, t) => sum + (t.markupAmount ?? 0), 0)
     : null;
 
-  const totalEdm =
-    baseEdm !== null && markupEdm !== null ? baseEdm + markupEdm : null;
+  const laborFoodEdm = settings.foodCostEnabled
+    ? graph.nodes
+        .filter((n): n is TablePlannerNode => n.type === 'table')
+        .reduce((sum, n) => sum + tableFoodEdm(n), 0)
+    : null;
 
-  return { rawCosts, crossProfTransitions, baseEdm, markupEdm, totalEdm, missingItems };
+  const totalEdm =
+    baseEdm !== null && markupEdm !== null
+      ? baseEdm + (laborFoodEdm ?? 0) + markupEdm
+      : null;
+
+  return { rawCosts, crossProfTransitions, baseEdm, laborFoodEdm, markupEdm, totalEdm, missingItems };
 }
