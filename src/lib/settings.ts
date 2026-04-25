@@ -9,14 +9,15 @@ export const DEFAULT_EDM_TAG_DEFAULTS: Record<string, number> = {
   'Ore':            1.0,
   'Rock':           0.05,
   'Wood':           0.5,
-  'Fungus':         0.2,
-  'Grain':          0.2,
-  'Fruit':          0.2,
-  'Greens':         0.2,
+  'Crop':           0.3,
+  'Fungus':         0.3,
+  'Grain':          0.3,
+  'Fruit':          0.3,
+  'Greens':         0.3,
   'Natural Fiber':  0.1,
   'Petals':         0.2,
-  'Seeds':          0.2,
-  'Vegetable':      0.2,
+  'Seeds':          0.3,
+  'Vegetable':      0.3,
   'Medium Carcass': 15,
   'Small Carcass':  6,
   'Tiny Carcass':   3,
@@ -26,7 +27,12 @@ export const DEFAULT_EDM_TAG_DEFAULTS: Record<string, number> = {
 
 export const DEFAULT_EDM_VALUES: Record<string, number> = {
   // Exceptions that override tag defaults
-  'Limestone':     0.1,  // Rock tag default is 0.05
+  'Limestone':     0.15, // Rock tag default is 0.05; Silica rocks (Granite, Sandstone) use tag default
+  'Basalt':        0.025,
+  'Gneiss':        0.025,
+  'Shale':         0.025,
+  'Stone':         0.025,
+  'Pineapple':     0.4,  // Fruit tag default is 0.3
   'Crab Carcass':  0.3,  // Small Fish tag (no default set)
   'Bison Carcass': 30,   // No tag
   // Individual raw resources (no tag default)
@@ -47,7 +53,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   ecoMode: 'eco13',
   edmValues: { ...DEFAULT_EDM_VALUES },
   edmTagDefaults: { ...DEFAULT_EDM_TAG_DEFAULTS },
-  crossProfessionMarkup: 0.10,
+  crossProfessionMarkup: 0.25,
 };
 
 const STORAGE_KEY = 'eco-planner-settings';
