@@ -739,8 +739,8 @@
                   {@const cmp = comparisonReport.rawByItem.get(itemName) ?? 0}
                   <tr>
                     <td class="item-name" class:edm-missing-name={isMissing}>{itemName}{#if isMissing} ⚠{/if}</td>
-                    <td class="item-amt">{fmtNum(cur)}</td>
-                    <td class="item-amt">{fmtNum(cmp)}</td>
+                    <td class="item-amt">{fmtNum(cur, true)}</td>
+                    <td class="item-amt">{fmtNum(cmp, true)}</td>
                     <td class="item-amt" class:delta-neg={cmp < cur} class:delta-pos={cmp > cur}>{fmtDeltaPct(cur, cmp)}</td>
                     <td class="item-amt" class:edm-missing={isMissing}>{rawCost?.edmPerUnit != null ? fmtEdm(rawCost.edmPerUnit) : '—'}</td>
                     <td class="item-amt" class:edm-missing={isMissing}>{rawCost?.totalEdm != null ? fmtEdm(rawCost.totalEdm / amount) : '—'}</td>
@@ -748,7 +748,7 @@
                 {:else}
                   <tr>
                     <td class="item-name" class:edm-missing-name={isMissing}>{itemName}{#if isMissing} ⚠{/if}</td>
-                    <td class="item-amt">{fmtNum(cur)}</td>
+                    <td class="item-amt">{fmtNum(cur, true)}</td>
                     <td class="item-amt" class:edm-missing={isMissing}>{rawCost?.edmPerUnit != null ? fmtEdm(rawCost.edmPerUnit) : '—'}</td>
                     <td class="item-amt" class:edm-missing={isMissing}>{rawCost?.totalEdm != null ? fmtEdm(rawCost.totalEdm / amount) : '—'}</td>
                   </tr>
@@ -885,12 +885,12 @@
                   {@const cmp = comparisonReport.tagByName.get(tag) ?? 0}
                   <tr>
                     <td class="item-name">{tag}</td>
-                    <td class="item-amt">{fmtNum(cur)}</td>
-                    <td class="item-amt">{fmtNum(cmp)}</td>
+                    <td class="item-amt">{fmtNum(cur, true)}</td>
+                    <td class="item-amt">{fmtNum(cmp, true)}</td>
                     <td class="item-amt" class:delta-neg={cmp < cur} class:delta-pos={cmp > cur}>{fmtDeltaPct(cur, cmp)}</td>
                   </tr>
                 {:else}
-                  <tr><td class="item-name">{tag}</td><td class="item-amt">{fmtNum(cur)}</td></tr>
+                  <tr><td class="item-name">{tag}</td><td class="item-amt">{fmtNum(cur, true)}</td></tr>
                 {/if}
               {/each}
             </tbody>
@@ -935,15 +935,15 @@
                   <tr>
                     <td class="item-name">{itemName}</td>
                     <td class="item-name muted">from {producer}</td>
-                    <td class="item-amt">{fmtNum(cur)}</td>
-                    <td class="item-amt">{fmtNum(cmp)}</td>
+                    <td class="item-amt">{fmtNum(cur, true)}</td>
+                    <td class="item-amt">{fmtNum(cmp, true)}</td>
                     <td class="item-amt" class:delta-neg={cmp < cur} class:delta-pos={cmp > cur}>{fmtDeltaPct(cur, cmp)}</td>
                   </tr>
                 {:else}
                   <tr>
                     <td class="item-name">{itemName}</td>
                     <td class="item-name muted">from {producer}</td>
-                    <td class="item-amt">{fmtNum(cur)}</td>
+                    <td class="item-amt">{fmtNum(cur, true)}</td>
                   </tr>
                 {/if}
               {/each}
@@ -960,7 +960,7 @@
           <table>
             <tbody>
               {#each [...plannerMarketNodes].sort((a, b) => b.amount - a.amount) as n}
-                <tr><td class="item-name">{n.itemName}</td><td class="item-amt">{fmtNum(n.amount)}</td></tr>
+                <tr><td class="item-name">{n.itemName}</td><td class="item-amt">{fmtNum(n.amount, true)}</td></tr>
               {/each}
             </tbody>
           </table>

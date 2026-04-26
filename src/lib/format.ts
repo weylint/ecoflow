@@ -2,15 +2,15 @@ function withThousands(intPart: string): string {
   return intPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 }
 
-export function fmtNum(n: number): string {
-  if (Number.isInteger(n)) return withThousands(String(n));
+export function fmtNum(n: number, pad = false): string {
+  if (Number.isInteger(n)) return withThousands(String(n)) + (pad ? '   ' : '');
   const [int, dec] = n.toFixed(2).split('.');
   return withThousands(int) + ',' + dec;
 }
 
 export function fmtEdm(n: number): string {
   const [int, dec] = n.toFixed(2).split('.');
-  return withThousands(int) + (dec === '00' ? '   ' : ',' + dec);
+  return withThousands(int) + (dec === '00' ? '   ' : ',' + dec);
 }
 
 export function fmtLabor(n: number): string {

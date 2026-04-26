@@ -142,13 +142,13 @@
             <span class="stats-food-cals">{fmtNum(ing.amount)} cal · {fmtNum(ing.amount / data.cycles)}/run</span>
             {#if ing.edmPerUnit != null}
               <span class="stats-label">IN: Food</span>
-              <span class="stats-num">{fmtNum(ing.amount)}</span>
+              <span class="stats-num">{fmtNum(ing.amount, true)}</span>
               <span class="stats-rate">{fmtEdm(ing.edmPerUnit)}/u</span>
               <span class="stats-total">{fmtEdm(ing.totalEdm!)} EDM</span>
             {/if}
           {:else}
             <span class="stats-label">IN: {ing.name}</span>
-            <span class="stats-num">{fmtNum(ing.amount)}</span>
+            <span class="stats-num">{fmtNum(ing.amount, true)}</span>
             {#if ing.edmPerUnit != null}
               <span class="stats-rate">{fmtEdm(ing.edmPerUnit)}/u</span>
               <span class="stats-total">{fmtEdm(ing.totalEdm!)} EDM</span>
@@ -160,7 +160,7 @@
 
         {#each (data.productStats ?? []) as prod}
           <span class="stats-label">OUT: {prod.name}</span>
-          <span class="stats-num">{fmtNum(prod.amount)}</span>
+          <span class="stats-num">{fmtNum(prod.amount, true)}</span>
           {#if prod.edmPerUnit != null}
             <span class="stats-rate">{fmtEdm(prod.edmPerUnit)}/u</span>
             <span class="stats-total">{fmtEdm(prod.totalEdm!)} EDM</span>
