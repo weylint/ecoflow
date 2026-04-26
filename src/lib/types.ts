@@ -61,6 +61,7 @@ export const EXCLUDED_BYPRODUCTS = new Set(['Garbage', 'Wet Tailings', 'Tailings
 // Recipes that are intentionally multi-profession and should not incur cross-profession markup
 // on their own inputs (the chains feeding into them are still marked up normally).
 export const EDM_MARKUP_EXCLUDED_RECIPES = new Set([
+  'Laser',
   'Laser Upgrade',
   'Laser Internals',
   'Laser Body',

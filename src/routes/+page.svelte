@@ -6,7 +6,7 @@
   import '@xyflow/svelte/dist/style.css';
 
   import type { Node, Edge, NodeTypes, EdgeTypes } from '@xyflow/svelte';
-  import { ECO12_UPGRADE_LEVELS, ECO13_UPGRADE_LEVELS, getUpgradeLevels, EXCLUDED_BYPRODUCTS, DEFAULT_LAYOUT_OPTIONS, DEFAULT_TAG_CHOICES, DEFAULT_RECIPE_CHOICES, DEFAULT_MARKET_ITEMS } from '$lib/types.js';
+  import { ECO12_UPGRADE_LEVELS, ECO13_UPGRADE_LEVELS, getUpgradeLevels, EXCLUDED_BYPRODUCTS, DEFAULT_LAYOUT_OPTIONS, DEFAULT_TAG_CHOICES, DEFAULT_RECIPE_CHOICES, DEFAULT_MARKET_ITEMS, EDM_MARKUP_EXCLUDED_RECIPES } from '$lib/types.js';
   import type { LayoutOptions, PlannerGraph } from '$lib/types.js';
   import type { RecipeObject, Variant, TagsFile, RecipeFile, UserChoices, TablePlannerNode, RawPlannerNode, MarketPlannerNode, TagPlannerNode, ByproductPlannerNode, ByproductResolveOption, IngredientStats, ProductStats } from '$lib/types.js';
   import { DEFAULT_SETTINGS, loadSettings, saveSettings } from '$lib/settings.js';
@@ -392,12 +392,9 @@
       flowNodes.set(layoutNodes.map(n => {
         if (n.type === 'tableNode') {
           const tNode = n.data as unknown as TablePlannerNode;
+          const isWorkParty = EDM_MARKUP_EXCLUDED_RECIPES.has(tNode.recipe.Key);
           const prof = tNode.recipe.SkillNeeds[0]?.Skill ?? '';
           const tier = PROFESSION_FOOD_TIER[prof] ?? 'basic';
-          const foodCalories = tNode.recipe.BaseLaborCost * tNode.cycles / 2;
-          const foodEdm = settings.foodCostEnabled
-            ? (foodCalories / 1000) * settings.foodTierCosts[tier]
-            : null;
 
           const ingredientStats: IngredientStats[] = tNode.variant.Ingredients.map(ing => {
             let name = ing.Name;
@@ -417,9 +414,21 @@
             return { name, amount, edmPerUnit, totalEdm };
           });
 
-          if (foodCalories > 0) {
-            const foodEdmPerUnit = foodEdm !== null ? foodEdm / foodCalories : null;
-            ingredientStats.unshift({ name: 'Food', amount: foodCalories, edmPerUnit: foodEdmPerUnit, totalEdm: foodEdm });
+          if (isWorkParty) {
+            const labourAmount = tNode.recipe.BaseLaborCost * tNode.cycles;
+            if (labourAmount > 0) {
+              const wpEdmPerUnit = 50 / 1000;
+              ingredientStats.unshift({ name: 'Food', amount: labourAmount, edmPerUnit: wpEdmPerUnit, totalEdm: labourAmount * wpEdmPerUnit });
+            }
+          } else {
+            const foodCalories = tNode.recipe.BaseLaborCost * tNode.cycles / 2;
+            const foodEdm = settings.foodCostEnabled
+              ? (foodCalories / 1000) * settings.foodTierCosts[tier]
+              : null;
+            if (foodCalories > 0) {
+              const foodEdmPerUnit = foodEdm !== null ? foodEdm / foodCalories : null;
+              ingredientStats.unshift({ name: 'Food', amount: foodCalories, edmPerUnit: foodEdmPerUnit, totalEdm: foodEdm });
+            }
           }
 
           const productStats: ProductStats[] = tNode.variant.Products.map(prod => {

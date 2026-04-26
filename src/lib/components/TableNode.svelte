@@ -139,9 +139,10 @@
 
         {#each (data.ingredientStats ?? []) as ing}
           {#if ing.name === 'Food'}
-            <span class="stats-food-cals">{fmtNum(ing.amount)} cal · {fmtNum(ing.amount / data.cycles)}/run</span>
+            {@const isWP = EDM_MARKUP_EXCLUDED_RECIPES.has(data.recipe.Key)}
+            <span class="stats-food-cals">{fmtNum(ing.amount)} {isWP ? 'Labour' : 'cal'} · {fmtNum(ing.amount / data.cycles)}/run</span>
             {#if ing.edmPerUnit != null}
-              <span class="stats-label">{EDM_MARKUP_EXCLUDED_RECIPES.has(data.recipe.Key) ? 'IN: WP' : 'IN: Food'}</span>
+              <span class="stats-label">{isWP ? 'IN: Work Party' : 'IN: Food'}</span>
               <span class="stats-num">{fmtNum(ing.amount, true)}</span>
               <span class="stats-rate">{fmtEdm(ing.edmPerUnit)}/u</span>
               <span class="stats-total">{fmtEdm(ing.totalEdm!)} EDM</span>
