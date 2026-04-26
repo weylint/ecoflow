@@ -699,6 +699,54 @@
         </select>
       </div>
 
+      {#if edmReport}
+        {@const cmpEdm = comparisonReport?.edmReport ?? null}
+        {@const cmpLabel = compareUpgrade ? `${compareUpgrade.mode === 'eco13' ? 'Eco 13' : 'Eco 12'} ${getUpgradeLevels(compareUpgrade.mode).find(l => l.value === compareUpgrade!.value)?.label ?? ''}` : ''}
+        <div class="edm-summary" class:compare={!!cmpEdm}>
+          {#if cmpEdm}
+            <span class="edm-row edm-compare-header">
+              <span class="edm-label">per {selectedProduct}</span>
+              <span class="edm-col-hdr">Current</span>
+              <span class="edm-col-hdr">{cmpLabel}</span>
+            </span>
+            <span class="edm-row">
+              <span class="edm-label">Base EDM:</span>
+              <span class="edm-value">{edmReport.baseEdm != null ? fmtEdm(edmReport.baseEdm / amount) : '—'}</span>
+              <span class="edm-value">{cmpEdm.baseEdm != null ? fmtEdm(cmpEdm.baseEdm / amount) : '—'}</span>
+            </span>
+            {#if edmReport.laborFoodEdm !== null || cmpEdm.laborFoodEdm !== null}
+              <span class="edm-row">
+                <span class="edm-label">Food EDM:</span>
+                <span class="edm-value">{edmReport.laborFoodEdm !== null ? '+' + fmtEdm(edmReport.laborFoodEdm / amount) : '—'}</span>
+                <span class="edm-value">{cmpEdm.laborFoodEdm !== null ? '+' + fmtEdm(cmpEdm.laborFoodEdm / amount) : '—'}</span>
+              </span>
+            {/if}
+            {#if edmReport.crossProfTransitions.length > 0 || (cmpEdm.crossProfTransitions?.length ?? 0) > 0}
+              <span class="edm-row">
+                <span class="edm-label">Prof. markup:</span>
+                <span class="edm-value">{edmReport.markupEdm != null ? '+' + fmtEdm(edmReport.markupEdm / amount) : '—'}</span>
+                <span class="edm-value">{cmpEdm.markupEdm != null ? '+' + fmtEdm(cmpEdm.markupEdm / amount) : '—'}</span>
+              </span>
+            {/if}
+            <span class="edm-row edm-total">
+              <span class="edm-label">EDM / {selectedProduct}:</span>
+              <span class="edm-value">{edmReport.totalEdm != null ? fmtEdm(edmReport.totalEdm / amount) : '—'}</span>
+              <span class="edm-value">{cmpEdm.totalEdm != null ? fmtEdm(cmpEdm.totalEdm / amount) : '—'}</span>
+            </span>
+          {:else}
+            <span class="edm-row edm-subheader"><span class="edm-label">per {selectedProduct}</span></span>
+            <span class="edm-row"><span class="edm-label">Base EDM:</span> <span class="edm-value">{edmReport.baseEdm != null ? fmtEdm(edmReport.baseEdm / amount) : '— (missing values)'}</span></span>
+            {#if edmReport.laborFoodEdm !== null}
+              <span class="edm-row"><span class="edm-label">Food EDM:</span> <span class="edm-value">+{fmtEdm(edmReport.laborFoodEdm / amount)}</span></span>
+            {/if}
+            {#if edmReport.crossProfTransitions.length > 0}
+              <span class="edm-row"><span class="edm-label">Profession markup:</span> <span class="edm-value">{edmReport.markupEdm != null ? '+' + fmtEdm(edmReport.markupEdm / amount) : '—'}</span></span>
+            {/if}
+            <span class="edm-row edm-total"><span class="edm-label">EDM / {selectedProduct}:</span> <span class="edm-value">{edmReport.totalEdm != null ? fmtEdm(edmReport.totalEdm / amount) : '— (missing values)'}</span></span>
+          {/if}
+        </div>
+      {/if}
+
       <section>
         <h3>Raw Ingredients</h3>
         {#if plannerRawNodes.length === 0 && !comparisonReport}
@@ -757,54 +805,7 @@
             </tbody>
           </table>
 
-          {#if edmReport}
-            {@const cmpEdm = comparisonReport?.edmReport ?? null}
-            {@const cmpLabel = compareUpgrade ? `${compareUpgrade.mode === 'eco13' ? 'Eco 13' : 'Eco 12'} ${getUpgradeLevels(compareUpgrade.mode).find(l => l.value === compareUpgrade!.value)?.label ?? ''}` : ''}
-            <div class="edm-summary">
-              {#if cmpEdm}
-                <span class="edm-row edm-compare-header">
-                  <span class="edm-label">per {selectedProduct}</span>
-                  <span class="edm-col-hdr">Current</span>
-                  <span class="edm-col-hdr">{cmpLabel}</span>
-                </span>
-                <span class="edm-row">
-                  <span class="edm-label">Base EDM:</span>
-                  <span class="edm-value">{edmReport.baseEdm != null ? fmtEdm(edmReport.baseEdm / amount) : '—'}</span>
-                  <span class="edm-value">{cmpEdm.baseEdm != null ? fmtEdm(cmpEdm.baseEdm / amount) : '—'}</span>
-                </span>
-                {#if edmReport.laborFoodEdm !== null || cmpEdm.laborFoodEdm !== null}
-                  <span class="edm-row">
-                    <span class="edm-label">Food EDM:</span>
-                    <span class="edm-value">{edmReport.laborFoodEdm !== null ? '+' + fmtEdm(edmReport.laborFoodEdm / amount) : '—'}</span>
-                    <span class="edm-value">{cmpEdm.laborFoodEdm !== null ? '+' + fmtEdm(cmpEdm.laborFoodEdm / amount) : '—'}</span>
-                  </span>
-                {/if}
-                {#if edmReport.crossProfTransitions.length > 0 || (cmpEdm.crossProfTransitions?.length ?? 0) > 0}
-                  <span class="edm-row">
-                    <span class="edm-label">Prof. markup:</span>
-                    <span class="edm-value">{edmReport.markupEdm != null ? '+' + fmtEdm(edmReport.markupEdm / amount) : '—'}</span>
-                    <span class="edm-value">{cmpEdm.markupEdm != null ? '+' + fmtEdm(cmpEdm.markupEdm / amount) : '—'}</span>
-                  </span>
-                {/if}
-                <span class="edm-row edm-total">
-                  <span class="edm-label">EDM / {selectedProduct}:</span>
-                  <span class="edm-value">{edmReport.totalEdm != null ? fmtEdm(edmReport.totalEdm / amount) : '—'}</span>
-                  <span class="edm-value">{cmpEdm.totalEdm != null ? fmtEdm(cmpEdm.totalEdm / amount) : '—'}</span>
-                </span>
-              {:else}
-                <span class="edm-row edm-subheader"><span class="edm-label">per {selectedProduct}</span></span>
-                <span class="edm-row"><span class="edm-label">Base EDM:</span> <span class="edm-value">{edmReport.baseEdm != null ? fmtEdm(edmReport.baseEdm / amount) : '— (missing values)'}</span></span>
-                {#if edmReport.laborFoodEdm !== null}
-                  <span class="edm-row"><span class="edm-label">Food EDM:</span> <span class="edm-value">+{fmtEdm(edmReport.laborFoodEdm / amount)}</span></span>
-                {/if}
-                {#if edmReport.crossProfTransitions.length > 0}
-                  <span class="edm-row"><span class="edm-label">Profession markup:</span> <span class="edm-value">{edmReport.markupEdm != null ? '+' + fmtEdm(edmReport.markupEdm / amount) : '—'}</span></span>
-                {/if}
-                <span class="edm-row edm-total"><span class="edm-label">EDM / {selectedProduct}:</span> <span class="edm-value">{edmReport.totalEdm != null ? fmtEdm(edmReport.totalEdm / amount) : '— (missing values)'}</span></span>
-              {/if}
-            </div>
-
-            {#if edmReport.crossProfTransitions.length > 0}
+          {#if edmReport.crossProfTransitions.length > 0}
               <div class="cross-prof-list">
                 <div class="cross-prof-header">Cross-profession transitions (+{(settings.crossProfessionMarkup * 100).toFixed(0)}% markup each):</div>
                 {#each [...edmReport.crossProfTransitions].sort((a, b) => (b.markupAmount ?? -Infinity) - (a.markupAmount ?? -Infinity)) as t, i}
@@ -854,7 +855,6 @@
                 {/each}
               </div>
             {/if}
-          {/if}
         {/if}
       </section>
 
@@ -1679,30 +1679,29 @@
 
   /* EDM styles */
   .edm-summary {
-    margin-top: 10px;
+    margin-top: 0;
     padding: 8px 10px;
     background: #252525;
     border-radius: 4px;
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    row-gap: 3px;
+    column-gap: 8px;
     font-size: 12px;
   }
+  .edm-summary.compare { grid-template-columns: 1fr auto auto; }
 
-  .edm-row {
-    display: flex;
-    justify-content: space-between;
-    gap: 8px;
-  }
+  .edm-row { display: contents; }
 
   .edm-label { color: #888; }
-  .edm-value { color: #7ec8e3; font-variant-numeric: tabular-nums; font-family: 'Courier New', Courier, monospace; }
+  .edm-value { color: #7ec8e3; font-variant-numeric: tabular-nums; font-family: 'Courier New', Courier, monospace; text-align: right; }
   .edm-total .edm-label { color: #b0b0b0; font-weight: bold; }
   .edm-total .edm-value { color: #90e0b0; font-weight: bold; }
   .edm-subheader .edm-label { font-style: italic; font-size: 11px; }
 
-  .edm-compare-header { border-bottom: 1px solid #333; padding-bottom: 3px; margin-bottom: 2px; }
-  .edm-col-hdr { font-size: 10px; color: #666; text-align: right; flex: 1; }
+  .edm-compare-header > * { border-bottom: 1px solid #333; padding-bottom: 3px; margin-bottom: 2px; }
+  .edm-col-hdr { font-size: 10px; color: #666; text-align: right; }
+  .edm-summary.compare .edm-row > :last-child { padding-left: 14px; }
 
   .edm-missing { color: #d4a017 !important; }
   .edm-missing-name { color: #d4a017; }
