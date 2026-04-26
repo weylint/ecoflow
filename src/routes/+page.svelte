@@ -368,6 +368,7 @@
 
       // Inject callbacks into node data here (avoids infinite $effect loops)
       const pgNodeMap = new Map(plannerGraph.nodes.map(n => [n.id, n]));
+      const localEdmReport = computeEdmReport(plannerGraph, settings, tagsIndex!);
 
       flowNodes.set(layoutNodes.map(n => {
         if (n.type === 'tableNode') {
@@ -387,14 +388,24 @@
                 ?? ing.Tag;
             }
             const amount = (ing.IsStatic ? ing.Ammount : ing.Ammount * (1 - tNode.effectiveReduction)) * tNode.cycles;
-            const edmPerUnit = resolveItemEdmValue(name, settings, tagsIndex!);
+            let edmPerUnit = resolveItemEdmValue(name, settings, tagsIndex!);
+            if (edmPerUnit === null) {
+              const inputId = ing.IsSpecificItem ? `item:${ing.Name}` : `tag:${ing.Tag as string}`;
+              const nodeTotal = localEdmReport.nodeEdm.get(inputId) ?? null;
+              const nodeAmt = (pgNodeMap.get(inputId) as { amount?: number } | undefined)?.amount ?? null;
+              if (nodeTotal !== null && nodeAmt) edmPerUnit = nodeTotal / nodeAmt;
+            }
             const totalEdm = edmPerUnit !== null ? amount * edmPerUnit : null;
             return { name, amount, edmPerUnit, totalEdm };
           });
 
           const productStats: ProductStats[] = tNode.variant.Products.map(prod => {
             const amount = prod.Ammount * tNode.cycles;
-            const edmPerUnit = resolveItemEdmValue(prod.Name, settings, tagsIndex!);
+            let edmPerUnit = resolveItemEdmValue(prod.Name, settings, tagsIndex!);
+            if (edmPerUnit === null && prod.Name === tNode.itemName) {
+              const nodeTotal = localEdmReport.nodeEdm.get(tNode.id) ?? null;
+              if (nodeTotal !== null && amount > 0) edmPerUnit = nodeTotal / amount;
+            }
             const totalEdm = edmPerUnit !== null ? amount * edmPerUnit : null;
             return { name: prod.Name, amount, edmPerUnit, totalEdm };
           });

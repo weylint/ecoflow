@@ -91,6 +91,7 @@ export interface EdmReport {
   markupEdm: number | null;
   totalEdm: number | null;
   missingItems: string[];
+  nodeEdm: Map<string, number | null>;
 }
 
 export function resolveItemEdmValue(
@@ -462,5 +463,5 @@ export function computeEdmReport(graph: PlannerGraph, settings: AppSettings, tag
       ? baseEdm + (laborFoodEdm ?? 0) + markupEdm
       : null;
 
-  return { rawCosts, crossProfTransitions, baseEdm, laborFoodEdm, markupEdm, totalEdm, missingItems };
+  return { rawCosts, crossProfTransitions, baseEdm, laborFoodEdm, markupEdm, totalEdm, missingItems, nodeEdm: new Map(memoized) };
 }
