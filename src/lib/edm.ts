@@ -92,6 +92,7 @@ export interface EdmReport {
   totalEdm: number | null;
   missingItems: string[];
   nodeEdm: Map<string, number | null>;
+  tableEdm: Map<string, number | null>;
 }
 
 export function resolveItemEdmValue(
@@ -140,6 +141,7 @@ export function computeEdmReport(graph: PlannerGraph, settings: AppSettings, tag
 
   const crossProfTransitions: CrossProfTransition[] = [];
   const memoized = new Map<string, number | null>();
+  const tableEdm = new Map<string, number | null>();
 
   // Resolve the producing table through item/tag/byproduct intermediate nodes.
   // producerTableOf only contains direct table→node edges; this walks further back
@@ -444,6 +446,10 @@ export function computeEdmReport(graph: PlannerGraph, settings: AppSettings, tag
   // Trigger subtree computation to populate crossProfTransitions
   for (const node of graph.nodes) {
     if (node.type === 'table') {
+      const tableNode = node as TablePlannerNode;
+      const primaryOutputPerCycle = tableNode.variant.Products.find(p => p.Name === tableNode.itemName)?.Ammount ?? 1;
+      const outputAmount = primaryOutputPerCycle * tableNode.cycles;
+      tableEdm.set(tableNode.id, buildLocalPath(tableNode.id, outputAmount, 0).subtreeEdm);
       subtreeEdm(node.id);
     }
   }
@@ -463,5 +469,15 @@ export function computeEdmReport(graph: PlannerGraph, settings: AppSettings, tag
       ? baseEdm + (laborFoodEdm ?? 0) + markupEdm
       : null;
 
-  return { rawCosts, crossProfTransitions, baseEdm, laborFoodEdm, markupEdm, totalEdm, missingItems, nodeEdm: new Map(memoized) };
+  return {
+    rawCosts,
+    crossProfTransitions,
+    baseEdm,
+    laborFoodEdm,
+    markupEdm,
+    totalEdm,
+    missingItems,
+    nodeEdm: new Map(memoized),
+    tableEdm
+  };
 }

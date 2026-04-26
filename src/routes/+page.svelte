@@ -13,6 +13,7 @@
   import type { AppSettings } from '$lib/settings.js';
   import { computeEdmReport, resolveItemEdmValue, PROFESSION_FOOD_TIER } from '$lib/edm.js';
   import type { EdmReport, TransitionPathEntry } from '$lib/edm.js';
+  import { displayedProductEdmPerUnit, tableEdmPerUnit } from '$lib/nodeEdmDisplay.js';
   import { buildRecipeIndex } from '$lib/recipeIndex.js';
   import { buildTagsIndex } from '$lib/tagsIndex.js';
   import { buildTalentIndex } from '$lib/talentIndex.js';
@@ -369,6 +370,32 @@
       // Inject callbacks into node data here (avoids infinite $effect loops)
       const pgNodeMap = new Map(plannerGraph.nodes.map(n => [n.id, n]));
       const localEdmReport = computeEdmReport(plannerGraph, settings, tagsIndex!);
+      const edgesByTarget = new Map<string, string[]>();
+      const producerTableOf = new Map<string, TablePlannerNode>();
+
+      for (const edge of plannerGraph.edges) {
+        const sources = edgesByTarget.get(edge.target) ?? [];
+        sources.push(edge.source);
+        edgesByTarget.set(edge.target, sources);
+        if (edge.source.startsWith('table:')) {
+          const tableNode = pgNodeMap.get(edge.source);
+          if (tableNode?.type === 'table') producerTableOf.set(edge.target, tableNode as TablePlannerNode);
+        }
+      }
+
+      function resolveProducerTable(nodeId: string, seen = new Set<string>()): TablePlannerNode | undefined {
+        if (seen.has(nodeId)) return undefined;
+        seen.add(nodeId);
+        const direct = producerTableOf.get(nodeId);
+        if (direct) return direct;
+        for (const sourceId of edgesByTarget.get(nodeId) ?? []) {
+          const sourceNode = pgNodeMap.get(sourceId);
+          if (sourceNode?.type === 'table') return sourceNode as TablePlannerNode;
+          const indirect = resolveProducerTable(sourceId, seen);
+          if (indirect) return indirect;
+        }
+        return undefined;
+      }
 
       flowNodes.set(layoutNodes.map(n => {
         if (n.type === 'tableNode') {
@@ -391,9 +418,8 @@
             let edmPerUnit = resolveItemEdmValue(name, settings, tagsIndex!);
             if (edmPerUnit === null) {
               const inputId = ing.IsSpecificItem ? `item:${ing.Name}` : `tag:${ing.Tag as string}`;
-              const nodeTotal = localEdmReport.nodeEdm.get(inputId) ?? null;
-              const nodeAmt = (pgNodeMap.get(inputId) as { amount?: number } | undefined)?.amount ?? null;
-              if (nodeTotal !== null && nodeAmt) edmPerUnit = nodeTotal / nodeAmt;
+              const producerTable = resolveProducerTable(inputId);
+              if (producerTable) edmPerUnit = tableEdmPerUnit(producerTable, localEdmReport);
             }
             const totalEdm = edmPerUnit !== null ? amount * edmPerUnit : null;
             return { name, amount, edmPerUnit, totalEdm };
@@ -405,14 +431,13 @@
           }
 
           const productStats: ProductStats[] = tNode.variant.Products.map(prod => {
-            const amount = prod.Ammount * tNode.cycles;
+            const productAmount = prod.Ammount * tNode.cycles;
             let edmPerUnit = resolveItemEdmValue(prod.Name, settings, tagsIndex!);
             if (edmPerUnit === null && prod.Name === tNode.itemName) {
-              const nodeTotal = localEdmReport.nodeEdm.get(tNode.id) ?? null;
-              if (nodeTotal !== null && amount > 0) edmPerUnit = nodeTotal / amount;
+              edmPerUnit = displayedProductEdmPerUnit(tNode, localEdmReport, selectedProduct, amount);
             }
-            const totalEdm = edmPerUnit !== null ? amount * edmPerUnit : null;
-            return { name: prod.Name, amount, edmPerUnit, totalEdm };
+            const totalEdm = edmPerUnit !== null ? productAmount * edmPerUnit : null;
+            return { name: prod.Name, amount: productAmount, edmPerUnit, totalEdm };
           });
 
           return {

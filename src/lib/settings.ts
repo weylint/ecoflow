@@ -70,7 +70,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   ecoMode: 'eco13',
   edmValues: { ...DEFAULT_EDM_VALUES },
   edmTagDefaults: { ...DEFAULT_EDM_TAG_DEFAULTS },
-  crossProfessionMarkup: 0.25,
+  crossProfessionMarkup: 0.15,
   foodCostEnabled: true,
   foodTierCosts: { ...DEFAULT_FOOD_TIER_COSTS },
   showNodeStats: true,

@@ -3,6 +3,7 @@ import { buildGraph } from '$lib/planner.js';
 import { buildRecipeIndex } from '$lib/recipeIndex.js';
 import { buildTagsIndex } from '$lib/tagsIndex.js';
 import { computeEdmReport } from '$lib/edm.js';
+import { displayedProductEdmPerUnit, tableEdmPerUnit } from '$lib/nodeEdmDisplay.js';
 import type { AppSettings } from '$lib/settings.js';
 import type { PlannerGraph, RecipeObject, UserChoices } from '$lib/types.js';
 
@@ -218,6 +219,237 @@ describe('computeEdmReport', () => {
       expect(sandstoneLeaf.amount).toBe(140);
       expect(sandstoneLeaf.totalEdm).toBeCloseTo(7, 6);
     }
+  });
+
+  it('tracks table-local EDM separately from graph-global node EDM for shared crafted inputs', () => {
+    const mortarRecipe: RecipeObject = {
+      Key: 'MasonryMortar',
+      Untranslated: 'Masonry Mortar Recipe',
+      BaseCraftTime: 1,
+      BaseLaborCost: 10,
+      BaseXPGain: 1,
+      CraftingTable: 'Masonry Table',
+      CraftingTableCanUseModules: true,
+      DefaultVariant: 'Masonry Mortar',
+      NumberOfVariants: 1,
+      SkillNeeds: [{ Skill: 'Masonry', Level: 1 }],
+      Variants: [{
+        Key: 'MasonryMortar',
+        Name: 'Masonry Mortar',
+        Ingredients: [{ IsSpecificItem: true, Tag: null, Name: 'Sand', Ammount: 1, IsStatic: false }],
+        Products: [{ Name: 'Mortar', Ammount: 1 }]
+      }]
+    };
+
+    const frameRecipe: RecipeObject = {
+      Key: 'Frame',
+      Untranslated: 'Frame Recipe',
+      BaseCraftTime: 1,
+      BaseLaborCost: 10,
+      BaseXPGain: 1,
+      CraftingTable: 'Assembly Table',
+      CraftingTableCanUseModules: false,
+      DefaultVariant: 'Frame',
+      NumberOfVariants: 1,
+      SkillNeeds: [{ Skill: 'Industry', Level: 1 }],
+      Variants: [{
+        Key: 'Frame',
+        Name: 'Frame',
+        Ingredients: [{ IsSpecificItem: true, Tag: null, Name: 'Mortar', Ammount: 1, IsStatic: false }],
+        Products: [{ Name: 'Frame', Ammount: 1 }]
+      }]
+    };
+
+    const panelRecipe: RecipeObject = {
+      Key: 'Panel',
+      Untranslated: 'Panel Recipe',
+      BaseCraftTime: 1,
+      BaseLaborCost: 10,
+      BaseXPGain: 1,
+      CraftingTable: 'Assembly Table',
+      CraftingTableCanUseModules: false,
+      DefaultVariant: 'Panel',
+      NumberOfVariants: 1,
+      SkillNeeds: [{ Skill: 'Industry', Level: 1 }],
+      Variants: [{
+        Key: 'Panel',
+        Name: 'Panel',
+        Ingredients: [{ IsSpecificItem: true, Tag: null, Name: 'Mortar', Ammount: 1, IsStatic: false }],
+        Products: [{ Name: 'Panel', Ammount: 1 }]
+      }]
+    };
+
+    const kitRecipe: RecipeObject = {
+      Key: 'Kit',
+      Untranslated: 'Kit Recipe',
+      BaseCraftTime: 1,
+      BaseLaborCost: 10,
+      BaseXPGain: 1,
+      CraftingTable: 'Assembly Table',
+      CraftingTableCanUseModules: false,
+      DefaultVariant: 'Kit',
+      NumberOfVariants: 1,
+      SkillNeeds: [{ Skill: 'Industry', Level: 1 }],
+      Variants: [{
+        Key: 'Kit',
+        Name: 'Kit',
+        Ingredients: [
+          { IsSpecificItem: true, Tag: null, Name: 'Frame', Ammount: 1, IsStatic: false },
+          { IsSpecificItem: true, Tag: null, Name: 'Panel', Ammount: 1, IsStatic: false }
+        ],
+        Products: [{ Name: 'Kit', Ammount: 1 }]
+      }]
+    };
+
+    const localSettings: AppSettings = {
+      ecoMode: 'eco13',
+      edmValues: { Sand: 2 },
+      edmTagDefaults: {},
+      crossProfessionMarkup: 0.1,
+      foodCostEnabled: false,
+      foodTierCosts: { baseline: 1, basic: 3, advanced: 8, modern: 20 },
+      showNodeStats: true,
+    };
+
+    const recipeIndex = buildRecipeIndex([
+      mortarRecipe,
+      frameRecipe,
+      panelRecipe,
+      kitRecipe
+    ]);
+    const tagsIndex = buildTagsIndex({});
+
+    const graph = buildGraph({
+      targetItem: 'Kit',
+      totalAmount: 1,
+      recipeIndex,
+      tagsIndex,
+      choices: emptyChoices(),
+      globalUpgrade: 0
+    });
+
+    const report = computeEdmReport(graph, localSettings, tagsIndex);
+    const mortarTableEdm = report.tableEdm.get('table:Mortar');
+
+    expect(report.totalEdm).toBeCloseTo(4.2, 6);
+    expect(mortarTableEdm).toBeCloseTo(4, 6);
+    expect((mortarTableEdm ?? 0) / 2).toBeCloseTo(2, 6);
+    expect(report.nodeEdm.get('table:Kit')).toBeGreaterThan(report.totalEdm ?? 0);
+  });
+
+  it('uses report total for the selected product display when shared subtrees would inflate local table EDM', () => {
+    const mortarRecipe: RecipeObject = {
+      Key: 'MasonryMortar',
+      Untranslated: 'Masonry Mortar Recipe',
+      BaseCraftTime: 1,
+      BaseLaborCost: 10,
+      BaseXPGain: 1,
+      CraftingTable: 'Masonry Table',
+      CraftingTableCanUseModules: true,
+      DefaultVariant: 'Masonry Mortar',
+      NumberOfVariants: 1,
+      SkillNeeds: [{ Skill: 'Masonry', Level: 1 }],
+      Variants: [{
+        Key: 'MasonryMortar',
+        Name: 'Masonry Mortar',
+        Ingredients: [{ IsSpecificItem: true, Tag: null, Name: 'Sand', Ammount: 1, IsStatic: false }],
+        Products: [{ Name: 'Mortar', Ammount: 1 }]
+      }]
+    };
+
+    const frameRecipe: RecipeObject = {
+      Key: 'Frame',
+      Untranslated: 'Frame Recipe',
+      BaseCraftTime: 1,
+      BaseLaborCost: 10,
+      BaseXPGain: 1,
+      CraftingTable: 'Assembly Table',
+      CraftingTableCanUseModules: false,
+      DefaultVariant: 'Frame',
+      NumberOfVariants: 1,
+      SkillNeeds: [{ Skill: 'Industry', Level: 1 }],
+      Variants: [{
+        Key: 'Frame',
+        Name: 'Frame',
+        Ingredients: [{ IsSpecificItem: true, Tag: null, Name: 'Mortar', Ammount: 1, IsStatic: false }],
+        Products: [{ Name: 'Frame', Ammount: 1 }]
+      }]
+    };
+
+    const panelRecipe: RecipeObject = {
+      Key: 'Panel',
+      Untranslated: 'Panel Recipe',
+      BaseCraftTime: 1,
+      BaseLaborCost: 10,
+      BaseXPGain: 1,
+      CraftingTable: 'Assembly Table',
+      CraftingTableCanUseModules: false,
+      DefaultVariant: 'Panel',
+      NumberOfVariants: 1,
+      SkillNeeds: [{ Skill: 'Industry', Level: 1 }],
+      Variants: [{
+        Key: 'Panel',
+        Name: 'Panel',
+        Ingredients: [{ IsSpecificItem: true, Tag: null, Name: 'Mortar', Ammount: 1, IsStatic: false }],
+        Products: [{ Name: 'Panel', Ammount: 1 }]
+      }]
+    };
+
+    const kitRecipe: RecipeObject = {
+      Key: 'Kit',
+      Untranslated: 'Kit Recipe',
+      BaseCraftTime: 1,
+      BaseLaborCost: 10,
+      BaseXPGain: 1,
+      CraftingTable: 'Assembly Table',
+      CraftingTableCanUseModules: false,
+      DefaultVariant: 'Kit',
+      NumberOfVariants: 1,
+      SkillNeeds: [{ Skill: 'Industry', Level: 1 }],
+      Variants: [{
+        Key: 'Kit',
+        Name: 'Kit',
+        Ingredients: [
+          { IsSpecificItem: true, Tag: null, Name: 'Frame', Ammount: 1, IsStatic: false },
+          { IsSpecificItem: true, Tag: null, Name: 'Panel', Ammount: 1, IsStatic: false }
+        ],
+        Products: [{ Name: 'Kit', Ammount: 1 }]
+      }]
+    };
+
+    const localSettings: AppSettings = {
+      ecoMode: 'eco13',
+      edmValues: { Sand: 2 },
+      edmTagDefaults: {},
+      crossProfessionMarkup: 0.1,
+      foodCostEnabled: false,
+      foodTierCosts: { baseline: 1, basic: 3, advanced: 8, modern: 20 },
+      showNodeStats: true,
+    };
+
+    const recipeIndex = buildRecipeIndex([mortarRecipe, frameRecipe, panelRecipe, kitRecipe]);
+    const tagsIndex = buildTagsIndex({});
+    const graph = buildGraph({
+      targetItem: 'Kit',
+      totalAmount: 1,
+      recipeIndex,
+      tagsIndex,
+      choices: emptyChoices(),
+      globalUpgrade: 0
+    });
+
+    const report = computeEdmReport(graph, localSettings, tagsIndex);
+    const kitTable = graph.nodes.find(
+      (node): node is Extract<PlannerGraph['nodes'][number], { type: 'table' }> => node.type === 'table' && node.itemName === 'Kit'
+    );
+
+    expect(kitTable).toBeDefined();
+    if (!kitTable) return;
+
+    expect(tableEdmPerUnit(kitTable, report)).toBeCloseTo(4.4, 6);
+    expect(report.totalEdm).toBeCloseTo(4.2, 6);
+    expect(displayedProductEdmPerUnit(kitTable, report, 'Kit', 1)).toBeCloseTo(4.2, 6);
+    expect(displayedProductEdmPerUnit(kitTable, report, 'Other', 1)).toBeCloseTo(4.4, 6);
   });
 
   it('does not recurse forever when transition detail paths contain cycles', () => {
