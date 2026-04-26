@@ -71,7 +71,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   edmValues: { ...DEFAULT_EDM_VALUES },
   edmTagDefaults: { ...DEFAULT_EDM_TAG_DEFAULTS },
   crossProfessionMarkup: 0.25,
-  foodCostEnabled: false,
+  foodCostEnabled: true,
   foodTierCosts: { ...DEFAULT_FOOD_TIER_COSTS },
   showNodeStats: true,
 };

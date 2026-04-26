@@ -399,6 +399,11 @@
             return { name, amount, edmPerUnit, totalEdm };
           });
 
+          if (foodCalories > 0) {
+            const foodEdmPerUnit = foodEdm !== null ? foodEdm / foodCalories : null;
+            ingredientStats.unshift({ name: 'Food', amount: foodCalories, edmPerUnit: foodEdmPerUnit, totalEdm: foodEdm });
+          }
+
           const productStats: ProductStats[] = tNode.variant.Products.map(prod => {
             const amount = prod.Ammount * tNode.cycles;
             let edmPerUnit = resolveItemEdmValue(prod.Name, settings, tagsIndex!);
@@ -420,8 +425,6 @@
               onUpgradeChange: handleUpgradeChange,
               currentUpgrade: choices.upgradeByTable.get(tNode.table) ?? globalUpgrade,
               upgradeLevels,
-              foodCalories,
-              foodEdm,
               ingredientStats,
               productStats,
               showStats: settings.showNodeStats,
@@ -1095,7 +1098,7 @@
           <input
             type="checkbox"
             checked={settings.foodCostEnabled}
-            onchange={e => { settings = { ...settings, foodCostEnabled: (e.target as HTMLInputElement).checked }; }}
+            onchange={e => { settings = { ...settings, foodCostEnabled: (e.target as HTMLInputElement).checked }; replan(); }}
           />
         </label>
 
@@ -1123,7 +1126,7 @@
                     value={settings.foodTierCosts[tier as keyof typeof settings.foodTierCosts]}
                     oninput={e => {
                       const v = Number((e.target as HTMLInputElement).value);
-                      if (!isNaN(v)) settings = { ...settings, foodTierCosts: { ...settings.foodTierCosts, [tier]: v } };
+                      if (!isNaN(v)) { settings = { ...settings, foodTierCosts: { ...settings.foodTierCosts, [tier]: v } }; replan(); }
                     }}
                   />
                   <span class="edm-unit">EDM</span>

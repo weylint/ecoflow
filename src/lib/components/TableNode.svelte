@@ -11,8 +11,6 @@
       onUpgradeChange?: (tableName: string, value: number) => void;
       currentUpgrade?: number;
       upgradeLevels?: typeof ECO12_UPGRADE_LEVELS | typeof ECO13_UPGRADE_LEVELS;
-      foodCalories?: number;
-      foodEdm?: number | null;
       ingredientStats?: IngredientStats[];
       productStats?: ProductStats[];
       showStats?: boolean;
@@ -137,27 +135,37 @@
       </div>
     {/if}
 
-    {#if data.showStats !== false && (data.foodCalories ?? 0) > 0}
+    {#if data.showStats !== false && ((data.ingredientStats?.length ?? 0) > 0 || (data.productStats?.length ?? 0) > 0)}
       <div class="stats-section" class:first-bottom={!data.appliedTalents?.length && !data.loopbackItems?.length}>
 
-        <div class="stats-cals">
-          <span>{fmt(data.foodCalories! / data.cycles)}/run · {fmt(data.foodCalories!)} cal</span>
-          {#if data.foodEdm != null}
-            <span class="food-edm">+{data.foodEdm.toFixed(2)} EDM</span>
-          {/if}
-        </div>
-
         {#each (data.ingredientStats ?? []) as ing}
-          <div class="stats-row">
-            <span class="stats-label">IN: {ing.name}</span>
-            <span class="stats-values">
-              {#if ing.edmPerUnit != null}
-                {fmt(ing.amount)} · {ing.edmPerUnit.toFixed(2)}/u · {ing.totalEdm!.toFixed(2)} EDM
-              {:else}
-                {fmt(ing.amount)}
-              {/if}
-            </span>
-          </div>
+          {#if ing.name === 'Food'}
+            <div class="stats-row">
+              <span class="stats-label">IN: Food</span>
+              <span class="stats-values">{fmt(ing.amount)} cal · {fmt(ing.amount / data.cycles)}/run</span>
+            </div>
+            <div class="stats-row">
+              <span class="stats-label"></span>
+              <span class="stats-values">
+                {#if ing.edmPerUnit != null}
+                  {fmt(ing.amount)} · {ing.edmPerUnit.toFixed(2)}/u · {ing.totalEdm!.toFixed(2)} EDM
+                {:else}
+                  {fmt(ing.amount)}
+                {/if}
+              </span>
+            </div>
+          {:else}
+            <div class="stats-row">
+              <span class="stats-label">IN: {ing.name}</span>
+              <span class="stats-values">
+                {#if ing.edmPerUnit != null}
+                  {fmt(ing.amount)} · {ing.edmPerUnit.toFixed(2)}/u · {ing.totalEdm!.toFixed(2)} EDM
+                {:else}
+                  {fmt(ing.amount)}
+                {/if}
+              </span>
+            </div>
+          {/if}
         {/each}
 
         {#each (data.productStats ?? []) as prod}
@@ -228,14 +236,6 @@
     border-top: 1px solid #4a7fb5;
     padding-top: 4px;
   }
-
-  .stats-cals {
-    display: flex;
-    justify-content: space-between;
-    color: #a0c4e0;
-  }
-
-  .food-edm { color: #f0c070; }
 
   .stats-row {
     display: flex;
