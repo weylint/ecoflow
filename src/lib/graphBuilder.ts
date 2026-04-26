@@ -2,6 +2,7 @@ import type { PlannerGraph, PlannerNode, ItemPlannerNode, TablePlannerNode, RawP
 import { DEFAULT_LAYOUT_OPTIONS } from './types.js';
 import type { Node, Edge } from '@xyflow/svelte';
 import ELK from 'elkjs/lib/elk.bundled.js';
+import { ingredientAmountPerCycle } from './resourceCost.js';
 
 const elk = new ELK();
 
@@ -111,7 +112,7 @@ export async function buildFlowGraph(
       if (tgtTable) {
         const ing = tgtTable.variant.Ingredients.find(i => i.Name === item.itemName);
         if (ing) {
-          const perCycle = ing.IsStatic ? ing.Ammount : ing.Ammount * (1 - tgtTable.effectiveReduction);
+          const perCycle = ingredientAmountPerCycle(ing, tgtTable);
           total += perCycle * tgtTable.cycles;
         }
       }
@@ -128,7 +129,7 @@ export async function buildFlowGraph(
       if (!tgtTable) continue;
       const ing = tgtTable.variant.Ingredients.find(i => i.IsSpecificItem && i.Name === raw.itemName);
       if (!ing) continue;
-      const perCycle = ing.IsStatic ? ing.Ammount : ing.Ammount * (1 - tgtTable.effectiveReduction);
+      const perCycle = ingredientAmountPerCycle(ing, tgtTable);
       total += perCycle * tgtTable.cycles;
     }
     if (total > 0) directConsumerTotal.set(nodeId, total);
@@ -141,7 +142,7 @@ export async function buildFlowGraph(
       if (!tgtTable) continue;
       const ing = tgtTable.variant.Ingredients.find(i => i.IsSpecificItem && i.Name === market.itemName);
       if (!ing) continue;
-      const perCycle = ing.IsStatic ? ing.Ammount : ing.Ammount * (1 - tgtTable.effectiveReduction);
+      const perCycle = ingredientAmountPerCycle(ing, tgtTable);
       total += perCycle * tgtTable.cycles;
     }
     if (total > 0) directConsumerTotal.set(nodeId, total);
@@ -156,7 +157,7 @@ export async function buildFlowGraph(
       if (!tgtTable) continue;
       const ing = tgtTable.variant.Ingredients.find(i => !i.IsSpecificItem && i.Tag === tagNode.tag);
       if (!ing) continue;
-      const perCycle = ing.IsStatic ? ing.Ammount : ing.Ammount * (1 - tgtTable.effectiveReduction);
+      const perCycle = ingredientAmountPerCycle(ing, tgtTable);
       total += perCycle * tgtTable.cycles;
     }
     if (total > 0) tagConsumerTotal.set(nodeId, total);
@@ -184,7 +185,7 @@ export async function buildFlowGraph(
       const ing = tgtTable.variant.Ingredients.find(i => !i.IsSpecificItem && i.Tag === tagNode.tag);
       if (!ing) continue;
 
-      let remainingNeed = (ing.IsStatic ? ing.Ammount : ing.Ammount * (1 - tgtTable.effectiveReduction)) * tgtTable.cycles;
+      let remainingNeed = ingredientAmountPerCycle(ing, tgtTable) * tgtTable.cycles;
       const allocations: { itemName: string; amount: number }[] = [];
 
       for (const supply of remainingSupply) {
@@ -243,9 +244,7 @@ export async function buildFlowGraph(
         if (tgtTable) {
           const ing = tgtTable.variant.Ingredients.find(i => i.Name === item.itemName);
           if (ing) {
-            const perCycle = ing.IsStatic
-              ? ing.Ammount
-              : ing.Ammount * (1 - tgtTable.effectiveReduction);
+            const perCycle = ingredientAmountPerCycle(ing, tgtTable);
             const amt = perCycle * tgtTable.cycles;
             const itemTotal = itemConsumerTotal.get(itemId) ?? 0;
             if (itemTotal > 0) {
@@ -272,7 +271,7 @@ export async function buildFlowGraph(
         const itemName = rawNode?.itemName ?? marketNode?.itemName ?? '';
         const ing = tgtTable.variant.Ingredients.find(i => i.IsSpecificItem && i.Name === itemName);
         if (ing) {
-          const perCycle = ing.IsStatic ? ing.Ammount : ing.Ammount * (1 - tgtTable.effectiveReduction);
+          const perCycle = ingredientAmountPerCycle(ing, tgtTable);
           const amt = perCycle * tgtTable.cycles;
           const total = directConsumerTotal.get(e.source) ?? 0;
           if (total > 0) {

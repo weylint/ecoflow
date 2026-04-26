@@ -16,6 +16,7 @@ import type { TalentIndex } from './talentIndex.js';
 import { EXCLUDED_BYPRODUCTS, RAW_OVERRIDES } from './types.js';
 import type { RecipeIndex } from './recipeIndex.js';
 import type { TagsIndex } from './tagsIndex.js';
+import { ingredientAmountPerCycle } from './resourceCost.js';
 
 interface BuildOptions {
   targetItem: string;
@@ -131,9 +132,11 @@ export function buildGraph(opts: BuildOptions): PlannerGraph {
         continue;
       }
 
-      const effectivePerCycle = ingredient.IsStatic
-        ? ingredient.Ammount
-        : ingredient.Ammount * (1 - effectiveReduction);
+      const effectivePerCycle = ingredientAmountPerCycle(ingredient, {
+        upgradeReduction,
+        talentReduction,
+        effectiveReduction
+      });
       const ingredientTotal = effectivePerCycle * newCycles;
 
       if (ingredient.IsSpecificItem) {
@@ -306,6 +309,8 @@ export function buildGraph(opts: BuildOptions): PlannerGraph {
         recipe,
         variant,
         cycles,
+        upgradeReduction,
+        talentReduction,
         effectiveReduction,
         appliedTalents: talentData?.get(recipe.Key)?.talents ?? [],
         availableRecipes: recipes,
@@ -360,9 +365,11 @@ export function buildGraph(opts: BuildOptions): PlannerGraph {
       // Loopback items are handled inline in the table node (net supply edge added above)
       if (loopbackItems.has(ingredient.Name)) continue;
 
-      const effectivePerCycle = ingredient.IsStatic
-        ? ingredient.Ammount
-        : ingredient.Ammount * (1 - effectiveReduction);
+      const effectivePerCycle = ingredientAmountPerCycle(ingredient, {
+        upgradeReduction,
+        talentReduction,
+        effectiveReduction
+      });
       const ingredientTotal = effectivePerCycle * cycles;
 
       if (ingredient.IsSpecificItem) {

@@ -19,6 +19,7 @@
   import { buildTagsIndex } from '$lib/tagsIndex.js';
   import { buildTalentIndex } from '$lib/talentIndex.js';
   import type { TalentIndex } from '$lib/talentIndex.js';
+  import { ingredientAmountPerCycle } from '$lib/resourceCost.js';
   import { buildGraph } from '$lib/planner.js';
   import type { ProfessionData } from '$lib/types.js';
 
@@ -402,7 +403,7 @@
                 ?? (pgNodeMap.get(`tag:${ing.Tag}`) as TagPlannerNode | undefined)?.selectedItem
                 ?? ing.Tag;
             }
-            const amount = (ing.IsStatic ? ing.Ammount : ing.Ammount * (1 - tNode.effectiveReduction)) * tNode.cycles;
+            const amount = ingredientAmountPerCycle(ing, tNode) * tNode.cycles;
             let edmPerUnit = resolveItemEdmValue(name, settings, tagsIndex!);
             if (edmPerUnit === null) {
               const inputId = ing.IsSpecificItem ? `item:${ing.Name}` : `tag:${ing.Tag as string}`;

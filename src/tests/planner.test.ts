@@ -2,8 +2,9 @@ import { describe, it, expect } from 'vitest';
 import { buildGraph } from '$lib/planner.js';
 import { buildRecipeIndex } from '$lib/recipeIndex.js';
 import { buildTagsIndex } from '$lib/tagsIndex.js';
+import { buildTalentIndex } from '$lib/talentIndex.js';
 import { simpleRecipe, tagRecipe, multiProductRecipe, widgetRecipe, sampleTags, slabRecipe, pathRecipe, crushedRockTags, multiVariantRecipe, byproductOnlyRecipe } from './fixtures.js';
-import type { UserChoices, RecipeObject } from '$lib/types.js';
+import type { UserChoices, RecipeObject, ProfessionData } from '$lib/types.js';
 
 function emptyChoices(): UserChoices {
   return {
@@ -189,6 +190,68 @@ describe('buildGraph', () => {
     if (ironBarNode?.type === 'raw') {
       // 4 × 0.5 × 2 = 4
       expect(ironBarNode.amount).toBe(4);
+    }
+  });
+
+  it('talent reduction applies to IsStatic: true ingredients', () => {
+    const laserRecipe: RecipeObject = {
+      Key: 'Laser',
+      Untranslated: 'Laser Recipe',
+      BaseCraftTime: 1,
+      BaseLaborCost: 100,
+      BaseXPGain: 1,
+      CraftingTable: 'Robotic Assembly Line',
+      CraftingTableCanUseModules: true,
+      DefaultVariant: 'Laser',
+      NumberOfVariants: 1,
+      SkillNeeds: [{ Skill: 'Electronics', Level: 7 }],
+      Variants: [{
+        Key: 'Laser',
+        Name: 'Laser',
+        Ingredients: [{ IsSpecificItem: true, Tag: null, Name: 'Laser Body', Ammount: 1, IsStatic: true }],
+        Products: [{ Name: 'Laser', Ammount: 1 }]
+      }]
+    };
+
+    const professions: ProfessionData[] = [{
+      profession: 'Electronics',
+      source_file: 'test',
+      skills: [{
+        skill: 'Electronics',
+        talents: [{
+          display_name: 'Robotic Assistance: Electronics',
+          description: '',
+          level: 7,
+          class: 'RoboticAssistanceTalentGroup',
+          max_takes: 1,
+          effects: [{
+            effect: '-10% resource cost',
+            penalty: false,
+            craft_stations: ['Robotic Assembly Line']
+          }]
+        }]
+      }]
+    }];
+
+    const recipeIndex = buildRecipeIndex([laserRecipe]);
+    const tagsIndex = buildTagsIndex({});
+    const talentData = buildTalentIndex(professions, [laserRecipe], {});
+    const graph = buildGraph({
+      targetItem: 'Laser',
+      totalAmount: 20,
+      recipeIndex,
+      tagsIndex,
+      choices: emptyChoices(),
+      globalUpgrade: 0,
+      talentData
+    });
+
+    const bodyNode = graph.nodes.find(n =>
+      n.type === 'raw' && (n as { itemName: string }).itemName === 'Laser Body'
+    );
+    expect(bodyNode).toBeDefined();
+    if (bodyNode?.type === 'raw') {
+      expect(bodyNode.amount).toBeCloseTo(18);
     }
   });
 

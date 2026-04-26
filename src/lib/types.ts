@@ -196,6 +196,8 @@ export interface TablePlannerNode {
   recipe: RecipeObject;
   variant: Variant;
   cycles: number;           // ceil(requiredAmount / productAmount)
+  upgradeReduction?: number;
+  talentReduction?: number;
   effectiveReduction: number;
   appliedTalents: AppliedTalent[];
   availableRecipes: RecipeObject[];

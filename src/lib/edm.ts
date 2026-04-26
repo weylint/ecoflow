@@ -2,6 +2,7 @@ import type { PlannerGraph, PlannerNode, RawPlannerNode, TablePlannerNode, Marke
 import { EDM_MARKUP_EXCLUDED_RECIPES } from './types.js';
 import type { AppSettings } from './settings.js';
 import type { TagsIndex } from './tagsIndex.js';
+import { ingredientAmountPerCycle } from './resourceCost.js';
 
 export interface RawCost {
   itemName: string;
@@ -240,9 +241,7 @@ export function computeEdmReport(graph: PlannerGraph, settings: AppSettings, tag
         const myCtx = { prof: profession, level, recipeKey: tableNode.recipe.Key };
 
         for (const ingredient of tableNode.variant.Ingredients) {
-          const ingredientNeeded = (ingredient.IsStatic
-            ? ingredient.Ammount
-            : ingredient.Ammount * (1 - tableNode.effectiveReduction)) * cycles;
+          const ingredientNeeded = ingredientAmountPerCycle(ingredient, tableNode) * cycles;
 
           const inputId = ingredient.IsSpecificItem
             ? itemNodeId(ingredient.Name)
@@ -360,9 +359,7 @@ export function computeEdmReport(graph: PlannerGraph, settings: AppSettings, tag
         const inputId = ingredient.IsSpecificItem
           ? itemNodeId(ingredient.Name)
           : tagNodeId(ingredient.Tag as string);
-        const ingredientTotal = (ingredient.IsStatic
-          ? ingredient.Ammount
-          : ingredient.Ammount * (1 - tableNode.effectiveReduction)) * tableNode.cycles;
+        const ingredientTotal = ingredientAmountPerCycle(ingredient, tableNode) * tableNode.cycles;
         const inputEdm = subtreeEdm(inputId);
         const producerTable = resolveProducerTable(inputId);
         const producerProf = producerTable?.recipe.SkillNeeds[0]?.Skill ?? '';
