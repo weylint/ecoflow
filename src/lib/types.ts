@@ -202,6 +202,7 @@ export interface TablePlannerNode {
   appliedTalents: AppliedTalent[];
   availableRecipes: RecipeObject[];
   loopbackItems?: { itemName: string; grossAmount: number; returnAmount: number; netAmount: number }[];
+  valueAdded?: number | null;
 }
 export interface ItemPlannerNode {
   type: 'item';

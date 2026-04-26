@@ -518,4 +518,82 @@ describe('computeEdmReport', () => {
 
     expect(() => computeEdmReport(cyclicGraph, settings, buildTagsIndex({}))).not.toThrow();
   });
+
+  it('computes work party cost at 50 EDM per 1k Labour (BaseLaborCost × cycles) for excluded recipes', () => {
+    const baseLaborCost = 200;
+    const cycles = 3;
+
+    const wpGraph: PlannerGraph = {
+      nodes: [
+        {
+          type: 'table',
+          id: 'table:LaserBody',
+          itemName: 'Laser Body',
+          table: 'Power Hammer',
+          recipe: {
+            Key: 'Laser Body',
+            BaseLaborCost: baseLaborCost,
+            SkillNeeds: [{ Skill: 'Blacksmith', Level: 3 }],
+          } as RecipeObject,
+          variant: {
+            Key: 'LaserBody',
+            Name: 'Laser Body',
+            Ingredients: [{ IsSpecificItem: true, Tag: null, Name: 'Steel Bar', Ammount: 5, IsStatic: false }],
+            Products: [{ Name: 'Laser Body', Ammount: 1 }]
+          },
+          cycles,
+          effectiveReduction: 0,
+          appliedTalents: [],
+          availableRecipes: []
+        },
+        { type: 'item', id: 'item:Laser Body', itemName: 'Laser Body', amount: cycles },
+        { type: 'raw',  id: 'raw:Steel Bar',   itemName: 'Steel Bar',   amount: 5 * cycles }
+      ],
+      edges: [
+        { id: 'e1', source: 'table:LaserBody', target: 'item:Laser Body' },
+        { id: 'e2', source: 'raw:Steel Bar',   target: 'table:LaserBody' }
+      ]
+    };
+
+    const report = computeEdmReport(wpGraph, settings, buildTagsIndex({}));
+    const expected = (baseLaborCost * cycles / 1000) * 50;
+    expect(report.tableValueAdded.get('table:LaserBody')).toBeCloseTo(expected, 6);
+  });
+
+  it('does not add work party cost for non-excluded recipes', () => {
+    const normalGraph: PlannerGraph = {
+      nodes: [
+        {
+          type: 'table',
+          id: 'table:SteelBar',
+          itemName: 'Steel Bar',
+          table: 'Blast Furnace',
+          recipe: {
+            Key: 'Steel Bar',
+            BaseLaborCost: 200,
+            SkillNeeds: [{ Skill: 'Smelting', Level: 3 }],
+          } as RecipeObject,
+          variant: {
+            Key: 'SteelBar',
+            Name: 'Steel Bar',
+            Ingredients: [{ IsSpecificItem: true, Tag: null, Name: 'Iron Ore', Ammount: 2, IsStatic: false }],
+            Products: [{ Name: 'Steel Bar', Ammount: 1 }]
+          },
+          cycles: 3,
+          effectiveReduction: 0,
+          appliedTalents: [],
+          availableRecipes: []
+        },
+        { type: 'item', id: 'item:Steel Bar', itemName: 'Steel Bar', amount: 3 },
+        { type: 'raw',  id: 'raw:Iron Ore',   itemName: 'Iron Ore',   amount: 6 }
+      ],
+      edges: [
+        { id: 'e1', source: 'table:SteelBar',  target: 'item:Steel Bar' },
+        { id: 'e2', source: 'raw:Iron Ore',     target: 'table:SteelBar' }
+      ]
+    };
+
+    const report = computeEdmReport(normalGraph, settings, buildTagsIndex({}));
+    expect(report.tableValueAdded.has('table:SteelBar')).toBe(false);
+  });
 });

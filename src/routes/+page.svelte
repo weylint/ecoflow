@@ -153,6 +153,7 @@
   let showReport = $state(false);
   let showResolve = $state(false);
   let expandedTransition = $state<number | null>(null);
+  let expandedVaProf = $state<string | null>(null);
   let showLayoutSettings = $state(false);
   let layoutOptions = $state<LayoutOptions>({ ...DEFAULT_LAYOUT_OPTIONS });
   let darkMode = $state(true);
@@ -178,6 +179,7 @@
 
   function openReport() {
     expandedTransition = null;
+    expandedVaProf = null;
     const otherMode: 'eco12' | 'eco13' = settings.ecoMode === 'eco13' ? 'eco12' : 'eco13';
     const otherLevels = getUpgradeLevels(otherMode);
     compareUpgrade = { value: otherLevels[otherLevels.length - 1].value, mode: otherMode };
@@ -188,6 +190,7 @@
     showReport = false;
     compareUpgrade = null;
     expandedTransition = null;
+    expandedVaProf = null;
   }
 
   // SvelteFlow v0.1.x requires writable stores, not $state arrays
@@ -441,6 +444,7 @@
               upgradeLevels,
               ingredientStats,
               productStats,
+              valueAdded: localEdmReport?.tableValueAdded.get(tNode.id) ?? null,
               showStats: settings.showNodeStats,
             }
           };
@@ -747,6 +751,68 @@
         </div>
       {/if}
 
+      {#if edmReport && [...edmReport.tableValueAdded.values()].some(v => v != null && v > 0)}
+        {@const vaEntries = [...edmReport.tableValueAdded.entries()]
+          .map(([id, va]) => {
+            const node = plannerTableNodes.find(n => n.id === id);
+            return { va, table: node?.table ?? id, item: node?.itemName ?? '', profession: node?.recipe.SkillNeeds[0]?.Skill ?? '' };
+          })
+          .filter(e => e.va != null && e.va > 0)
+          .sort((a, b) => (b.va ?? 0) - (a.va ?? 0))}
+        {@const vaByProf = (() => {
+          const map = new Map<string, number | null>();
+          for (const e of vaEntries) {
+            const prev = map.get(e.profession) ?? 0;
+            map.set(e.profession, prev === null || e.va === null ? null : prev + e.va);
+          }
+          return [...map.entries()].sort((a, b) => (b[1] ?? 0) - (a[1] ?? 0));
+        })()}
+        <section class="va-section">
+          <h3>Value Added by Table</h3>
+          <table>
+            <tbody>
+              {#each vaEntries as e}
+                <tr>
+                  <td class="item-name">{e.table}</td>
+                  <td class="item-name muted">→ {e.item}</td>
+                  <td class="item-amt">+{e.va != null ? fmtEdm(e.va / amount) : '—'} EDM</td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+          <h3>Value Added by Profession</h3>
+          <div class="va-prof-list">
+            {#each vaByProf as [prof, va]}
+              {@const isExpanded = expandedVaProf === prof}
+              {@const profEntries = vaEntries.filter(e => e.profession === prof)}
+              <div
+                class="cross-prof-row"
+                class:cross-prof-expanded={isExpanded}
+                role="button"
+                tabindex="0"
+                onclick={() => { expandedVaProf = isExpanded ? null : prof; }}
+                onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); expandedVaProf = isExpanded ? null : prof; } }}
+              >
+                <span class="cross-prof-chevron">{isExpanded ? '▾' : '▸'}</span>
+                <span class="cross-prof-profs">{prof}</span>
+                <span class="cross-prof-amt">+{va != null ? fmtEdm(va / amount) : '—'} EDM</span>
+              </div>
+              {#if isExpanded}
+                <div class="va-prof-detail">
+                  {#each profEntries as e}
+                    <div class="va-prof-entry">
+                      <span class="va-entry-table">{e.table}</span>
+                      <span class="va-entry-item muted">→ {e.item}</span>
+                      <span class="va-entry-amt">+{e.va != null ? fmtEdm(e.va / amount) : '—'} EDM</span>
+                    </div>
+                  {/each}
+                </div>
+              {/if}
+            {/each}
+          </div>
+        </section>
+      {/if}
+
       <section>
         <h3>Raw Ingredients</h3>
         {#if plannerRawNodes.length === 0 && !comparisonReport}
@@ -805,7 +871,7 @@
             </tbody>
           </table>
 
-          {#if edmReport.crossProfTransitions.length > 0}
+          {#if edmReport && edmReport.crossProfTransitions.length > 0}
               <div class="cross-prof-list">
                 <div class="cross-prof-header">Cross-profession transitions (+{(settings.crossProfessionMarkup * 100).toFixed(0)}% markup each):</div>
                 {#each [...edmReport.crossProfTransitions].sort((a, b) => (b.markupAmount ?? -Infinity) - (a.markupAmount ?? -Infinity)) as t, i}
@@ -837,6 +903,7 @@
                             <span class="cp-entry-amount muted">{fmtNum(entry.neededAmount)} needed / {fmtNum(entry.outputAmount)} produced</span>
                             {#if entry.markupApplied}<span class="cp-entry-markup">+{(settings.crossProfessionMarkup * 100).toFixed(0)}%</span>{/if}
                             <span class="cp-entry-edm">{entry.subtreeEdm != null ? fmtEdm(entry.subtreeEdm / amount) : '—'} EDM</span>
+                            {#if entry.markupApplied && entry.subtreeEdm != null}<span class="cp-entry-va">VA: +{fmtEdm(entry.subtreeEdm * settings.crossProfessionMarkup / amount)} EDM</span>{/if}
                             <span class="cp-entry-per-item">{perItem != null ? fmtEdm(perItem) : '—'}/item{#if markupPerItem != null} <span class="cp-entry-markup-amt">+{fmtEdm(markupPerItem)}</span>{/if}</span>
                           {:else}
                             <span class="cp-entry-leaf-type muted">[{entry.nodeType}]</span>
@@ -1735,6 +1802,30 @@
   .cross-prof-item { color: #666; font-size: 10px; flex: 1; }
   .cross-prof-amt { color: #f0c070; white-space: nowrap; font-variant-numeric: tabular-nums; font-family: 'Courier New', Courier, monospace; }
 
+  .va-prof-list { display: flex; flex-direction: column; margin-top: 8px; font-size: 11px; }
+
+  .va-prof-detail {
+    margin: 2px 0 6px 14px;
+    padding: 8px 10px;
+    border-left: 2px solid #2a6a4a;
+    background: rgba(42,106,74,0.1);
+    border-radius: 0 4px 4px 0;
+    font-size: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .va-prof-entry {
+    display: flex;
+    gap: 6px;
+    align-items: baseline;
+  }
+
+  .va-entry-table { color: #90e0b0; white-space: nowrap; }
+  .va-entry-item { color: #666; font-size: 10px; flex: 1; }
+  .va-entry-amt { color: #90e0b0; white-space: nowrap; font-variant-numeric: tabular-nums; font-family: 'Courier New', Courier, monospace; margin-left: auto; }
+
   .cross-prof-detail {
     margin: 2px 0 6px 14px;
     padding: 8px 10px;
@@ -1764,6 +1855,7 @@
   .cp-entry-amount { color: #888; white-space: nowrap; font-variant-numeric: tabular-nums; font-family: 'Courier New', Courier, monospace; }
   .cp-entry-edm { color: #f0c070; white-space: nowrap; font-variant-numeric: tabular-nums; margin-left: auto; font-family: 'Courier New', Courier, monospace; }
   .cp-entry-markup { color: #f0a040; font-size: 9px; background: rgba(240,160,64,0.15); border: 1px solid rgba(240,160,64,0.4); border-radius: 2px; padding: 0 3px; white-space: nowrap; }
+  .cp-entry-va { color: #90e0b0; font-size: 9px; white-space: nowrap; font-family: 'Courier New', Courier, monospace; font-variant-numeric: tabular-nums; }
   .cp-entry-per-item { color: #888; font-size: 9px; white-space: nowrap; margin-left: auto; font-family: 'Courier New', Courier, monospace; }
   .cp-entry-markup-amt { color: #f0a040; }
 

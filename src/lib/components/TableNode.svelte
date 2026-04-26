@@ -1,7 +1,7 @@
 <script lang="ts">
   import { Handle, Position } from '@xyflow/svelte';
   import type { TablePlannerNode, RecipeObject, Variant, AppliedTalent, ECO12_UPGRADE_LEVELS, ECO13_UPGRADE_LEVELS, IngredientStats, ProductStats } from '../types.js';
-  import { ECO12_UPGRADE_LEVELS as ECO12 } from '../types.js';
+  import { ECO12_UPGRADE_LEVELS as ECO12, EDM_MARKUP_EXCLUDED_RECIPES } from '../types.js';
   import { fmtNum, fmtEdm } from '../format.js';
 
   interface Props {
@@ -141,7 +141,7 @@
           {#if ing.name === 'Food'}
             <span class="stats-food-cals">{fmtNum(ing.amount)} cal · {fmtNum(ing.amount / data.cycles)}/run</span>
             {#if ing.edmPerUnit != null}
-              <span class="stats-label">IN: Food</span>
+              <span class="stats-label">{EDM_MARKUP_EXCLUDED_RECIPES.has(data.recipe.Key) ? 'IN: WP' : 'IN: Food'}</span>
               <span class="stats-num">{fmtNum(ing.amount, true)}</span>
               <span class="stats-rate">{fmtEdm(ing.edmPerUnit)}/u</span>
               <span class="stats-total">{fmtEdm(ing.totalEdm!)} EDM</span>
@@ -168,6 +168,12 @@
             <span></span><span></span>
           {/if}
         {/each}
+
+        {#if data.valueAdded != null && data.valueAdded > 0}
+          {@const primaryAmt = data.productStats?.find(p => p.name === data.itemName)?.amount ?? 0}
+          {@const vaPerUnit = primaryAmt > 0 ? data.valueAdded / primaryAmt : null}
+          <span class="stats-va">VA: +{fmtEdm(data.valueAdded)} EDM{#if vaPerUnit != null} · +{fmtEdm(vaPerUnit)}/u{/if}</span>
+        {/if}
 
       </div>
     {/if}
@@ -232,6 +238,16 @@
     color: #7ea8c4;
     font-family: Consolas, 'Courier New', Courier, monospace;
     font-variant-numeric: tabular-nums;
+  }
+
+  .stats-va {
+    grid-column: 1 / -1;
+    color: #90e0b0;
+    font-family: Consolas, 'Courier New', Courier, monospace;
+    font-variant-numeric: tabular-nums;
+    margin-top: 2px;
+    border-top: 1px solid #4a7fb5;
+    padding-top: 2px;
   }
 
   .stats-label {

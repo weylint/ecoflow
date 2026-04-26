@@ -94,6 +94,7 @@ export interface EdmReport {
   missingItems: string[];
   nodeEdm: Map<string, number | null>;
   tableEdm: Map<string, number | null>;
+  tableValueAdded: Map<string, number | null>;
 }
 
 export function resolveItemEdmValue(
@@ -271,7 +272,7 @@ export function computeEdmReport(graph: PlannerGraph, settings: AppSettings, tag
           const producerProf = producerTable?.recipe.SkillNeeds[0]?.Skill ?? '';
           const producerLevel = producerTable?.recipe.SkillNeeds[0]?.Level ?? 0;
           const profChanged =
-            !EDM_MARKUP_EXCLUDED_RECIPES.has(tableNode.recipe.Key) &&
+            !EDM_MARKUP_EXCLUDED_RECIPES.has(producerTable?.recipe.Key ?? '') &&
             isSpecializedSkill(profession, level) &&
             isSpecializedSkill(producerProf, producerLevel) &&
             producerProf !== profession;
@@ -365,7 +366,7 @@ export function computeEdmReport(graph: PlannerGraph, settings: AppSettings, tag
         const producerProf = producerTable?.recipe.SkillNeeds[0]?.Skill ?? '';
         const producerLevel = producerTable?.recipe.SkillNeeds[0]?.Level ?? 0;
         const profChanged =
-          !EDM_MARKUP_EXCLUDED_RECIPES.has(tableNode.recipe.Key) &&
+          !EDM_MARKUP_EXCLUDED_RECIPES.has(producerTable?.recipe.Key ?? '') &&
           isSpecializedSkill(myProf, myLevel) &&
           isSpecializedSkill(producerProf, producerLevel) &&
           producerProf !== myProf;
@@ -451,6 +452,31 @@ export function computeEdmReport(graph: PlannerGraph, settings: AppSettings, tag
     }
   }
 
+  const tableValueAdded = new Map<string, number | null>();
+  for (const t of crossProfTransitions) {
+    const producer = producerTableOf.get(`item:${t.itemName}`)
+      ?? producerTableOf.get(`tag:${t.itemName}`);
+    if (producer) {
+      const prev = tableValueAdded.get(producer.id) ?? 0;
+      tableValueAdded.set(producer.id,
+        prev === null || t.markupAmount === null ? null : prev + t.markupAmount
+      );
+    }
+  }
+
+  for (const node of graph.nodes) {
+    if (node.type === 'table') {
+      const tableNode = node as TablePlannerNode;
+      if (EDM_MARKUP_EXCLUDED_RECIPES.has(tableNode.recipe.Key)) {
+        const workPartyEdm = (tableNode.recipe.BaseLaborCost * tableNode.cycles / 1000) * 50;
+        if (workPartyEdm > 0) {
+          const prev = tableValueAdded.get(tableNode.id) ?? 0;
+          tableValueAdded.set(tableNode.id, prev === null ? null : prev + workPartyEdm);
+        }
+      }
+    }
+  }
+
   const markupEdm = crossProfTransitions.every(t => t.markupAmount !== null)
     ? crossProfTransitions.reduce((sum, t) => sum + (t.markupAmount ?? 0), 0)
     : null;
@@ -475,6 +501,7 @@ export function computeEdmReport(graph: PlannerGraph, settings: AppSettings, tag
     totalEdm,
     missingItems,
     nodeEdm: new Map(memoized),
-    tableEdm
+    tableEdm,
+    tableValueAdded
   };
 }
