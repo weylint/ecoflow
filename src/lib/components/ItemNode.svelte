@@ -1,6 +1,7 @@
 <script lang="ts">
   import { Handle, Position } from '@xyflow/svelte';
   import type { ItemPlannerNode } from '../types.js';
+  import { fmtNum } from '../format.js';
 
   interface Props {
     data: ItemPlannerNode;
@@ -18,11 +19,11 @@
       {#if data.amount === 0}
         ✓ from byproduct
       {:else}
-        × {data.amount % 1 === 0 ? data.amount : data.amount.toFixed(2)}
+        × {fmtNum(data.amount)}
       {/if}
     </div>
     {#if data.byproductSupply}
-      <div class="supply">+{data.byproductSupply % 1 === 0 ? data.byproductSupply : data.byproductSupply.toFixed(2)} byproduct</div>
+      <div class="supply">+{fmtNum(data.byproductSupply)} byproduct</div>
     {/if}
   </div>
 
@@ -55,6 +56,7 @@
     font-size: 15px;
     color: #7ee3a0;
     font-weight: bold;
+    font-family: 'Courier New', Courier, monospace;
   }
 
   .supply {

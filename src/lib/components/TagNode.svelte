@@ -1,6 +1,7 @@
 <script lang="ts">
   import { Handle, Position } from '@xyflow/svelte';
   import type { TagPlannerNode } from '../types.js';
+  import { fmtNum } from '../format.js';
 
   interface Props {
     data: TagPlannerNode & {
@@ -10,7 +11,7 @@
 
   let { data }: Props = $props();
 
-  const fmt = (n: number) => n % 1 === 0 ? String(n) : n.toFixed(2);
+  const fmt = fmtNum;
 
   function handleSelect(e: Event) {
     const select = e.target as HTMLSelectElement;
@@ -90,6 +91,7 @@
     font-weight: bold;
     text-align: center;
     color: #f0c070;
+    font-family: 'Courier New', Courier, monospace;
   }
 
   .supply {

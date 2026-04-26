@@ -2,6 +2,7 @@
   import { Handle, Position } from '@xyflow/svelte';
   import type { ByproductPlannerNode, ByproductResolveOption } from '../types.js';
   import { EXCLUDED_BYPRODUCTS } from '../types.js';
+  import { fmtNum } from '../format.js';
 
   interface Props {
     data: ByproductPlannerNode & {
@@ -14,7 +15,7 @@
 
   const options = $derived(data.resolveOptions ?? []);
   const excluded = $derived(EXCLUDED_BYPRODUCTS.has(data.itemName));
-  const fmt = (n: number) => n % 1 === 0 ? String(n) : n.toFixed(2);
+  const fmt = fmtNum;
 </script>
 
 <div class="byproduct-node" class:has-options={options.length > 0} class:excluded>
@@ -81,6 +82,7 @@
     font-size: 14px;
     color: #b090e0;
     font-weight: bold;
+    font-family: 'Courier New', Courier, monospace;
   }
 
   .byproduct-node.excluded {

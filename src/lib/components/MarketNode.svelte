@@ -1,6 +1,7 @@
 <script lang="ts">
   import { Handle, Position } from '@xyflow/svelte';
   import type { MarketPlannerNode, RecipeObject } from '../types.js';
+  import { fmtNum } from '../format.js';
 
   interface Props {
     data: MarketPlannerNode & {
@@ -27,7 +28,7 @@
 
   <div class="body">
     <div class="name">{data.itemName}</div>
-    <div class="amount">× {data.amount % 1 === 0 ? data.amount : data.amount.toFixed(2)}</div>
+    <div class="amount">× {fmtNum(data.amount)}</div>
 
     {#if data.availableRecipes.length > 0}
       <div class="picker-row">
@@ -86,6 +87,7 @@
     font-weight: bold;
     text-align: center;
     color: #8edb50;
+    font-family: 'Courier New', Courier, monospace;
   }
 
   .picker-row {

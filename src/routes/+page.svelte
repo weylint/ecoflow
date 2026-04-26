@@ -14,6 +14,7 @@
   import { computeEdmReport, resolveItemEdmValue, PROFESSION_FOOD_TIER } from '$lib/edm.js';
   import type { EdmReport, TransitionPathEntry } from '$lib/edm.js';
   import { displayedProductEdmPerUnit, tableEdmPerUnit } from '$lib/nodeEdmDisplay.js';
+  import { fmtNum, fmtEdm, fmtLabor } from '$lib/format.js';
   import { buildRecipeIndex } from '$lib/recipeIndex.js';
   import { buildTagsIndex } from '$lib/tagsIndex.js';
   import { buildTalentIndex } from '$lib/talentIndex.js';
@@ -166,19 +167,6 @@
     // We snapshot to avoid capturing reactive proxies.
     saveSettings($state.snapshot(settings) as AppSettings);
   });
-
-  function fmt(n: number): string {
-    return Number.isInteger(n) ? String(n) : n.toFixed(2);
-  }
-
-  function fmtEdm(n: number): string {
-    return n.toFixed(2);
-  }
-
-  function fmtLabor(n: number): string {
-    const k = n / 1000;
-    return (k % 1 === 0 ? String(k) : k.toFixed(1).replace('.', ',')) + 'k';
-  }
 
   function fmtDeltaPct(cur: number, cmp: number): string {
     if (cur === 0 && cmp === 0) return '—';
@@ -750,8 +738,8 @@
                   {@const cmp = comparisonReport.rawByItem.get(itemName) ?? 0}
                   <tr>
                     <td class="item-name" class:edm-missing-name={isMissing}>{itemName}{#if isMissing} ⚠{/if}</td>
-                    <td class="item-amt">{fmt(cur)}</td>
-                    <td class="item-amt">{fmt(cmp)}</td>
+                    <td class="item-amt">{fmtNum(cur)}</td>
+                    <td class="item-amt">{fmtNum(cmp)}</td>
                     <td class="item-amt" class:delta-neg={cmp < cur} class:delta-pos={cmp > cur}>{fmtDeltaPct(cur, cmp)}</td>
                     <td class="item-amt" class:edm-missing={isMissing}>{rawCost?.edmPerUnit != null ? fmtEdm(rawCost.edmPerUnit) : '—'}</td>
                     <td class="item-amt" class:edm-missing={isMissing}>{rawCost?.totalEdm != null ? fmtEdm(rawCost.totalEdm / amount) : '—'}</td>
@@ -759,7 +747,7 @@
                 {:else}
                   <tr>
                     <td class="item-name" class:edm-missing-name={isMissing}>{itemName}{#if isMissing} ⚠{/if}</td>
-                    <td class="item-amt">{fmt(cur)}</td>
+                    <td class="item-amt">{fmtNum(cur)}</td>
                     <td class="item-amt" class:edm-missing={isMissing}>{rawCost?.edmPerUnit != null ? fmtEdm(rawCost.edmPerUnit) : '—'}</td>
                     <td class="item-amt" class:edm-missing={isMissing}>{rawCost?.totalEdm != null ? fmtEdm(rawCost.totalEdm / amount) : '—'}</td>
                   </tr>
@@ -844,14 +832,14 @@
                             <span class="cp-entry-profession">[{entry.profession}]</span>
                             <span class="cp-entry-table">{entry.tableName}</span>
                             <span class="cp-entry-item muted">→ {entry.itemName}</span>
-                            <span class="cp-entry-amount muted">{fmt(entry.neededAmount)} needed / {fmt(entry.outputAmount)} produced</span>
+                            <span class="cp-entry-amount muted">{fmtNum(entry.neededAmount)} needed / {fmtNum(entry.outputAmount)} produced</span>
                             {#if entry.markupApplied}<span class="cp-entry-markup">+{(settings.crossProfessionMarkup * 100).toFixed(0)}%</span>{/if}
                             <span class="cp-entry-edm">{entry.subtreeEdm != null ? fmtEdm(entry.subtreeEdm / amount) : '—'} EDM</span>
                             <span class="cp-entry-per-item">{perItem != null ? fmtEdm(perItem) : '—'}/item{#if markupPerItem != null} <span class="cp-entry-markup-amt">+{fmtEdm(markupPerItem)}</span>{/if}</span>
                           {:else}
                             <span class="cp-entry-leaf-type muted">[{entry.nodeType}]</span>
                             <span class="cp-entry-item">{entry.itemName}</span>
-                            <span class="cp-entry-amount muted">{entry.amount % 1 === 0 ? entry.amount : entry.amount.toFixed(2)} × {entry.edmPerUnit ?? '?'}</span>
+                            <span class="cp-entry-amount muted">{fmtNum(entry.amount)} × {entry.edmPerUnit != null ? fmtEdm(entry.edmPerUnit) : '?'}</span>
                             <span class="cp-entry-edm">{entry.totalEdm != null ? fmtEdm(entry.totalEdm / amount) : '—'} EDM</span>
                           {/if}
                         </div>
@@ -896,12 +884,12 @@
                   {@const cmp = comparisonReport.tagByName.get(tag) ?? 0}
                   <tr>
                     <td class="item-name">{tag}</td>
-                    <td class="item-amt">{fmt(cur)}</td>
-                    <td class="item-amt">{fmt(cmp)}</td>
+                    <td class="item-amt">{fmtNum(cur)}</td>
+                    <td class="item-amt">{fmtNum(cmp)}</td>
                     <td class="item-amt" class:delta-neg={cmp < cur} class:delta-pos={cmp > cur}>{fmtDeltaPct(cur, cmp)}</td>
                   </tr>
                 {:else}
-                  <tr><td class="item-name">{tag}</td><td class="item-amt">{fmt(cur)}</td></tr>
+                  <tr><td class="item-name">{tag}</td><td class="item-amt">{fmtNum(cur)}</td></tr>
                 {/if}
               {/each}
             </tbody>
@@ -946,15 +934,15 @@
                   <tr>
                     <td class="item-name">{itemName}</td>
                     <td class="item-name muted">from {producer}</td>
-                    <td class="item-amt">{fmt(cur)}</td>
-                    <td class="item-amt">{fmt(cmp)}</td>
+                    <td class="item-amt">{fmtNum(cur)}</td>
+                    <td class="item-amt">{fmtNum(cmp)}</td>
                     <td class="item-amt" class:delta-neg={cmp < cur} class:delta-pos={cmp > cur}>{fmtDeltaPct(cur, cmp)}</td>
                   </tr>
                 {:else}
                   <tr>
                     <td class="item-name">{itemName}</td>
                     <td class="item-name muted">from {producer}</td>
-                    <td class="item-amt">{fmt(cur)}</td>
+                    <td class="item-amt">{fmtNum(cur)}</td>
                   </tr>
                 {/if}
               {/each}
@@ -971,7 +959,7 @@
           <table>
             <tbody>
               {#each [...plannerMarketNodes].sort((a, b) => b.amount - a.amount) as n}
-                <tr><td class="item-name">{n.itemName}</td><td class="item-amt">{fmt(n.amount)}</td></tr>
+                <tr><td class="item-name">{n.itemName}</td><td class="item-amt">{fmtNum(n.amount)}</td></tr>
               {/each}
             </tbody>
           </table>
@@ -1468,6 +1456,7 @@
 
   .item-amt {
     text-align: right; color: #7ec8e3; font-variant-numeric: tabular-nums;
+    font-family: 'Courier New', Courier, monospace;
   }
 
   .empty {
@@ -1706,7 +1695,7 @@
   }
 
   .edm-label { color: #888; }
-  .edm-value { color: #7ec8e3; font-variant-numeric: tabular-nums; }
+  .edm-value { color: #7ec8e3; font-variant-numeric: tabular-nums; font-family: 'Courier New', Courier, monospace; }
   .edm-total .edm-label { color: #b0b0b0; font-weight: bold; }
   .edm-total .edm-value { color: #90e0b0; font-weight: bold; }
   .edm-subheader .edm-label { font-style: italic; font-size: 11px; }
@@ -1744,7 +1733,7 @@
   .cross-prof-chevron { color: #888; font-size: 9px; width: 10px; flex-shrink: 0; }
   .cross-prof-profs { color: #c8a0f0; white-space: nowrap; }
   .cross-prof-item { color: #666; font-size: 10px; flex: 1; }
-  .cross-prof-amt { color: #f0c070; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .cross-prof-amt { color: #f0c070; white-space: nowrap; font-variant-numeric: tabular-nums; font-family: 'Courier New', Courier, monospace; }
 
   .cross-prof-detail {
     margin: 2px 0 6px 14px;
@@ -1772,10 +1761,10 @@
   .cp-entry-table { color: #c8a0f0; white-space: nowrap; }
   .cp-entry-leaf-type { color: #666; white-space: nowrap; }
   .cp-entry-item { color: #e0e0e0; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .cp-entry-amount { color: #888; white-space: nowrap; font-variant-numeric: tabular-nums; }
-  .cp-entry-edm { color: #f0c070; white-space: nowrap; font-variant-numeric: tabular-nums; margin-left: auto; }
+  .cp-entry-amount { color: #888; white-space: nowrap; font-variant-numeric: tabular-nums; font-family: 'Courier New', Courier, monospace; }
+  .cp-entry-edm { color: #f0c070; white-space: nowrap; font-variant-numeric: tabular-nums; margin-left: auto; font-family: 'Courier New', Courier, monospace; }
   .cp-entry-markup { color: #f0a040; font-size: 9px; background: rgba(240,160,64,0.15); border: 1px solid rgba(240,160,64,0.4); border-radius: 2px; padding: 0 3px; white-space: nowrap; }
-  .cp-entry-per-item { color: #888; font-size: 9px; white-space: nowrap; margin-left: auto; }
+  .cp-entry-per-item { color: #888; font-size: 9px; white-space: nowrap; margin-left: auto; font-family: 'Courier New', Courier, monospace; }
   .cp-entry-markup-amt { color: #f0a040; }
 
   .cp-detail-footer {

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { Handle, Position } from '@xyflow/svelte';
   import type { RawPlannerNode } from '../types.js';
+  import { fmtNum } from '../format.js';
 
   interface Props {
     data: RawPlannerNode;
@@ -15,7 +16,7 @@
   <div class="content">
     <div class="label">RAW</div>
     <div class="name">{data.itemName}</div>
-    <div class="amount">× {data.amount % 1 === 0 ? data.amount : data.amount.toFixed(2)}</div>
+    <div class="amount">× {fmtNum(data.amount)}</div>
   </div>
 </div>
 
@@ -53,5 +54,6 @@
     font-size: 14px;
     color: #aaa;
     font-weight: bold;
+    font-family: 'Courier New', Courier, monospace;
   }
 </style>

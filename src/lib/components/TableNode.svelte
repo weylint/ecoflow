@@ -2,6 +2,7 @@
   import { Handle, Position } from '@xyflow/svelte';
   import type { TablePlannerNode, RecipeObject, Variant, AppliedTalent, ECO12_UPGRADE_LEVELS, ECO13_UPGRADE_LEVELS, IngredientStats, ProductStats } from '../types.js';
   import { ECO12_UPGRADE_LEVELS as ECO12 } from '../types.js';
+  import { fmtNum, fmtEdm } from '../format.js';
 
   interface Props {
     data: TablePlannerNode & {
@@ -60,9 +61,7 @@
 
   const totalSeconds = $derived(data.cycles * data.recipe.BaseCraftTime * 60 * (1 - (data.currentUpgrade ?? 0)));
 
-  function fmt(n: number): string {
-    return Number.isInteger(n) ? String(n) : n.toFixed(2);
-  }
+
 </script>
 
 <div class="table-node">
@@ -127,9 +126,9 @@
         {#each data.loopbackItems as lb}
           <div class="returnable-row">
             <span class="lb-name">{lb.itemName}</span>
-            <span class="lb-gross">↓{fmt(lb.grossAmount)}</span>
-            <span class="lb-return">↑{fmt(lb.returnAmount)}</span>
-            <span class="lb-net">net {fmt(lb.netAmount)}</span>
+            <span class="lb-gross">↓{fmtNum(lb.grossAmount)}</span>
+            <span class="lb-return">↑{fmtNum(lb.returnAmount)}</span>
+            <span class="lb-net">net {fmtNum(lb.netAmount)}</span>
           </div>
         {/each}
       </div>
@@ -140,45 +139,34 @@
 
         {#each (data.ingredientStats ?? []) as ing}
           {#if ing.name === 'Food'}
-            <div class="stats-row">
+            <span class="stats-food-cals">{fmtNum(ing.amount)} cal · {fmtNum(ing.amount / data.cycles)}/run</span>
+            {#if ing.edmPerUnit != null}
               <span class="stats-label">IN: Food</span>
-              <span class="stats-values">{fmt(ing.amount)} cal · {fmt(ing.amount / data.cycles)}/run</span>
-            </div>
-            <div class="stats-row">
-              <span class="stats-label"></span>
-              <span class="stats-values">
-                {#if ing.edmPerUnit != null}
-                  {fmt(ing.amount)} · {ing.edmPerUnit.toFixed(2)}/u · {ing.totalEdm!.toFixed(2)} EDM
-                {:else}
-                  {fmt(ing.amount)}
-                {/if}
-              </span>
-            </div>
+              <span class="stats-num">{fmtNum(ing.amount)}</span>
+              <span class="stats-rate">{fmtEdm(ing.edmPerUnit)}/u</span>
+              <span class="stats-total">{fmtEdm(ing.totalEdm!)} EDM</span>
+            {/if}
           {:else}
-            <div class="stats-row">
-              <span class="stats-label">IN: {ing.name}</span>
-              <span class="stats-values">
-                {#if ing.edmPerUnit != null}
-                  {fmt(ing.amount)} · {ing.edmPerUnit.toFixed(2)}/u · {ing.totalEdm!.toFixed(2)} EDM
-                {:else}
-                  {fmt(ing.amount)}
-                {/if}
-              </span>
-            </div>
+            <span class="stats-label">IN: {ing.name}</span>
+            <span class="stats-num">{fmtNum(ing.amount)}</span>
+            {#if ing.edmPerUnit != null}
+              <span class="stats-rate">{fmtEdm(ing.edmPerUnit)}/u</span>
+              <span class="stats-total">{fmtEdm(ing.totalEdm!)} EDM</span>
+            {:else}
+              <span></span><span></span>
+            {/if}
           {/if}
         {/each}
 
         {#each (data.productStats ?? []) as prod}
-          <div class="stats-row">
-            <span class="stats-label">OUT: {prod.name}</span>
-            <span class="stats-values">
-              {#if prod.edmPerUnit != null}
-                {fmt(prod.amount)} · {prod.edmPerUnit.toFixed(2)}/u · {prod.totalEdm!.toFixed(2)} EDM
-              {:else}
-                {fmt(prod.amount)}
-              {/if}
-            </span>
-          </div>
+          <span class="stats-label">OUT: {prod.name}</span>
+          <span class="stats-num">{fmtNum(prod.amount)}</span>
+          {#if prod.edmPerUnit != null}
+            <span class="stats-rate">{fmtEdm(prod.edmPerUnit)}/u</span>
+            <span class="stats-total">{fmtEdm(prod.totalEdm!)} EDM</span>
+          {:else}
+            <span></span><span></span>
+          {/if}
         {/each}
 
       </div>
@@ -222,13 +210,15 @@
     font-weight: bold;
     text-align: center;
     color: #7ec8e3;
+    font-family: Consolas, 'Courier New', Courier, monospace;
   }
 
   .stats-section {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    font-size: 10px;
+    display: grid;
+    grid-template-columns: 1fr auto auto auto;
+    column-gap: 5px;
+    row-gap: 1px;
+    font-size: 9px;
   }
 
   .stats-section.first-bottom {
@@ -237,14 +227,29 @@
     padding-top: 4px;
   }
 
-  .stats-row {
-    display: flex;
-    justify-content: space-between;
-    gap: 4px;
+  .stats-food-cals {
+    grid-column: 1 / -1;
+    color: #7ea8c4;
+    font-family: Consolas, 'Courier New', Courier, monospace;
+    font-variant-numeric: tabular-nums;
   }
 
-  .stats-label { color: #7ea8c4; white-space: nowrap; }
-  .stats-values { color: #c0daf0; text-align: right; font-variant-numeric: tabular-nums; }
+  .stats-label {
+    color: #7ea8c4;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .stats-num,
+  .stats-rate,
+  .stats-total {
+    text-align: right;
+    white-space: nowrap;
+    font-family: Consolas, 'Courier New', Courier, monospace;
+    font-variant-numeric: tabular-nums;
+    color: #c0daf0;
+  }
 
   .picker-row {
     display: flex;
@@ -292,9 +297,9 @@
     white-space: nowrap;
   }
 
-  .lb-gross { color: #e07070; }
-  .lb-return { color: #70e070; }
-  .lb-net { color: #e0e070; }
+  .lb-gross { color: #e07070; font-family: 'Courier New', Courier, monospace; }
+  .lb-return { color: #70e070; font-family: 'Courier New', Courier, monospace; }
+  .lb-net { color: #e0e070; font-family: 'Courier New', Courier, monospace; }
 
   .talents {
     display: flex;
