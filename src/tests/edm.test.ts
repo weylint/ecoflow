@@ -65,6 +65,7 @@ const settings: AppSettings = {
   crossProfessionMarkup: 0.1,
   foodCostEnabled: false,
   foodTierCosts: { baseline: 1, basic: 3, advanced: 8, modern: 20 },
+  showNodeStats: true,
 };
 
 describe('computeEdmReport', () => {
@@ -168,6 +169,7 @@ describe('computeEdmReport', () => {
       crossProfessionMarkup: 0.1,
       foodCostEnabled: false,
       foodTierCosts: { baseline: 1, basic: 3, advanced: 8, modern: 20 },
+      showNodeStats: true,
     };
 
     const recipeIndex = buildRecipeIndex([

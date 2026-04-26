@@ -8,10 +8,10 @@
   import type { Node, Edge, NodeTypes, EdgeTypes } from '@xyflow/svelte';
   import { ECO12_UPGRADE_LEVELS, ECO13_UPGRADE_LEVELS, getUpgradeLevels, EXCLUDED_BYPRODUCTS, DEFAULT_LAYOUT_OPTIONS, DEFAULT_TAG_CHOICES, DEFAULT_RECIPE_CHOICES, DEFAULT_MARKET_ITEMS } from '$lib/types.js';
   import type { LayoutOptions, PlannerGraph } from '$lib/types.js';
-  import type { RecipeObject, Variant, TagsFile, RecipeFile, UserChoices, TablePlannerNode, RawPlannerNode, MarketPlannerNode, TagPlannerNode, ByproductPlannerNode, ByproductResolveOption } from '$lib/types.js';
+  import type { RecipeObject, Variant, TagsFile, RecipeFile, UserChoices, TablePlannerNode, RawPlannerNode, MarketPlannerNode, TagPlannerNode, ByproductPlannerNode, ByproductResolveOption, IngredientStats, ProductStats } from '$lib/types.js';
   import { DEFAULT_SETTINGS, loadSettings, saveSettings } from '$lib/settings.js';
   import type { AppSettings } from '$lib/settings.js';
-  import { computeEdmReport, resolveItemEdmValue } from '$lib/edm.js';
+  import { computeEdmReport, resolveItemEdmValue, PROFESSION_FOOD_TIER } from '$lib/edm.js';
   import type { EdmReport, TransitionPathEntry } from '$lib/edm.js';
   import { buildRecipeIndex } from '$lib/recipeIndex.js';
   import { buildTagsIndex } from '$lib/tagsIndex.js';
@@ -367,9 +367,38 @@
       }
 
       // Inject callbacks into node data here (avoids infinite $effect loops)
+      const pgNodeMap = new Map(plannerGraph.nodes.map(n => [n.id, n]));
+
       flowNodes.set(layoutNodes.map(n => {
         if (n.type === 'tableNode') {
           const tNode = n.data as unknown as TablePlannerNode;
+          const prof = tNode.recipe.SkillNeeds[0]?.Skill ?? '';
+          const tier = PROFESSION_FOOD_TIER[prof] ?? 'basic';
+          const foodCalories = tNode.recipe.BaseLaborCost * tNode.cycles / 2;
+          const foodEdm = settings.foodCostEnabled
+            ? (foodCalories / 1000) * settings.foodTierCosts[tier]
+            : null;
+
+          const ingredientStats: IngredientStats[] = tNode.variant.Ingredients.map(ing => {
+            let name = ing.Name;
+            if (!ing.IsSpecificItem && ing.Tag) {
+              name = choices.itemByTag.get(ing.Tag)
+                ?? (pgNodeMap.get(`tag:${ing.Tag}`) as TagPlannerNode | undefined)?.selectedItem
+                ?? ing.Tag;
+            }
+            const amount = (ing.IsStatic ? ing.Ammount : ing.Ammount * (1 - tNode.effectiveReduction)) * tNode.cycles;
+            const edmPerUnit = resolveItemEdmValue(name, settings, tagsIndex!);
+            const totalEdm = edmPerUnit !== null ? amount * edmPerUnit : null;
+            return { name, amount, edmPerUnit, totalEdm };
+          });
+
+          const productStats: ProductStats[] = tNode.variant.Products.map(prod => {
+            const amount = prod.Ammount * tNode.cycles;
+            const edmPerUnit = resolveItemEdmValue(prod.Name, settings, tagsIndex!);
+            const totalEdm = edmPerUnit !== null ? amount * edmPerUnit : null;
+            return { name: prod.Name, amount, edmPerUnit, totalEdm };
+          });
+
           return {
             ...n,
             data: {
@@ -379,7 +408,12 @@
               onMarketSelect: handleMarketSelect,
               onUpgradeChange: handleUpgradeChange,
               currentUpgrade: choices.upgradeByTable.get(tNode.table) ?? globalUpgrade,
-              upgradeLevels
+              upgradeLevels,
+              foodCalories,
+              foodEdm,
+              ingredientStats,
+              productStats,
+              showStats: settings.showNodeStats,
             }
           };
         }
@@ -1054,6 +1088,15 @@
           />
         </label>
 
+        <label class="settings-row">
+          <span class="settings-label">Show node statistics</span>
+          <input
+            type="checkbox"
+            checked={settings.showNodeStats}
+            onchange={e => { settings = { ...settings, showNodeStats: (e.target as HTMLInputElement).checked }; replan(); }}
+          />
+        </label>
+
         {#if settings.foodCostEnabled}
           <div class="edm-food-tiers">
             <div class="edm-food-tier-header">EDM per 1k calories:</div>
@@ -1467,6 +1510,11 @@
   }
   :global(html.light .table-node .returnables) { border-top-color: #2563eb; }
   :global(html.light .table-node .lb-name) { color: #374151; }
+  :global(html.light .table-node .stats-section.first-bottom) { border-top-color: #2563eb; }
+  :global(html.light .table-node .stats-cals) { color: #374151; }
+  :global(html.light .table-node .food-edm) { color: #b45309; }
+  :global(html.light .table-node .stats-label) { color: #1d4ed8; }
+  :global(html.light .table-node .stats-values) { color: #1e3a5f; }
 
   /* RawNode */
   :global(html.light .raw-node) {

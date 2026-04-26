@@ -174,6 +174,20 @@ export interface AppliedTalent {
   reduction: number;   // this talent's stated reduction fraction (e.g. 0.60)
 }
 
+export interface IngredientStats {
+  name: string;
+  amount: number;      // total across all cycles, post-reduction
+  edmPerUnit: number | null;
+  totalEdm: number | null;
+}
+
+export interface ProductStats {
+  name: string;
+  amount: number;      // product.Ammount * cycles
+  edmPerUnit: number | null;
+  totalEdm: number | null;
+}
+
 export interface TablePlannerNode {
   type: 'table';
   id: string;

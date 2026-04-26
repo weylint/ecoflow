@@ -12,6 +12,7 @@ export interface AppSettings {
   crossProfessionMarkup: number;
   foodCostEnabled: boolean;
   foodTierCosts: FoodTierCosts;
+  showNodeStats: boolean;
 }
 
 export const DEFAULT_EDM_TAG_DEFAULTS: Record<string, number> = {
@@ -72,6 +73,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   crossProfessionMarkup: 0.25,
   foodCostEnabled: false,
   foodTierCosts: { ...DEFAULT_FOOD_TIER_COSTS },
+  showNodeStats: true,
 };
 
 const STORAGE_KEY = 'eco-planner-settings';
@@ -88,6 +90,7 @@ export function loadSettings(): AppSettings {
       crossProfessionMarkup: parsed.crossProfessionMarkup ?? DEFAULT_SETTINGS.crossProfessionMarkup,
       foodCostEnabled: parsed.foodCostEnabled ?? DEFAULT_SETTINGS.foodCostEnabled,
       foodTierCosts: { ...DEFAULT_FOOD_TIER_COSTS, ...(parsed.foodTierCosts ?? {}) },
+      showNodeStats: parsed.showNodeStats ?? DEFAULT_SETTINGS.showNodeStats,
     };
   } catch {
     return { ...DEFAULT_SETTINGS, edmValues: { ...DEFAULT_EDM_VALUES }, edmTagDefaults: { ...DEFAULT_EDM_TAG_DEFAULTS } };
