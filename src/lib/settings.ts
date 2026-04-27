@@ -16,7 +16,7 @@ export interface AppSettings {
 }
 
 export const DEFAULT_EDM_TAG_DEFAULTS: Record<string, number> = {
-  'Ore':            1.0,
+  'Ore':            2.0,
   'Rock':           0.05,
   'Wood':           0.5,
   'Crop':           0.3,
@@ -45,6 +45,10 @@ export const DEFAULT_EDM_VALUES: Record<string, number> = {
   'Pineapple':     0.4,  // Fruit tag default is 0.3
   'Crab Carcass':  0.3,  // Small Fish tag (no default set)
   'Bison Carcass': 30,   // No tag
+  // Ore tag overrides (tag default is 2.0)
+  'Copper Ore':    4,
+  'Gold Ore':      4,
+  'Coal':          1,
   // Individual raw resources (no tag default)
   'Dirt':          0.01, // gathered resource; Incinerate Garbage recipe is excluded by default
   // Individual raw resources (no tag default)
@@ -70,7 +74,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   ecoMode: 'eco13',
   edmValues: { ...DEFAULT_EDM_VALUES },
   edmTagDefaults: { ...DEFAULT_EDM_TAG_DEFAULTS },
-  crossProfessionMarkup: 0.15,
+  crossProfessionMarkup: 0.25,
   foodCostEnabled: true,
   foodTierCosts: { ...DEFAULT_FOOD_TIER_COSTS },
   showNodeStats: true,

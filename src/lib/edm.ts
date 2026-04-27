@@ -130,13 +130,23 @@ export function computeEdmReport(graph: PlannerGraph, settings: AppSettings, tag
     edgesByTarget.set(edge.target, arr);
   }
 
-  // For each item/tag node, which table produces it (source of table→item edge)
+  // For each item/tag node, which table produces it (source of table→item edge).
+  // Prefer the primary producer (table.itemName === target item name) over byproduct
+  // tables so that items with a dedicated recipe are not shadowed by side-product edges
+  // from other tables (e.g. table:Barrel must not be overwritten by table:Epoxy/Plastic).
   const producerTableOf = new Map<string, TablePlannerNode>();
   for (const edge of graph.edges) {
     if (edge.source.startsWith('table:')) {
       const tableNode = nodeMap.get(edge.source);
       if (tableNode?.type === 'table') {
-        producerTableOf.set(edge.target, tableNode as TablePlannerNode);
+        const table = tableNode as TablePlannerNode;
+        const targetItemName = edge.target.replace(/^(item:|tag:)/, '');
+        const isPrimary = table.itemName === targetItemName;
+        const existing = producerTableOf.get(edge.target);
+        const existingIsPrimary = existing ? existing.itemName === targetItemName : false;
+        if (!existing || (isPrimary && !existingIsPrimary)) {
+          producerTableOf.set(edge.target, table);
+        }
       }
     }
   }

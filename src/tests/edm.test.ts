@@ -560,6 +560,104 @@ describe('computeEdmReport', () => {
     expect(report.tableValueAdded.get('table:LaserBody')).toBeCloseTo(expected, 6);
   });
 
+  it('uses primary recipe table over byproduct tables when an item is both crafted and a byproduct', () => {
+    // Mirrors: Iron Ore → Barrel (primary recipe) → Petroleum (IsStatic barrel) →
+    //          Epoxy/Plastic (both produce Barrel as byproduct).
+    // Both Widget and Part produce Container as byproduct (supply=6), but Fuel needs
+    // 8 containers → net=2 → table:Container IS in the graph.
+    // Bug: byproduct edges from table:Widget/table:Part overwrote table:Container in
+    // producerTableOf, making Container appear free (cycle → 0) and hiding Iron cost.
+    const containerRecipe: RecipeObject = {
+      Key: 'Container', BaseCraftTime: 1, BaseLaborCost: 0, BaseXPGain: 1,
+      CraftingTable: 'Iron Workshop', CraftingTableCanUseModules: false,
+      DefaultVariant: 'Container', NumberOfVariants: 1, SkillNeeds: [],
+      Variants: [{
+        Key: 'Container', Name: 'Container',
+        Ingredients: [{ IsSpecificItem: true, Tag: null, Name: 'Iron', Ammount: 4, IsStatic: false }],
+        Products: [{ Name: 'Container', Ammount: 4 }]
+      }]
+    };
+    const fuelRecipe: RecipeObject = {
+      Key: 'Fuel', BaseCraftTime: 1, BaseLaborCost: 0, BaseXPGain: 1,
+      CraftingTable: 'Pump', CraftingTableCanUseModules: false,
+      DefaultVariant: 'Fuel', NumberOfVariants: 1, SkillNeeds: [],
+      Variants: [{
+        Key: 'Fuel', Name: 'Fuel',
+        Ingredients: [{ IsSpecificItem: true, Tag: null, Name: 'Container', Ammount: 1, IsStatic: true }],
+        Products: [{ Name: 'Fuel', Ammount: 1 }]
+      }]
+    };
+    const widgetRecipe: RecipeObject = {
+      Key: 'Widget', BaseCraftTime: 1, BaseLaborCost: 0, BaseXPGain: 1,
+      CraftingTable: 'Refinery', CraftingTableCanUseModules: false,
+      DefaultVariant: 'Widget', NumberOfVariants: 1, SkillNeeds: [],
+      Variants: [{
+        Key: 'Widget', Name: 'Widget',
+        Ingredients: [{ IsSpecificItem: true, Tag: null, Name: 'Fuel', Ammount: 4, IsStatic: false }],
+        Products: [{ Name: 'Widget', Ammount: 2 }, { Name: 'Container', Ammount: 3 }]
+      }]
+    };
+    const partRecipe: RecipeObject = {
+      Key: 'Part', BaseCraftTime: 1, BaseLaborCost: 0, BaseXPGain: 1,
+      CraftingTable: 'Refinery', CraftingTableCanUseModules: false,
+      DefaultVariant: 'Part', NumberOfVariants: 1, SkillNeeds: [],
+      Variants: [{
+        Key: 'Part', Name: 'Part',
+        Ingredients: [{ IsSpecificItem: true, Tag: null, Name: 'Fuel', Ammount: 4, IsStatic: false }],
+        Products: [{ Name: 'Part', Ammount: 2 }, { Name: 'Container', Ammount: 3 }]
+      }]
+    };
+    const productRecipe: RecipeObject = {
+      Key: 'Product', BaseCraftTime: 1, BaseLaborCost: 0, BaseXPGain: 1,
+      CraftingTable: 'Assembly', CraftingTableCanUseModules: false,
+      DefaultVariant: 'Product', NumberOfVariants: 1, SkillNeeds: [],
+      Variants: [{
+        Key: 'Product', Name: 'Product',
+        Ingredients: [
+          { IsSpecificItem: true, Tag: null, Name: 'Widget', Ammount: 1, IsStatic: false },
+          { IsSpecificItem: true, Tag: null, Name: 'Part',   Ammount: 1, IsStatic: false }
+        ],
+        Products: [{ Name: 'Product', Ammount: 1 }]
+      }]
+    };
+
+    const recipeIndex = buildRecipeIndex([containerRecipe, fuelRecipe, widgetRecipe, partRecipe, productRecipe]);
+    const tagsIndex = buildTagsIndex({});
+
+    function buildReport(ironPrice: number) {
+      const graph = buildGraph({
+        targetItem: 'Product', totalAmount: 1, recipeIndex, tagsIndex,
+        choices: emptyChoices(), globalUpgrade: 0
+      });
+      return computeEdmReport(graph, {
+        ecoMode: 'eco13',
+        edmValues: { Iron: ironPrice },
+        edmTagDefaults: {},
+        crossProfessionMarkup: 0,
+        foodCostEnabled: false,
+        foodTierCosts: { baseline: 1, basic: 3, advanced: 8, modern: 20 },
+        showNodeStats: true,
+      }, tagsIndex);
+    }
+
+    const report1 = buildReport(1);
+    const report2 = buildReport(2);
+
+    // 1 Widget cycle uses 4 Fuel; each Fuel needs 1 Container (IsStatic).
+    // 4 Containers → 1 Container recipe cycle → 4 Iron.
+    // tableEdm is for outputAmount=2 Widget (1 cycle), so equals 4 × ironPrice.
+    expect(report1.tableEdm.get('table:Widget')).toBeCloseTo(4, 6);
+    expect(report2.tableEdm.get('table:Widget')).toBeCloseTo(8, 6);
+    expect(report1.tableEdm.get('table:Part')).toBeCloseTo(4, 6);
+    expect(report2.tableEdm.get('table:Part')).toBeCloseTo(8, 6);
+
+    // Total EDM scales with Iron price (no markup, no food).
+    // resolveScaled accumulates 8 gross Iron units (2 Container cycles × 4 Iron each)
+    // before byproduct netting reduces Container cycles to 1 in the graph.
+    expect(report1.totalEdm).toBeCloseTo(8, 6);
+    expect(report2.totalEdm).toBeCloseTo(16, 6);
+  });
+
   it('does not add work party cost for non-excluded recipes', () => {
     const normalGraph: PlannerGraph = {
       nodes: [
