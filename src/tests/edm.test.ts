@@ -658,6 +658,106 @@ describe('computeEdmReport', () => {
     expect(report2.totalEdm).toBeCloseTo(16, 6);
   });
 
+  it('uses local cycle count for food cost in buildLocalPath so shared intermediate tables do not inflate tableEdm', () => {
+    // Chain: Raw → Intermediate (food cost) → WidgetA (uses Intermediate)
+    //                                        → WidgetB (uses Intermediate, different context)
+    //        WidgetA + WidgetB → Product
+    //
+    // When computing tableEdm for WidgetA (400 cycles in graph) by calling
+    // buildLocalPath('table:WidgetA', outputAmount, 0), the local neededAmount for
+    // Intermediate may require fewer cycles than the graph's table:Intermediate.cycles
+    // (which also serves WidgetB). Without the fix, tableFoodEdm uses the graph's
+    // inflated cycle count → WidgetA's tableEdm is too high relative to a graph
+    // where WidgetA is the only consumer of Intermediate.
+
+    const intermediateRecipe: RecipeObject = {
+      Key: 'Intermediate', BaseCraftTime: 1, BaseLaborCost: 1000, BaseXPGain: 1,
+      CraftingTable: 'Workshop A', CraftingTableCanUseModules: false,
+      DefaultVariant: 'Intermediate', NumberOfVariants: 1,
+      SkillNeeds: [{ Skill: 'Smelting', Level: 1 }],
+      Variants: [{
+        Key: 'Intermediate', Name: 'Intermediate',
+        Ingredients: [{ IsSpecificItem: true, Tag: null, Name: 'Raw', Ammount: 1, IsStatic: false }],
+        Products: [{ Name: 'Intermediate', Ammount: 1 }]
+      }]
+    };
+    const widgetARecipe: RecipeObject = {
+      Key: 'WidgetA', BaseCraftTime: 1, BaseLaborCost: 0, BaseXPGain: 1,
+      CraftingTable: 'Workshop B', CraftingTableCanUseModules: false,
+      DefaultVariant: 'WidgetA', NumberOfVariants: 1,
+      SkillNeeds: [{ Skill: 'Smelting', Level: 1 }],
+      Variants: [{
+        Key: 'WidgetA', Name: 'WidgetA',
+        Ingredients: [{ IsSpecificItem: true, Tag: null, Name: 'Intermediate', Ammount: 1, IsStatic: false }],
+        Products: [{ Name: 'WidgetA', Ammount: 1 }]
+      }]
+    };
+    const widgetBRecipe: RecipeObject = {
+      Key: 'WidgetB', BaseCraftTime: 1, BaseLaborCost: 0, BaseXPGain: 1,
+      CraftingTable: 'Workshop B', CraftingTableCanUseModules: false,
+      DefaultVariant: 'WidgetB', NumberOfVariants: 1,
+      SkillNeeds: [{ Skill: 'Smelting', Level: 1 }],
+      Variants: [{
+        Key: 'WidgetB', Name: 'WidgetB',
+        Ingredients: [{ IsSpecificItem: true, Tag: null, Name: 'Intermediate', Ammount: 1, IsStatic: false }],
+        Products: [{ Name: 'WidgetB', Ammount: 1 }]
+      }]
+    };
+    const productRecipe: RecipeObject = {
+      Key: 'Product2', BaseCraftTime: 1, BaseLaborCost: 0, BaseXPGain: 1,
+      CraftingTable: 'Assembly2', CraftingTableCanUseModules: false,
+      DefaultVariant: 'Product2', NumberOfVariants: 1, SkillNeeds: [],
+      Variants: [{
+        Key: 'Product2', Name: 'Product2',
+        Ingredients: [
+          { IsSpecificItem: true, Tag: null, Name: 'WidgetA', Ammount: 1, IsStatic: false },
+          { IsSpecificItem: true, Tag: null, Name: 'WidgetB', Ammount: 3, IsStatic: false }
+        ],
+        Products: [{ Name: 'Product2', Ammount: 1 }]
+      }]
+    };
+
+    const recipeIndex = buildRecipeIndex([intermediateRecipe, widgetARecipe, widgetBRecipe, productRecipe]);
+    const tagsIndex = buildTagsIndex({});
+
+    // Product2 needs 1 WidgetA + 3 WidgetB → 4 total Intermediate → 4 graph cycles for Intermediate.
+    // WidgetA needs 1 Intermediate (1 cycle). WidgetB needs 3 Intermediate (3 cycles).
+    const graph = buildGraph({
+      targetItem: 'Product2', totalAmount: 1, recipeIndex, tagsIndex,
+      choices: emptyChoices(), globalUpgrade: 0
+    });
+
+    const testSettings: AppSettings = {
+      ecoMode: 'eco13',
+      edmValues: { Raw: 1 },
+      edmTagDefaults: {},
+      crossProfessionMarkup: 0,
+      foodCostEnabled: true,
+      foodTierCosts: { baseline: 1, basic: 3, advanced: 8, modern: 20 },
+      showNodeStats: true,
+    };
+    const report = computeEdmReport(graph, testSettings, tagsIndex);
+
+    // Intermediate: BaseLaborCost=1000, Smelting=basic tier=3 EDM/1k calories.
+    // Food per Intermediate cycle = (1000 × 1cycle / 2) / 1000 × 3 = 1.5 EDM.
+    // tableEdm for WidgetA: needs 1 Intermediate → 1 local cycle → food = 1.5 EDM.
+    // tableEdm for WidgetB: needs 3 Intermediate → 3 local cycles → food = 4.5 EDM.
+    // Without the fix, both would use the graph's 4-cycle count → food = 6 EDM each.
+    const intermediateNode = graph.nodes.find(n => n.type === 'table' && n.id === 'table:Intermediate');
+    expect(intermediateNode).toBeDefined();
+    if (!intermediateNode || intermediateNode.type !== 'table') return;
+    // Sanity: graph has 4 total Intermediate cycles
+    expect((intermediateNode as import('$lib/types.js').TablePlannerNode).cycles).toBe(4);
+
+    const widgetAEdmPerUnit = (report.tableEdm.get('table:WidgetA') ?? 0) / 1;
+    const widgetBEdmPerUnit = (report.tableEdm.get('table:WidgetB') ?? 0) / 3;
+
+    // Both should use 1.5 EDM food per Intermediate unit → same per-unit cost
+    expect(widgetAEdmPerUnit).toBeCloseTo(widgetBEdmPerUnit, 6);
+    // Raw=1 + food=1.5 per Intermediate unit
+    expect(widgetAEdmPerUnit).toBeCloseTo(2.5, 6);
+  });
+
   it('does not add work party cost for non-excluded recipes', () => {
     const normalGraph: PlannerGraph = {
       nodes: [

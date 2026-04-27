@@ -114,11 +114,11 @@ export function computeEdmReport(graph: PlannerGraph, settings: AppSettings, tag
   const tagNodeId = (tag: string) => `tag:${tag}`;
   const nodeMap = new Map<string, PlannerNode>(graph.nodes.map(n => [n.id, n]));
 
-  function tableFoodEdm(node: TablePlannerNode): number {
+  function tableFoodEdm(node: TablePlannerNode, localCycles?: number): number {
     if (!settings.foodCostEnabled) return 0;
     const prof = node.recipe.SkillNeeds[0]?.Skill ?? '';
     const tier = PROFESSION_FOOD_TIER[prof] ?? 'basic';
-    const calories = node.recipe.BaseLaborCost * node.cycles / 2;
+    const calories = node.recipe.BaseLaborCost * (localCycles ?? node.cycles) / 2;
     return (calories / 1000) * settings.foodTierCosts[tier];
   }
 
@@ -295,7 +295,7 @@ export function computeEdmReport(graph: PlannerGraph, settings: AppSettings, tag
           }
         }
 
-        if (total !== null) total += tableFoodEdm(tableNode);
+        if (total !== null) total += tableFoodEdm(tableNode, cycles);
 
         const entry: TablePathEntry = {
           kind: 'table',
