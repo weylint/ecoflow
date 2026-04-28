@@ -30,6 +30,7 @@ function fmt(n: number): string {
 }
 
 const LABEL_STYLE = 'color: #ffffff; background: #2563eb; font-size: 11px; font-weight: 500; border-radius: 4px; padding: 2px 6px;';
+const FEEDBACK_STYLE = 'stroke: #f59e0b; stroke-width: 2; stroke-dasharray: 6 3;';
 
 function labeledEdge(id: string, source: string, target: string, label: string, tooltip?: string): Edge<Record<string, unknown>, 'labeledEdge'> {
   return {
@@ -345,7 +346,7 @@ export async function buildFlowGraph(
     .map(n => ({
       id: idMap.get(n.id)!,
       width: NODE_WIDTH,
-      height: NODE_HEIGHT
+      height: NODE_HEIGHT,
     }));
 
   // Feed all edges (plain + synthetic) to ELK so it knows the connections
@@ -362,6 +363,36 @@ export async function buildFlowGraph(
       targets: [idMap.get(e.target)!]
     }));
 
+  // Compute topological layers (BFS from sources) and set initial positions
+  // so ELK INTERACTIVE mode inherits our left-heavy layer assignment.
+  const LAYER_STEP = NODE_WIDTH + 80; // mirrors nodeNodeBetweenLayers spacing
+  const isDown = layoutOptions.direction === 'DOWN';
+
+  const allFlatElkIds   = elkFlatNodes.map(n => n.id);
+  const allGroupChildIds = elkGroupNodes.flatMap(g => g.children.map(c => c.id));
+  const layerMap = computeTopologicalLayers([...allFlatElkIds, ...allGroupChildIds], elkEdges);
+
+  const positionedFlatNodes = elkFlatNodes.map(n => ({
+    ...n,
+    ...(isDown ? { y: (layerMap.get(n.id) ?? 0) * LAYER_STEP }
+               : { x: (layerMap.get(n.id) ?? 0) * LAYER_STEP }),
+  }));
+
+  const positionedGroupNodes = elkGroupNodes.map(g => {
+    const childLayers = g.children.map(c => layerMap.get(c.id) ?? 0);
+    const minLayer = Math.min(...childLayers);
+    return {
+      ...g,
+      ...(isDown ? { y: minLayer * LAYER_STEP } : { x: minLayer * LAYER_STEP }),
+      children: g.children.map(c => ({
+        ...c,
+        ...(isDown
+          ? { y: ((layerMap.get(c.id) ?? 0) - minLayer) * LAYER_STEP }
+          : { x: ((layerMap.get(c.id) ?? 0) - minLayer) * LAYER_STEP }),
+      })),
+    };
+  });
+
   const graph = {
     id: 'root',
     layoutOptions: {
@@ -371,14 +402,18 @@ export async function buildFlowGraph(
       'elk.spacing.nodeNode': '40',
       'elk.layered.thoroughness': String(layoutOptions.thoroughness),
       'elk.layered.nodePlacement.strategy': layoutOptions.nodePlacement,
+      'elk.layered.feedbackEdges': 'true',
+      'elk.layered.cycleBreaking.strategy': 'DEPTH_FIRST',
+      'elk.layered.layering.strategy': 'INTERACTIVE',
     },
-    children: [...elkFlatNodes, ...elkGroupNodes],
+    children: [...positionedFlatNodes, ...positionedGroupNodes],
     edges: elkEdges
   };
 
   const posMap = new Map<string, { x: number; y: number }>();
   // group skill → { x, y, width, height } for SvelteFlow group nodes
   const groupLayout = new Map<string, { x: number; y: number; width: number; height: number }>();
+  const feedbackEdgeIds = new Set<string>();
 
   try {
     const layouted = await elk.layout(graph);
@@ -404,6 +439,19 @@ export async function buildFlowGraph(
           posMap.set(originalId, { x: child.x ?? 0, y: child.y ?? 0 });
         }
       }
+    }
+
+    // Detect feedback edges: any edge whose source is positioned after its target
+    // in the layout direction was reversed by ELK's cycle-breaking pass.
+    const allSvelteEdges = [...plainEdges, ...syntheticEdges];
+    for (const edge of allSvelteEdges) {
+      const srcPos = posMap.get(edge.source);
+      const tgtPos = posMap.get(edge.target);
+      if (!srcPos || !tgtPos) continue;
+      const isBackward = layoutOptions.direction === 'RIGHT'
+        ? srcPos.x > tgtPos.x + NODE_WIDTH / 2
+        : srcPos.y > tgtPos.y + NODE_HEIGHT / 2;
+      if (isBackward) feedbackEdgeIds.add(edge.id);
     }
   } catch {
     // Fallback: simple grid layout, no grouping
@@ -449,7 +497,73 @@ export async function buildFlowGraph(
     })
   ];
 
-  return { nodes, edges: [...plainEdges, ...syntheticEdges] };
+  const styledEdges = [...plainEdges, ...syntheticEdges].map(e =>
+    feedbackEdgeIds.has(e.id)
+      ? { ...e, animated: true, style: FEEDBACK_STYLE }
+      : e
+  );
+  return { nodes, edges: styledEdges };
+}
+
+// BFS from sources: assigns each node the earliest possible layer (left-heavy).
+// Handles cycles by deferring cyclic nodes until any predecessor is resolved.
+function computeTopologicalLayers(
+  nodeIds: string[],
+  edges: Array<{ sources: string[]; targets: string[] }>
+): Map<string, number> {
+  const nodeSet = new Set(nodeIds);
+  const inEdges  = new Map<string, string[]>();
+  const outEdges = new Map<string, string[]>();
+  const inDegree = new Map<string, number>();
+
+  for (const id of nodeIds) {
+    inEdges.set(id, []);
+    outEdges.set(id, []);
+    inDegree.set(id, 0);
+  }
+  for (const e of edges) {
+    const src = e.sources[0], tgt = e.targets[0];
+    if (src && tgt && nodeSet.has(src) && nodeSet.has(tgt) && src !== tgt) {
+      outEdges.get(src)!.push(tgt);
+      inEdges.get(tgt)!.push(src);
+      inDegree.set(tgt, inDegree.get(tgt)! + 1);
+    }
+  }
+
+  const layers = new Map<string, number>();
+  const pending = new Map<string, number>(); // best layer seen so far
+  const queue: string[] = [];
+
+  for (const id of nodeIds) {
+    if (inDegree.get(id) === 0) { queue.push(id); pending.set(id, 0); }
+  }
+
+  while (queue.length > 0) {
+    const curr = queue.shift()!;
+    const l = pending.get(curr) ?? 0;
+    layers.set(curr, l);
+    for (const succ of outEdges.get(curr)!) {
+      const nl = l + 1;
+      if (!pending.has(succ) || pending.get(succ)! < nl) pending.set(succ, nl);
+      inDegree.set(succ, inDegree.get(succ)! - 1);
+      if (inDegree.get(succ) === 0) queue.push(succ);
+    }
+  }
+
+  // Nodes still unresolved are part of cycles; assign them iteratively
+  // based on whichever predecessors have already been placed.
+  for (let pass = 0; pass < nodeIds.length; pass++) {
+    let anyNew = false;
+    for (const id of nodeIds) {
+      if (layers.has(id)) continue;
+      const predLayers = inEdges.get(id)!.filter(p => layers.has(p)).map(p => layers.get(p)!);
+      if (predLayers.length > 0) { layers.set(id, Math.max(...predLayers) + 1); anyNew = true; }
+    }
+    if (!anyNew) break;
+  }
+
+  for (const id of nodeIds) { if (!layers.has(id)) layers.set(id, 0); }
+  return layers;
 }
 
 function plannerNodeType(node: PlannerNode): string {
