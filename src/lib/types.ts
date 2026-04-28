@@ -216,7 +216,8 @@ export interface RawPlannerNode {
   type: 'raw';
   id: string;
   itemName: string;
-  amount: number;
+  amount: number;              // net amount (after byproduct coverage)
+  byproductSupply?: number;    // amount covered by byproducts (omitted when zero)
 }
 export interface TagPlannerNode {
   type: 'tag';
@@ -232,7 +233,8 @@ export interface MarketPlannerNode {
   type: 'market';
   id: string;
   itemName: string;
-  amount: number;
+  amount: number;              // net amount (after byproduct coverage)
+  byproductSupply?: number;    // amount covered by byproducts (omitted when zero)
   availableRecipes: RecipeObject[];  // so user can switch back to crafting
 }
 // Resolution option for a byproduct: one way to use it (directly or via a crafting recipe)

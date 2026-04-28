@@ -1,4 +1,4 @@
-import type { PlannerGraph, PlannerNode, RawPlannerNode, TablePlannerNode, MarketPlannerNode, TagPlannerNode } from './types.js';
+import type { PlannerGraph, PlannerNode, RawPlannerNode, ItemPlannerNode, TablePlannerNode, MarketPlannerNode, TagPlannerNode } from './types.js';
 import { EDM_MARKUP_EXCLUDED_RECIPES } from './types.js';
 import type { AppSettings } from './settings.js';
 import type { TagsIndex } from './tagsIndex.js';
@@ -200,14 +200,20 @@ export function computeEdmReport(graph: PlannerGraph, settings: AppSettings, tag
       if (node.type === 'raw') {
         const rawNode = node as RawPlannerNode;
         const edmPerUnit = resolveItemEdmValue(rawNode.itemName, settings, tagsIndex);
-        const totalEdm = edmPerUnit !== null ? neededAmount * edmPerUnit : null;
+        // If byproduct partially covers the gross need, only charge the net deficit fraction.
+        // rawNode.amount is net; (rawNode.amount + byproductSupply) is gross.
+        const supply = rawNode.byproductSupply ?? 0;
+        const gross = rawNode.amount + supply;
+        const fraction = gross > 0 ? rawNode.amount / gross : 1;
+        const effectiveAmount = neededAmount * fraction;
+        const totalEdm = edmPerUnit !== null ? effectiveAmount * edmPerUnit : null;
         return {
           entries: [{
             kind: 'leaf',
             depth,
             itemName: rawNode.itemName,
             nodeType: 'raw',
-            amount: neededAmount,
+            amount: effectiveAmount,
             edmPerUnit,
             totalEdm,
           }],
@@ -218,14 +224,18 @@ export function computeEdmReport(graph: PlannerGraph, settings: AppSettings, tag
       if (node.type === 'market') {
         const marketNode = node as MarketPlannerNode;
         const edmPerUnit = resolveItemEdmValue(marketNode.itemName, settings, tagsIndex);
-        const totalEdm = edmPerUnit !== null ? neededAmount * edmPerUnit : null;
+        const supply = marketNode.byproductSupply ?? 0;
+        const gross = marketNode.amount + supply;
+        const fraction = gross > 0 ? marketNode.amount / gross : 1;
+        const effectiveAmount = neededAmount * fraction;
+        const totalEdm = edmPerUnit !== null ? effectiveAmount * edmPerUnit : null;
         return {
           entries: [{
             kind: 'leaf',
             depth,
             itemName: marketNode.itemName,
             nodeType: 'market',
-            amount: neededAmount,
+            amount: effectiveAmount,
             edmPerUnit,
             totalEdm,
           }],
@@ -315,6 +325,17 @@ export function computeEdmReport(graph: PlannerGraph, settings: AppSettings, tag
 
       const producer = producerTableOf.get(nodeId);
       if (producer) {
+        // If the item has partial byproduct coverage, scale neededAmount to the net deficit fraction.
+        // item.amount = net (must be crafted); item.byproductSupply = covered by byproducts.
+        const itemNode = nodeMap.get(nodeId);
+        if (itemNode?.type === 'item') {
+          const supply = (itemNode as ItemPlannerNode).byproductSupply ?? 0;
+          if (supply > 0) {
+            const gross = itemNode.amount + supply;
+            const fraction = gross > 0 ? itemNode.amount / gross : 1;
+            return buildLocalPath(producer.id, neededAmount * fraction, depth, consumerCtx, activePath);
+          }
+        }
         return buildLocalPath(producer.id, neededAmount, depth, consumerCtx, activePath);
       }
 

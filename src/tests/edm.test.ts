@@ -5,7 +5,7 @@ import { buildTagsIndex } from '$lib/tagsIndex.js';
 import { computeEdmReport } from '$lib/edm.js';
 import { displayedProductEdmPerUnit, tableEdmPerUnit } from '$lib/nodeEdmDisplay.js';
 import type { AppSettings } from '$lib/settings.js';
-import type { PlannerGraph, RecipeObject, UserChoices } from '$lib/types.js';
+import type { PlannerGraph, RecipeObject, UserChoices, ItemPlannerNode } from '$lib/types.js';
 
 function emptyChoices(): UserChoices {
   return {
@@ -793,5 +793,106 @@ describe('computeEdmReport', () => {
 
     const report = computeEdmReport(normalGraph, settings, buildTagsIndex({}));
     expect(report.tableValueAdded.has('table:SteelBar')).toBe(false);
+  });
+
+  it('applies byproduct fraction when a craftable item has partial byproduct coverage so tableEdm matches totalEdm per unit', () => {
+    // Container has its own primary recipe (1 Iron → 1 Container) AND is produced as a
+    // byproduct by Widget (3 per cycle). Fuel consumes Container as IsStatic.
+    //
+    // Chain: Iron → Container ← Widget (byproduct)
+    //                         Fuel (IsStatic consumer)
+    //        Widget ← Fuel ← Container
+    //        Product ← Widget (×2)
+    //
+    // For Product × 1 (needs 2 Widget cycles):
+    //   8 Fuel → 32 Container gross (IsStatic, 4 per Fuel), Widget byproduces 6 → net 26
+    //   item:Container: amount=26, byproductSupply=6
+    //
+    // tableEdm for Widget (outputAmount=1, 1 cycle):
+    //   Needs 4 Fuel → 16 Container gross.
+    //   Fix: fraction = 26/32 → neededAmount = 16 × 13/16 = 13 → 13 Iron → tableEdm=13.
+    //   Bug (without fix): neededAmount = 16 → 16 Iron → tableEdm=16.
+    //
+    // Cross-check: Widget × 1 as target → 16 Container gross, 3 byproduced → net 13 → totalEdm=13.
+    const containerRecipe3: RecipeObject = {
+      Key: 'Container3', BaseCraftTime: 1, BaseLaborCost: 0, BaseXPGain: 1,
+      CraftingTable: 'Iron Workshop', CraftingTableCanUseModules: false,
+      DefaultVariant: 'Container3', NumberOfVariants: 1, SkillNeeds: [],
+      Variants: [{
+        Key: 'Container3', Name: 'Container3',
+        Ingredients: [{ IsSpecificItem: true, Tag: null, Name: 'Iron3', Ammount: 1, IsStatic: false }],
+        Products: [{ Name: 'Container3', Ammount: 1 }]
+      }]
+    };
+    const fuelRecipe3: RecipeObject = {
+      Key: 'Fuel3', BaseCraftTime: 1, BaseLaborCost: 0, BaseXPGain: 1,
+      CraftingTable: 'Pump', CraftingTableCanUseModules: false,
+      DefaultVariant: 'Fuel3', NumberOfVariants: 1, SkillNeeds: [],
+      Variants: [{
+        Key: 'Fuel3', Name: 'Fuel3',
+        Ingredients: [{ IsSpecificItem: true, Tag: null, Name: 'Container3', Ammount: 4, IsStatic: true }],
+        Products: [{ Name: 'Fuel3', Ammount: 1 }]
+      }]
+    };
+    const widgetRecipe3: RecipeObject = {
+      Key: 'Widget3', BaseCraftTime: 1, BaseLaborCost: 0, BaseXPGain: 1,
+      CraftingTable: 'Refinery', CraftingTableCanUseModules: false,
+      DefaultVariant: 'Widget3', NumberOfVariants: 1, SkillNeeds: [],
+      Variants: [{
+        Key: 'Widget3', Name: 'Widget3',
+        Ingredients: [{ IsSpecificItem: true, Tag: null, Name: 'Fuel3', Ammount: 4, IsStatic: false }],
+        Products: [{ Name: 'Widget3', Ammount: 1 }, { Name: 'Container3', Ammount: 3 }]
+      }]
+    };
+    const productRecipe3: RecipeObject = {
+      Key: 'Product3', BaseCraftTime: 1, BaseLaborCost: 0, BaseXPGain: 1,
+      CraftingTable: 'Assembly3', CraftingTableCanUseModules: false,
+      DefaultVariant: 'Product3', NumberOfVariants: 1, SkillNeeds: [],
+      Variants: [{
+        Key: 'Product3', Name: 'Product3',
+        Ingredients: [{ IsSpecificItem: true, Tag: null, Name: 'Widget3', Ammount: 2, IsStatic: false }],
+        Products: [{ Name: 'Product3', Ammount: 1 }]
+      }]
+    };
+
+    const noMarkupSettings: AppSettings = {
+      ecoMode: 'eco13',
+      edmValues: { Iron3: 1 },
+      edmTagDefaults: {},
+      crossProfessionMarkup: 0,
+      foodCostEnabled: false,
+      foodTierCosts: { baseline: 1, basic: 3, advanced: 8, modern: 20 },
+      showNodeStats: true,
+    };
+    const recipeIndex3 = buildRecipeIndex([containerRecipe3, fuelRecipe3, widgetRecipe3, productRecipe3]);
+    const tagsIndex3 = buildTagsIndex({});
+
+    // Product × 1 graph: verify tableEdm for Widget uses the byproduct fraction (13, not 16)
+    const productGraph = buildGraph({
+      targetItem: 'Product3', totalAmount: 1, recipeIndex: recipeIndex3, tagsIndex: tagsIndex3,
+      choices: emptyChoices(), globalUpgrade: 0
+    });
+    const productReport = computeEdmReport(productGraph, noMarkupSettings, tagsIndex3);
+
+    // Sanity: Container3 node should show net=26 with byproductSupply=6
+    const containerNode = productGraph.nodes.find(n => n.id === 'item:Container3');
+    expect(containerNode).toBeDefined();
+    expect((containerNode as ItemPlannerNode).amount).toBe(26);
+    expect((containerNode as ItemPlannerNode).byproductSupply).toBe(6);
+
+    // tableEdm for Widget3 (outputAmount=2, 2 cycles in Product3 graph):
+    //   2 cycles × 4 Fuel × 4 Container = 32 gross → fraction 26/32 = 13/16
+    //   → net 26 Container → 26 Iron → tableEdm = 26 (13/unit).
+    //   Bug (without fix): 32 Iron → tableEdm = 32 (16/unit).
+    expect(productReport.tableEdm.get('table:Widget3')).toBeCloseTo(26, 6);
+
+    // Cross-check: Widget3 × 1 as target → tableEdm = 13 (1 cycle, fraction 13/16 applied, 13 Iron)
+    // Per-unit cost must match: 26/2 === 13/1 proves tableEdm is context-independent.
+    const widgetGraph = buildGraph({
+      targetItem: 'Widget3', totalAmount: 1, recipeIndex: recipeIndex3, tagsIndex: tagsIndex3,
+      choices: emptyChoices(), globalUpgrade: 0
+    });
+    const widgetReport = computeEdmReport(widgetGraph, noMarkupSettings, tagsIndex3);
+    expect(widgetReport.tableEdm.get('table:Widget3')).toBeCloseTo(13, 6);
   });
 });

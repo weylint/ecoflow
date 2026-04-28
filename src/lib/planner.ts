@@ -230,6 +230,7 @@ export function buildGraph(opts: BuildOptions): PlannerGraph {
           id: itemId,
           itemName,
           amount: net,
+          ...(supply > 0 ? { byproductSupply: supply } : {}),
           availableRecipes: recipes
         };
         nodes.push(marketNode);
@@ -262,7 +263,7 @@ export function buildGraph(opts: BuildOptions): PlannerGraph {
       // Replace the item node we already pushed with a raw node (same id)
       const idx = nodes.findIndex(n => n.id === itemId);
       if (idx !== -1) {
-        nodes[idx] = { type: 'raw', id: itemId, itemName, amount: net } as RawPlannerNode;
+        nodes[idx] = { type: 'raw', id: itemId, itemName, amount: net, ...(supply > 0 ? { byproductSupply: supply } : {}) } as RawPlannerNode;
       }
       return;
     }
