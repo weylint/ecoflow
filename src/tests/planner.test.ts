@@ -4,7 +4,7 @@ import { buildRecipeIndex } from '$lib/recipeIndex.js';
 import { buildTagsIndex } from '$lib/tagsIndex.js';
 import { buildTalentIndex } from '$lib/talentIndex.js';
 import { simpleRecipe, tagRecipe, multiProductRecipe, widgetRecipe, sampleTags, slabRecipe, pathRecipe, crushedRockTags, multiVariantRecipe, byproductOnlyRecipe, pumpJackRecipe, plasticRecipe, barrelRecipe, gasolineRecipe } from './fixtures.js';
-import type { UserChoices, RecipeObject, ProfessionData, ProductPlannerNode } from '$lib/types.js';
+import type { UserChoices, RecipeObject, ProfessionData, ProductPlannerNode, ByproductPlannerNode } from '$lib/types.js';
 
 function emptyChoices(): UserChoices {
   return {
@@ -746,5 +746,108 @@ describe('product node', () => {
     // Should have a market node but no product node
     expect(graph.nodes.find(n => n.type === 'market')).toBeDefined();
     expect(graph.nodes.find(n => n.type === 'product')).toBeUndefined();
+  });
+
+  it('combines same-type byproduct nodes into one with accumulated amount', () => {
+    // Simulate two recipes producing the same byproduct (Wet Tailings):
+    // Concentrate Gold and Concentrate Copper both produce Wet Tailings
+    const concentrateGold: RecipeObject = {
+      Key: 'ConcentrateGold',
+      Untranslated: 'Concentrate Gold Recipe',
+      BaseCraftTime: 4,
+      BaseLaborCost: 20,
+      BaseXPGain: 2,
+      CraftingTable: 'Chemical Refinery',
+      CraftingTableCanUseModules: true,
+      DefaultVariant: 'Concentrate Gold',
+      NumberOfVariants: 1,
+      SkillNeeds: [],
+      Variants: [{
+        Key: 'ConcentrateGold',
+        Name: 'Concentrate Gold',
+        Ingredients: [
+          { IsSpecificItem: true, Tag: null, Name: 'Gold Ore', Ammount: 5, IsStatic: false }
+        ],
+        Products: [
+          { Name: 'Concentrate Gold', Ammount: 1 },
+          { Name: 'Wet Tailings', Ammount: 27.225 }
+        ]
+      }]
+    };
+
+    const concentrateCopper: RecipeObject = {
+      Key: 'ConcentrateCopper',
+      Untranslated: 'Concentrate Copper Recipe',
+      BaseCraftTime: 4,
+      BaseLaborCost: 20,
+      BaseXPGain: 2,
+      CraftingTable: 'Chemical Refinery',
+      CraftingTableCanUseModules: true,
+      DefaultVariant: 'Concentrate Copper',
+      NumberOfVariants: 1,
+      SkillNeeds: [],
+      Variants: [{
+        Key: 'ConcentrateCopper',
+        Name: 'Concentrate Copper',
+        Ingredients: [
+          { IsSpecificItem: true, Tag: null, Name: 'Copper Ore', Ammount: 5, IsStatic: false }
+        ],
+        Products: [
+          { Name: 'Concentrate Copper', Ammount: 1 },
+          { Name: 'Wet Tailings', Ammount: 95.4 }
+        ]
+      }]
+    };
+
+    const industrialGenerator: RecipeObject = {
+      Key: 'IndustrialGenerator',
+      Untranslated: 'Industrial Generator Recipe',
+      BaseCraftTime: 10,
+      BaseLaborCost: 50,
+      BaseXPGain: 5,
+      CraftingTable: 'Electronics Assembly',
+      CraftingTableCanUseModules: false,
+      DefaultVariant: 'Industrial Generator',
+      NumberOfVariants: 1,
+      SkillNeeds: [],
+      Variants: [{
+        Key: 'IndustrialGenerator',
+        Name: 'Industrial Generator',
+        Ingredients: [
+          { IsSpecificItem: true, Tag: null, Name: 'Concentrate Gold', Ammount: 4, IsStatic: false },
+          { IsSpecificItem: true, Tag: null, Name: 'Concentrate Copper', Ammount: 6, IsStatic: false }
+        ],
+        Products: [{ Name: 'Industrial Generator', Ammount: 10 }]
+      }]
+    };
+
+    const recipeIndex = buildRecipeIndex([concentrateGold, concentrateCopper, industrialGenerator]);
+    const tagsIndex = buildTagsIndex({});
+
+    const graph = buildGraph({
+      targetItem: 'Industrial Generator',
+      totalAmount: 10,
+      recipeIndex,
+      tagsIndex,
+      choices: emptyChoices(),
+      globalUpgrade: 0
+    });
+
+    // Should have exactly ONE byproduct node for Wet Tailings (combined)
+    const wetTailingsNodes = graph.nodes.filter(n => n.type === 'byproduct' && n.itemName === 'Wet Tailings');
+    expect(wetTailingsNodes.length).toBe(1);
+
+    // Calculate expected Wet Tailings:
+    // 10 Industrial Generator = 1 cycle (produces 10/cycle)
+    // 1 cycle needs: 4 Concentrate Gold + 6 Concentrate Copper
+    // Concentrate Gold: 4 needed, 1/cycle → 4 cycles → 4 × 27.225 = 108.9 WT
+    // Concentrate Copper: 6 needed, 1/cycle → 6 cycles → 6 × 95.4 = 572.4 WT
+    // Total = 681.3
+    const byproductNode = wetTailingsNodes[0] as ByproductPlannerNode;
+    expect(byproductNode.amount).toBeCloseTo(681.3, 1);
+
+    // Verify no duplicate byproduct IDs
+    const byproductIds = graph.nodes.filter(n => n.id.startsWith('byproduct:')).map(n => n.id);
+    expect(new Set(byproductIds).size).toBe(byproductIds.length);
   });
 });

@@ -424,7 +424,7 @@ export function buildGraph(opts: BuildOptions): PlannerGraph {
           if (neededInChain) {
             addEdge(tableId, itemNodeId(product.Name));
           } else {
-            const byproductId = `byproduct:${product.Name}:from:${itemName}`;
+            const byproductId = `byproduct:${product.Name}`;
             addEdge(tableId, byproductId);
             if (!builtNodes.has(byproductId)) {
               builtNodes.add(byproductId);
@@ -435,6 +435,9 @@ export function buildGraph(opts: BuildOptions): PlannerGraph {
                 amount: product.Ammount * (1 - effectiveReduction) * cycles
               };
               nodes.push(byproductNode);
+            } else {
+              const existing = nodes.find(n => n.id === byproductId) as ByproductPlannerNode;
+              existing.amount += product.Ammount * (1 - effectiveReduction) * cycles;
             }
           }
         }

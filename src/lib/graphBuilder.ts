@@ -460,6 +460,23 @@ export async function buildFlowGraph(
     });
   }
 
+  // Adjust unused byproduct nodes to be on the same layer as the end-product
+  const endProductNode = plannerGraph.nodes.find(n => n.type === 'product');
+  if (endProductNode) {
+    const endProductPos = posMap.get(endProductNode.id);
+    if (endProductPos) {
+      for (const [nodeId, pos] of posMap) {
+        if (!nodeId.startsWith('byproduct:')) continue;
+
+        if (isDown) {
+          posMap.set(nodeId, { x: pos.x, y: endProductPos.y });
+        } else {
+          posMap.set(nodeId, { x: endProductPos.x, y: pos.y });
+        }
+      }
+    }
+  }
+
   // Build SvelteFlow group nodes for each skill
   const groupNodes: Node[] = [];
   for (const [skill, layout] of groupLayout) {

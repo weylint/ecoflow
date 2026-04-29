@@ -38,7 +38,7 @@ All IDs are prefixed to prevent collisions:
 - `table:Name` — crafting table producing the item
 - `raw:Name` — leaf resource with no recipe
 - `tag:TagName` — tag ingredient (e.g. `tag:Wood`)
-- `byproduct:Name:from:ProducerItem` — dead-end byproduct
+- `byproduct:Name` — dead-end byproduct (same item from multiple tables is merged into one node)
 - `loopback:Name:from:ProducerItem` — returnable tool/container (Mold, Barrel)
 - `market:Name` → actually uses `item:Name` id (MarketNode reuses the item slot)
 
