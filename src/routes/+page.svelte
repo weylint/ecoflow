@@ -13,7 +13,7 @@
   import type { AppSettings } from '$lib/settings.js';
   import { computeEdmReport, resolveItemEdmValue, PROFESSION_FOOD_TIER } from '$lib/edm.js';
   import type { EdmReport, TransitionPathEntry } from '$lib/edm.js';
-  import { displayedProductEdmPerUnit, tableEdmPerUnit } from '$lib/nodeEdmDisplay.js';
+  import { tableEdmPerUnit } from '$lib/nodeEdmDisplay.js';
   import { fmtNum, fmtEdm, fmtLabor } from '$lib/format.js';
   import { buildRecipeIndex } from '$lib/recipeIndex.js';
   import { buildTagsIndex } from '$lib/tagsIndex.js';
@@ -439,7 +439,7 @@
             const productAmount = prod.Ammount * tNode.cycles;
             let edmPerUnit = resolveItemEdmValue(prod.Name, settings, tagsIndex!);
             if (edmPerUnit === null && prod.Name === tNode.itemName) {
-              edmPerUnit = displayedProductEdmPerUnit(tNode, localEdmReport, selectedProduct, amount);
+              edmPerUnit = tableEdmPerUnit(tNode, localEdmReport);
             }
             const totalEdm = edmPerUnit !== null ? productAmount * edmPerUnit : null;
             return { name: prod.Name, amount: productAmount, edmPerUnit, totalEdm };
@@ -719,6 +719,7 @@
       {#if edmReport}
         {@const cmpEdm = comparisonReport?.edmReport ?? null}
         {@const cmpLabel = compareUpgrade ? `${compareUpgrade.mode === 'eco13' ? 'Eco 13' : 'Eco 12'} ${getUpgradeLevels(compareUpgrade.mode).find(l => l.value === compareUpgrade!.value)?.label ?? ''}` : ''}
+        {@const displayedAmount = plannerProductNode?.producedAmount ?? amount}
         <div class="edm-summary" class:compare={!!cmpEdm}>
           {#if cmpEdm}
             <span class="edm-row edm-compare-header">
@@ -747,19 +748,19 @@
             {/if}
             <span class="edm-row edm-total">
               <span class="edm-label">EDM / {selectedProduct}:</span>
-              <span class="edm-value">{edmReport.totalEdm != null ? fmtEdm(edmReport.totalEdm / amount) : '—'}</span>
+              <span class="edm-value">{edmReport.totalEdm != null ? fmtEdm(edmReport.totalEdm / displayedAmount) : '—'}</span>
               <span class="edm-value">{cmpEdm.totalEdm != null ? fmtEdm(cmpEdm.totalEdm / amount) : '—'}</span>
             </span>
           {:else}
             <span class="edm-row edm-subheader"><span class="edm-label">per {selectedProduct}</span></span>
-            <span class="edm-row"><span class="edm-label">Base EDM:</span> <span class="edm-value">{edmReport.baseEdm != null ? fmtEdm(edmReport.baseEdm / amount) : '— (missing values)'}</span></span>
+            <span class="edm-row"><span class="edm-label">Base EDM:</span> <span class="edm-value">{edmReport.baseEdm != null ? fmtEdm(edmReport.baseEdm / displayedAmount) : '— (missing values)'}</span></span>
             {#if edmReport.laborFoodEdm !== null}
-              <span class="edm-row"><span class="edm-label">Food EDM:</span> <span class="edm-value">+{fmtEdm(edmReport.laborFoodEdm / amount)}</span></span>
+              <span class="edm-row"><span class="edm-label">Food EDM:</span> <span class="edm-value">+{fmtEdm(edmReport.laborFoodEdm / displayedAmount)}</span></span>
             {/if}
             {#if edmReport.crossProfTransitions.length > 0}
-              <span class="edm-row"><span class="edm-label">Profession markup:</span> <span class="edm-value">{edmReport.markupEdm != null ? '+' + fmtEdm(edmReport.markupEdm / amount) : '—'}</span></span>
+              <span class="edm-row"><span class="edm-label">Profession markup:</span> <span class="edm-value">{edmReport.markupEdm != null ? '+' + fmtEdm(edmReport.markupEdm / displayedAmount) : '—'}</span></span>
             {/if}
-            <span class="edm-row edm-total"><span class="edm-label">EDM / {selectedProduct}:</span> <span class="edm-value">{edmReport.totalEdm != null ? fmtEdm(edmReport.totalEdm / amount) : '— (missing values)'}</span></span>
+            <span class="edm-row edm-total"><span class="edm-label">EDM / {selectedProduct}:</span> <span class="edm-value">{edmReport.totalEdm != null ? fmtEdm(edmReport.totalEdm / displayedAmount) : '— (missing values)'}</span></span>
           {/if}
         </div>
       {/if}

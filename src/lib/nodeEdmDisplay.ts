@@ -8,14 +8,3 @@ export function tableEdmPerUnit(tableNode: TablePlannerNode, report: EdmReport):
   return totalEdm !== null && outputAmount > 0 ? totalEdm / outputAmount : null;
 }
 
-export function displayedProductEdmPerUnit(
-  tableNode: TablePlannerNode,
-  report: EdmReport,
-  selectedProduct: string,
-  amount: number
-): number | null {
-  if (tableNode.itemName === selectedProduct && report.totalEdm !== null && amount > 0) {
-    return report.totalEdm / amount;
-  }
-  return tableEdmPerUnit(tableNode, report);
-}

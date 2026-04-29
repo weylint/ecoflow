@@ -3,7 +3,7 @@ import { buildGraph } from '$lib/planner.js';
 import { buildRecipeIndex } from '$lib/recipeIndex.js';
 import { buildTagsIndex } from '$lib/tagsIndex.js';
 import { computeEdmReport } from '$lib/edm.js';
-import { displayedProductEdmPerUnit, tableEdmPerUnit } from '$lib/nodeEdmDisplay.js';
+import { tableEdmPerUnit } from '$lib/nodeEdmDisplay.js';
 import type { AppSettings } from '$lib/settings.js';
 import type { PlannerGraph, RecipeObject, UserChoices, ItemPlannerNode } from '$lib/types.js';
 
@@ -448,8 +448,7 @@ describe('computeEdmReport', () => {
 
     expect(tableEdmPerUnit(kitTable, report)).toBeCloseTo(4.4, 6);
     expect(report.totalEdm).toBeCloseTo(4.2, 6);
-    expect(displayedProductEdmPerUnit(kitTable, report, 'Kit', 1)).toBeCloseTo(4.2, 6);
-    expect(displayedProductEdmPerUnit(kitTable, report, 'Other', 1)).toBeCloseTo(4.4, 6);
+
   });
 
   it('does not recurse forever when transition detail paths contain cycles', () => {
