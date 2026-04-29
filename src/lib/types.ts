@@ -189,6 +189,20 @@ export interface ProductStats {
   totalEdm: number | null;
 }
 
+export interface InlinedProduction {
+  itemName: string;           // e.g. "Petroleum"
+  producerTable: string;      // e.g. "Pump Jack"
+  recipe: RecipeObject;
+  variant: Variant;
+  cycles: number;             // producer cycles needed for this plan
+  upgradeReduction: number;
+  talentReduction: number;
+  effectiveReduction: number;
+  appliedTalents: AppliedTalent[];
+  grossIngredients: { name: string; amount: number; isStatic: boolean }[];
+  netIngredients: { name: string; amount: number }[];
+}
+
 export interface TablePlannerNode {
   type: 'table';
   id: string;
@@ -203,6 +217,7 @@ export interface TablePlannerNode {
   appliedTalents: AppliedTalent[];
   availableRecipes: RecipeObject[];
   loopbackItems?: { itemName: string; grossAmount: number; returnAmount: number; netAmount: number }[];
+  inlinedProductions?: InlinedProduction[];
   valueAdded?: number | null;
 }
 export interface ItemPlannerNode {

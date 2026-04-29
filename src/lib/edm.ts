@@ -1,4 +1,4 @@
-import type { PlannerGraph, PlannerNode, RawPlannerNode, ItemPlannerNode, TablePlannerNode, MarketPlannerNode, TagPlannerNode } from './types.js';
+import type { PlannerGraph, PlannerNode, RawPlannerNode, ItemPlannerNode, TablePlannerNode, MarketPlannerNode, TagPlannerNode, InlinedProduction } from './types.js';
 import { EDM_MARKUP_EXCLUDED_RECIPES } from './types.js';
 import type { AppSettings } from './settings.js';
 import type { TagsIndex } from './tagsIndex.js';
@@ -120,6 +120,13 @@ export function computeEdmReport(graph: PlannerGraph, settings: AppSettings, tag
     const tier = PROFESSION_FOOD_TIER[prof] ?? 'basic';
     const calories = node.recipe.BaseLaborCost * (localCycles ?? node.cycles) / 2;
     return (calories / 1000) * settings.foodTierCosts[tier];
+  }
+
+  function inlinedProducerFoodEdm(ip: InlinedProduction, scaleFactor = 1): number {
+    if (!settings.foodCostEnabled) return 0;
+    const prof = ip.recipe.SkillNeeds[0]?.Skill ?? '';
+    const tier = PROFESSION_FOOD_TIER[prof] ?? 'basic';
+    return (ip.recipe.BaseLaborCost * ip.cycles * scaleFactor / 2 / 1000) * settings.foodTierCosts[tier];
   }
 
   // edgesByTarget[targetId] = [sourceIds] — i.e. what feeds into targetId
@@ -261,7 +268,33 @@ export function computeEdmReport(graph: PlannerGraph, settings: AppSettings, tag
         let total: number | null = 0;
         const myCtx = { prof: profession, level, recipeKey: tableNode.recipe.Key };
 
+        const localScale = tableNode.cycles > 0 ? cycles / tableNode.cycles : 1;
+
         for (const ingredient of tableNode.variant.Ingredients) {
+          const ip = (tableNode.inlinedProductions ?? []).find(p => p.itemName === ingredient.Name);
+          if (ip) {
+            for (const netIng of ip.netIngredients) {
+              if (netIng.amount <= 0) continue;
+              const scaledNetAmount = netIng.amount * localScale;
+              const netInputId = itemNodeId(netIng.name);
+              const child = buildLocalPath(netInputId, scaledNetAmount, depth + 1, myCtx, activePath);
+              childEntries.push(...child.entries);
+              const netProducerTable = resolveProducerTable(netInputId);
+              const netProducerProf = netProducerTable?.recipe.SkillNeeds[0]?.Skill ?? '';
+              const netProducerLevel = netProducerTable?.recipe.SkillNeeds[0]?.Level ?? 0;
+              const profChanged =
+                !EDM_MARKUP_EXCLUDED_RECIPES.has(netProducerTable?.recipe.Key ?? '') &&
+                isSpecializedSkill(profession, level) &&
+                isSpecializedSkill(netProducerProf, netProducerLevel) &&
+                netProducerProf !== profession;
+              const markup = profChanged ? settings.crossProfessionMarkup : 0;
+              if (child.subtreeEdm === null) { total = null; }
+              else if (total !== null) { total += child.subtreeEdm * (1 + markup); }
+            }
+            if (total !== null) total += inlinedProducerFoodEdm(ip, localScale);
+            continue;
+          }
+
           const ingredientNeeded = ingredientAmountPerCycle(ingredient, tableNode) * cycles;
 
           const inputId = ingredient.IsSpecificItem
@@ -388,6 +421,42 @@ export function computeEdmReport(graph: PlannerGraph, settings: AppSettings, tag
       let total: number | null = 0;
 
       for (const ingredient of tableNode.variant.Ingredients) {
+        const ip = (tableNode.inlinedProductions ?? []).find(p => p.itemName === ingredient.Name);
+        if (ip) {
+          for (const netIng of ip.netIngredients) {
+            if (netIng.amount <= 0) continue;
+            const netInputId = itemNodeId(netIng.name);
+            const netEdm = subtreeEdm(netInputId);
+            const netProducerTable = resolveProducerTable(netInputId);
+            const netProducerProf = netProducerTable?.recipe.SkillNeeds[0]?.Skill ?? '';
+            const netProducerLevel = netProducerTable?.recipe.SkillNeeds[0]?.Level ?? 0;
+            const profChanged =
+              !EDM_MARKUP_EXCLUDED_RECIPES.has(netProducerTable?.recipe.Key ?? '') &&
+              isSpecializedSkill(myProf, myLevel) &&
+              isSpecializedSkill(netProducerProf, netProducerLevel) &&
+              netProducerProf !== myProf;
+            const markup = profChanged ? settings.crossProfessionMarkup : 0;
+            if (profChanged && netProducerTable) {
+              const localPath = buildLocalPath(netProducerTable.id, netIng.amount, 0);
+              const baseEdm = localPath.subtreeEdm;
+              const markupAmount = baseEdm !== null ? baseEdm * markup : null;
+              const exists = crossProfTransitions.some(
+                t => t.fromProf === netProducerProf && t.toProf === myProf && t.itemName === netIng.name
+              );
+              if (!exists) {
+                crossProfTransitions.push({
+                  fromProf: netProducerProf, toProf: myProf, itemName: netIng.name,
+                  baseEdm, markupAmount, pathEntries: localPath.entries,
+                });
+              }
+            }
+            if (netEdm === null) { total = null; }
+            else if (total !== null) { total += netEdm * (1 + markup); }
+          }
+          if (total !== null) total += inlinedProducerFoodEdm(ip);
+          continue;
+        }
+
         const inputId = ingredient.IsSpecificItem
           ? itemNodeId(ingredient.Name)
           : tagNodeId(ingredient.Tag as string);
@@ -515,7 +584,11 @@ export function computeEdmReport(graph: PlannerGraph, settings: AppSettings, tag
   const laborFoodEdm = settings.foodCostEnabled
     ? graph.nodes
         .filter((n): n is TablePlannerNode => n.type === 'table')
-        .reduce((sum, n) => sum + tableFoodEdm(n), 0)
+        .reduce((sum, n) => {
+          let s = tableFoodEdm(n);
+          for (const ip of n.inlinedProductions ?? []) s += inlinedProducerFoodEdm(ip);
+          return sum + s;
+        }, 0)
     : null;
 
   const totalEdm =

@@ -37,6 +37,10 @@
     }
     return map;
   });
+
+  const inlinedRows = $derived(
+    tableNodes.flatMap(n => (n.inlinedProductions ?? []).map(ip => ({ ip, parentNode: n })))
+  );
 </script>
 
 <aside class="table-pane">
@@ -89,6 +93,27 @@
       {/each}
     </div>
   {/each}
+
+  {#if inlinedRows.length > 0}
+    <div class="skill-group">
+      <div class="skill-header">Inlined Producers</div>
+      {#each inlinedRows as { ip, parentNode }}
+        <div class="table-entry">
+          <div class="entry-item">via {parentNode.itemName}</div>
+          <div class="entry-table">{ip.producerTable}</div>
+          <div class="entry-cycles">×{ip.cycles} runs (inlined)</div>
+          {#each ip.netIngredients as ni}
+            {#if ni.amount > 0}
+              <div class="inlined-ing">
+                <span class="ii-name">{ni.name}</span>
+                <span class="ii-net">net {ni.amount % 1 === 0 ? ni.amount : ni.amount.toFixed(2)}</span>
+              </div>
+            {/if}
+          {/each}
+        </div>
+      {/each}
+    </div>
+  {/if}
 </aside>
 
 <style>
@@ -174,5 +199,26 @@
     border-radius: 4px;
     padding: 2px 4px;
     font-size: 11px;
+  }
+
+  .inlined-ing {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    padding-left: 8px;
+    margin-top: 1px;
+  }
+
+  .ii-name {
+    color: #a0a0a0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .ii-net {
+    color: #e0e070;
+    font-family: 'Courier New', Courier, monospace;
+    white-space: nowrap;
   }
 </style>

@@ -3,7 +3,7 @@ import { buildGraph } from '$lib/planner.js';
 import { buildRecipeIndex } from '$lib/recipeIndex.js';
 import { buildTagsIndex } from '$lib/tagsIndex.js';
 import { buildTalentIndex } from '$lib/talentIndex.js';
-import { simpleRecipe, tagRecipe, multiProductRecipe, widgetRecipe, sampleTags, slabRecipe, pathRecipe, crushedRockTags, multiVariantRecipe, byproductOnlyRecipe } from './fixtures.js';
+import { simpleRecipe, tagRecipe, multiProductRecipe, widgetRecipe, sampleTags, slabRecipe, pathRecipe, crushedRockTags, multiVariantRecipe, byproductOnlyRecipe, pumpJackRecipe, plasticRecipe, barrelRecipe, gasolineRecipe } from './fixtures.js';
 import type { UserChoices, RecipeObject, ProfessionData } from '$lib/types.js';
 
 function emptyChoices(): UserChoices {
@@ -582,5 +582,92 @@ describe('multi-variant recipe indexing', () => {
     expect(recipeIndex.allCraftableNames).toContain('Raw Meat');
     // Wool is only ever Products[1] — should NOT be listed as a plannable target
     expect(recipeIndex.allCraftableNames).not.toContain('Wool');
+  });
+});
+
+describe('inline production (Petroleum/Barrel cycle)', () => {
+  // Plastic: 4 Petroleum → 2 Plastic + 3 Barrel + 1 Sulfur  (Oil Refinery)
+  // PumpJack: 1 Barrel (IsStatic) → 1 Petroleum
+  // Barrel: 4 Iron Bar → 4 Barrel (Rolling Mill)
+  // At 0% upgrade, planning 2 Plastic:
+  //   cycles = ceil(2/2) = 1
+  //   Petroleum needed = 4 × 1 = 4 → 4 PumpJack cycles → 4 Barrel consumed, 3 Barrel returned
+  //   net Barrel = 4 - 3 = 1 → ceil(1/4) = 1 Rolling Mill cycle → 4 Barrel, 3 iron bars
+
+  function buildPlasticGraph(totalAmount = 2) {
+    const recipeIndex = buildRecipeIndex([plasticRecipe, pumpJackRecipe, barrelRecipe]);
+    const tagsIndex = buildTagsIndex({});
+    return buildGraph({
+      targetItem: 'Plastic',
+      totalAmount,
+      recipeIndex,
+      tagsIndex,
+      choices: emptyChoices(),
+      globalUpgrade: 0,
+    });
+  }
+
+  it('suppresses item:Petroleum and table:Petroleum nodes', () => {
+    const graph = buildPlasticGraph();
+    expect(graph.nodes.find(n => n.id === 'item:Petroleum')).toBeUndefined();
+    expect(graph.nodes.find(n => n.id === 'table:Petroleum')).toBeUndefined();
+  });
+
+  it('populates inlinedProductions on the Oil Refinery table node', () => {
+    const graph = buildPlasticGraph();
+    const tableNode = graph.nodes.find(n => n.type === 'table') as any;
+    expect(tableNode?.inlinedProductions).toHaveLength(1);
+    expect(tableNode.inlinedProductions[0].itemName).toBe('Petroleum');
+    expect(tableNode.inlinedProductions[0].producerTable).toBe('Pump Jack');
+  });
+
+  it('computes net Barrel = 1 at 0% upgrade for 2 Plastic', () => {
+    const graph = buildPlasticGraph();
+    const tableNode = graph.nodes.find(n => n.type === 'table') as any;
+    const ip = tableNode.inlinedProductions[0];
+    const barrelNet = ip.netIngredients.find((i: any) => i.name === 'Barrel');
+    expect(barrelNet).toBeDefined();
+    expect(barrelNet.amount).toBe(1);
+  });
+
+  it('clears byproductSupply from the Barrel node', () => {
+    const graph = buildPlasticGraph();
+    const barrelNode = graph.nodes.find(n => (n as any).itemName === 'Barrel') as any;
+    expect(barrelNode).toBeDefined();
+    expect(barrelNode.byproductSupply).toBeUndefined();
+  });
+
+  it('adds edge item:Barrel → table:Plastic (net external demand)', () => {
+    const graph = buildPlasticGraph();
+    const tableNode = graph.nodes.find(n => n.type === 'table')!;
+    expect(graph.edges.some(e => e.source === 'item:Barrel' && e.target === tableNode.id)).toBe(true);
+  });
+
+  it('does NOT add byproduct edge table:Plastic → item:Barrel', () => {
+    const graph = buildPlasticGraph();
+    const tableNode = graph.nodes.find(n => n.type === 'table')!;
+    expect(graph.edges.some(e => e.source === tableNode.id && e.target === 'item:Barrel')).toBe(false);
+  });
+
+  it('includes Rolling Mill in the graph', () => {
+    const graph = buildPlasticGraph();
+    expect(graph.nodes.some(n => n.type === 'table' && (n as any).table === 'Rolling Mill')).toBe(true);
+  });
+
+  it('does NOT inline Gasoline (no Barrel in products)', () => {
+    const recipeIndex = buildRecipeIndex([gasolineRecipe, pumpJackRecipe, barrelRecipe]);
+    const tagsIndex = buildTagsIndex({});
+    const graph = buildGraph({
+      targetItem: 'Gasoline',
+      totalAmount: 1,
+      recipeIndex,
+      tagsIndex,
+      choices: emptyChoices(),
+      globalUpgrade: 0,
+    });
+    // Petroleum should NOT be inlined — it should appear as a normal item/table node
+    expect(graph.nodes.find(n => n.id === 'item:Petroleum')).toBeDefined();
+    const tableNode = graph.nodes.find(n => n.type === 'table' && (n as any).itemName === 'Gasoline') as any;
+    expect(tableNode?.inlinedProductions ?? []).toHaveLength(0);
   });
 });

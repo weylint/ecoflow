@@ -10,6 +10,7 @@ import type {
   TagPlannerNode,
   MarketPlannerNode,
   ByproductPlannerNode,
+  InlinedProduction,
   UserChoices
 } from './types.js';
 import type { TalentIndex } from './talentIndex.js';
@@ -55,6 +56,8 @@ export function buildGraph(opts: BuildOptions): PlannerGraph {
   const processedCycles = new Map<string, number>();
   // Pass 2: prevents rebuilding the same node/edge twice.
   const visited = new Set<string>();
+  // Items whose producer nodes are suppressed (inlined into the parent table node).
+  const inlinedItems = new Set<string>();
 
   function addEdge(source: string, target: string) {
     const key = `${source}->${target}`;
@@ -187,6 +190,7 @@ export function buildGraph(opts: BuildOptions): PlannerGraph {
 
   function buildNodes(itemName: string, amount: number): void {
     if (visited.has(itemName)) return;
+    if (inlinedItems.has(itemName)) return;
     visited.add(itemName);
 
     const grossRequired = requirements.get(itemName) ?? amount;
@@ -286,6 +290,72 @@ export function buildGraph(opts: BuildOptions): PlannerGraph {
         .map(p => p.Name)
     );
 
+    // Detect inlineable ingredients: ingredient X is inlineable when all of X's producer's
+    // own ingredients are covered by this variant's products (e.g. Petroleum for Plastic —
+    // Pump Jack only needs Barrel, which Plastic produces as a byproduct).
+    const inlineMap = new Map<string, { recipe: RecipeObject; variant: Variant }>();
+    for (const ingredient of variant.Ingredients) {
+      if (!ingredient.IsSpecificItem) continue;
+      if (loopbackItems.has(ingredient.Name)) continue;
+      const prodRecipes = recipeIndex.byProduct.get(ingredient.Name) ?? [];
+      if (prodRecipes.length === 0) continue;
+      const prodRecipe = choices.recipeByItem.get(ingredient.Name) ?? prodRecipes[0];
+      const prodVariant =
+        choices.variantByItem.get(ingredient.Name) ??
+        prodRecipe.Variants.find(v => v.Products[0]?.Name === ingredient.Name) ??
+        getDefaultVariant(prodRecipe);
+      const allCovered = prodVariant.Ingredients.every(pi =>
+        variant.Products.some(p => p.Name === pi.Name)
+      );
+      if (allCovered) inlineMap.set(ingredient.Name, { recipe: prodRecipe, variant: prodVariant });
+    }
+
+    // Build InlinedProduction data for each inlineable ingredient.
+    const inlinedProductionsData: InlinedProduction[] = [];
+    for (const [ingredName, { recipe: prodRecipe, variant: prodVariant }] of inlineMap) {
+      const prodUpgrade = prodRecipe.CraftingTableCanUseModules
+        ? (choices.upgradeByTable.get(prodRecipe.CraftingTable) ?? globalUpgrade) : 0;
+      const prodTalent = Math.min(talentData?.get(prodRecipe.Key)?.totalReduction ?? 0, 1);
+      const prodEffective = 1 - (1 - prodUpgrade) * (1 - prodTalent);
+
+      const prodPrimary = prodVariant.Products.find(p => p.Name === ingredName) ?? prodVariant.Products[0];
+      const parentIngredient = variant.Ingredients.find(i => i.Name === ingredName)!;
+      const ingredAmountNeeded = ingredientAmountPerCycle(parentIngredient, {
+        upgradeReduction, talentReduction, effectiveReduction
+      }) * cycles;
+      const prodCycles = Math.ceil(ingredAmountNeeded / (prodPrimary?.Ammount ?? 1));
+
+      const grossIngredients = prodVariant.Ingredients.map(pi => ({
+        name: pi.Name,
+        amount: ingredientAmountPerCycle(pi, {
+          upgradeReduction: prodUpgrade, talentReduction: prodTalent, effectiveReduction: prodEffective
+        }) * prodCycles,
+        isStatic: pi.IsStatic,
+      }));
+
+      const netIngredients = grossIngredients.map(gi => {
+        const byproductReturn = variant.Products.find(p => p.Name === gi.name);
+        const returned = byproductReturn
+          ? byproductReturn.Ammount * (1 - effectiveReduction) * cycles
+          : 0;
+        return { name: gi.name, amount: Math.max(0, gi.amount - returned) };
+      });
+
+      inlinedProductionsData.push({
+        itemName: ingredName,
+        producerTable: prodRecipe.CraftingTable,
+        recipe: prodRecipe,
+        variant: prodVariant,
+        cycles: prodCycles,
+        upgradeReduction: prodUpgrade,
+        talentReduction: prodTalent,
+        effectiveReduction: prodEffective,
+        appliedTalents: talentData?.get(prodRecipe.Key)?.talents ?? [],
+        grossIngredients,
+        netIngredients,
+      });
+    }
+
     const tableId = tableNodeId(itemName);
     if (!builtNodes.has(tableId)) {
       builtNodes.add(tableId);
@@ -315,7 +385,8 @@ export function buildGraph(opts: BuildOptions): PlannerGraph {
         effectiveReduction,
         appliedTalents: talentData?.get(recipe.Key)?.talents ?? [],
         availableRecipes: recipes,
-        ...(loopbackItemsData.length > 0 ? { loopbackItems: loopbackItemsData } : {})
+        ...(loopbackItemsData.length > 0 ? { loopbackItems: loopbackItemsData } : {}),
+        ...(inlinedProductionsData.length > 0 ? { inlinedProductions: inlinedProductionsData } : {})
       };
       nodes.push(tableNode);
       addEdge(tableId, itemId);  // table produces primary item
@@ -333,6 +404,13 @@ export function buildGraph(opts: BuildOptions): PlannerGraph {
           }
           continue;
         }
+
+        // Skip byproducts consumed internally by an inlined producer (e.g. Barrel → Pump Jack).
+        // These are part of the hidden internal loop and must not appear as external edges.
+        const consumedByInlinedProducer = inlinedProductionsData.some(ip =>
+          ip.variant.Ingredients.some(i => i.Name === product.Name)
+        );
+        if (consumedByInlinedProducer) continue;
 
         // Fix B: if this byproduct contributes to a tag, route table → tag directly
         const feedsTag = [...byproductForTag.entries()]
@@ -365,6 +443,20 @@ export function buildGraph(opts: BuildOptions): PlannerGraph {
     for (const ingredient of variant.Ingredients) {
       // Loopback items are handled inline in the table node (net supply edge added above)
       if (loopbackItems.has(ingredient.Name)) continue;
+
+      // Inlined ingredients (e.g. Petroleum): suppress their nodes and route the inlined
+      // producer's net external inputs (e.g. net Barrel) directly to this table instead.
+      if (inlineMap.has(ingredient.Name)) {
+        inlinedItems.add(ingredient.Name);
+        const ip = inlinedProductionsData.find(d => d.itemName === ingredient.Name)!;
+        for (const netIng of ip.netIngredients) {
+          if (netIng.amount > 0) {
+            addEdge(itemNodeId(netIng.name), tableId);
+            buildNodes(netIng.name, netIng.amount);
+          }
+        }
+        continue;
+      }
 
       const effectivePerCycle = ingredientAmountPerCycle(ingredient, {
         upgradeReduction,
@@ -416,6 +508,18 @@ export function buildGraph(opts: BuildOptions): PlannerGraph {
   }
 
   buildNodes(targetItem, totalAmount);
+
+  for (const node of nodes) {
+    if (node.type !== 'table') continue;
+    for (const ip of (node as TablePlannerNode).inlinedProductions ?? []) {
+      for (const netIng of ip.netIngredients) {
+        const itemNode = nodes.find(n => n.id === itemNodeId(netIng.name));
+        if (itemNode && 'byproductSupply' in itemNode) {
+          (itemNode as ItemPlannerNode | RawPlannerNode).byproductSupply = undefined;
+        }
+      }
+    }
+  }
 
   return { nodes, edges };
 }

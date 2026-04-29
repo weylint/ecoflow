@@ -874,11 +874,13 @@ describe('computeEdmReport', () => {
     });
     const productReport = computeEdmReport(productGraph, noMarkupSettings, tagsIndex3);
 
-    // Sanity: Container3 node should show net=26 with byproductSupply=6
+    // Sanity: Container3 is the net external input after inline detection clears byproductSupply.
+    // The Widget3/Fuel3/Container3 loop is correctly inlined (Fuel3's only ingredient Container3
+    // is covered by Widget3's byproduct), so byproductSupply is cleared by post-processing.
     const containerNode = productGraph.nodes.find(n => n.id === 'item:Container3');
     expect(containerNode).toBeDefined();
     expect((containerNode as ItemPlannerNode).amount).toBe(26);
-    expect((containerNode as ItemPlannerNode).byproductSupply).toBe(6);
+    expect((containerNode as ItemPlannerNode).byproductSupply).toBeUndefined();
 
     // tableEdm for Widget3 (outputAmount=2, 2 cycles in Product3 graph):
     //   2 cycles × 4 Fuel × 4 Container = 32 gross → fraction 26/32 = 13/16

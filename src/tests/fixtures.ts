@@ -203,6 +203,101 @@ export const multiVariantRecipe: RecipeObject = {
   ]
 };
 
+// pumpJackRecipe: Barrel (IsStatic=true) → 1 Petroleum. CraftingTableCanUseModules: false.
+export const pumpJackRecipe: RecipeObject = {
+  Key: 'PumpJack',
+  Untranslated: 'Pump Jack Recipe',
+  BaseCraftTime: 1,
+  BaseLaborCost: 10,
+  BaseXPGain: 1,
+  CraftingTable: 'Pump Jack',
+  CraftingTableCanUseModules: false,
+  DefaultVariant: 'Petroleum',
+  NumberOfVariants: 1,
+  SkillNeeds: [{ Skill: 'Oil Drilling', Level: 1 }],
+  Variants: [{
+    Key: 'PumpJack',
+    Name: 'Petroleum',
+    Ingredients: [
+      { IsSpecificItem: true, Tag: null, Name: 'Barrel', Ammount: 1, IsStatic: true }
+    ],
+    Products: [{ Name: 'Petroleum', Ammount: 1 }]
+  }]
+};
+
+// plasticRecipe: 4 Petroleum → 2 Plastic + 3 Barrel + 1 Sulfur (Oil Refinery)
+export const plasticRecipe: RecipeObject = {
+  Key: 'Plastic',
+  Untranslated: 'Plastic Recipe',
+  BaseCraftTime: 2,
+  BaseLaborCost: 20,
+  BaseXPGain: 1,
+  CraftingTable: 'Oil Refinery',
+  CraftingTableCanUseModules: true,
+  DefaultVariant: 'Plastic',
+  NumberOfVariants: 1,
+  SkillNeeds: [{ Skill: 'Industry', Level: 1 }],
+  Variants: [{
+    Key: 'Plastic',
+    Name: 'Plastic',
+    Ingredients: [
+      { IsSpecificItem: true, Tag: null, Name: 'Petroleum', Ammount: 4, IsStatic: false }
+    ],
+    Products: [
+      { Name: 'Plastic', Ammount: 2 },
+      { Name: 'Barrel', Ammount: 3 },
+      { Name: 'Sulfur', Ammount: 1 }
+    ]
+  }]
+};
+
+// barrelRecipe: 4 Iron Bar → 4 Barrel (Rolling Mill)
+export const barrelRecipe: RecipeObject = {
+  Key: 'Barrel',
+  Untranslated: 'Barrel Recipe',
+  BaseCraftTime: 1,
+  BaseLaborCost: 10,
+  BaseXPGain: 1,
+  CraftingTable: 'Rolling Mill',
+  CraftingTableCanUseModules: true,
+  DefaultVariant: 'Barrel',
+  NumberOfVariants: 1,
+  SkillNeeds: [{ Skill: 'Smelting', Level: 1 }],
+  Variants: [{
+    Key: 'Barrel',
+    Name: 'Barrel',
+    Ingredients: [
+      { IsSpecificItem: true, Tag: null, Name: 'Iron Bar', Ammount: 4, IsStatic: false }
+    ],
+    Products: [{ Name: 'Barrel', Ammount: 4 }]
+  }]
+};
+
+// gasolineRecipe: 4 Petroleum → 1 Gasoline + 1 Sulfur (no Barrel produced, NOT inlineable)
+export const gasolineRecipe: RecipeObject = {
+  Key: 'Gasoline',
+  Untranslated: 'Gasoline Recipe',
+  BaseCraftTime: 2,
+  BaseLaborCost: 20,
+  BaseXPGain: 1,
+  CraftingTable: 'Oil Refinery',
+  CraftingTableCanUseModules: true,
+  DefaultVariant: 'Gasoline',
+  NumberOfVariants: 1,
+  SkillNeeds: [{ Skill: 'Industry', Level: 1 }],
+  Variants: [{
+    Key: 'Gasoline',
+    Name: 'Gasoline',
+    Ingredients: [
+      { IsSpecificItem: true, Tag: null, Name: 'Petroleum', Ammount: 4, IsStatic: false }
+    ],
+    Products: [
+      { Name: 'Gasoline', Ammount: 1 },
+      { Name: 'Sulfur', Ammount: 1 }
+    ]
+  }]
+};
+
 // byproductOnlyRecipe: models Butcher recipes — "Wool" is a secondary product that is
 // never Products[0] in any variant. It should NOT appear in allCraftableNames.
 export const byproductOnlyRecipe: RecipeObject = {

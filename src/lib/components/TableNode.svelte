@@ -134,6 +134,22 @@
       </div>
     {/if}
 
+    {#if data.inlinedProductions?.length}
+      <div class="inlined-prods">
+        {#each data.inlinedProductions as ip}
+          <div class="inlined-header">⊕ {ip.producerTable} ×{ip.cycles}</div>
+          {#each ip.netIngredients as ni}
+            {#if ni.amount > 0}
+              <div class="inlined-row">
+                <span class="il-label">{ni.name}</span>
+                <span class="il-net">net {fmtNum(ni.amount)}</span>
+              </div>
+            {/if}
+          {/each}
+        {/each}
+      </div>
+    {/if}
+
     {#if data.showStats !== false && ((data.ingredientStats?.length ?? 0) > 0 || (data.productStats?.length ?? 0) > 0)}
       <div class="stats-section" class:first-bottom={!data.appliedTalents?.length && !data.loopbackItems?.length}>
 
@@ -359,5 +375,40 @@
 
   .talent-chip:hover .talent-tooltip {
     display: block;
+  }
+
+  .inlined-prods {
+    margin-top: 4px;
+    border-top: 1px solid #4a7fb5;
+    padding-top: 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .inlined-header {
+    font-size: 10px;
+    color: #90c8e0;
+    font-weight: bold;
+  }
+
+  .inlined-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    padding-left: 8px;
+  }
+
+  .il-label {
+    color: #a0c4e0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .il-net {
+    color: #e0e070;
+    font-family: 'Courier New', Courier, monospace;
+    white-space: nowrap;
   }
 </style>
