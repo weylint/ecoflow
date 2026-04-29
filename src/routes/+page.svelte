@@ -7,7 +7,7 @@
 
   import type { Node, Edge, NodeTypes, EdgeTypes } from '@xyflow/svelte';
   import { ECO12_UPGRADE_LEVELS, ECO13_UPGRADE_LEVELS, getUpgradeLevels, EXCLUDED_BYPRODUCTS, DEFAULT_LAYOUT_OPTIONS, DEFAULT_TAG_CHOICES, DEFAULT_RECIPE_CHOICES, DEFAULT_MARKET_ITEMS, EDM_MARKUP_EXCLUDED_RECIPES } from '$lib/types.js';
-  import type { LayoutOptions, PlannerGraph } from '$lib/types.js';
+  import type { LayoutOptions, PlannerGraph, ProductPlannerNode } from '$lib/types.js';
   import type { RecipeObject, Variant, TagsFile, RecipeFile, UserChoices, TablePlannerNode, RawPlannerNode, MarketPlannerNode, TagPlannerNode, ByproductPlannerNode, ByproductResolveOption, IngredientStats, ProductStats } from '$lib/types.js';
   import { DEFAULT_SETTINGS, loadSettings, saveSettings } from '$lib/settings.js';
   import type { AppSettings } from '$lib/settings.js';
@@ -28,6 +28,7 @@
   import TagNode from '$lib/components/TagNode.svelte';
   import MarketNode from '$lib/components/MarketNode.svelte';
   import ByproductNode from '$lib/components/ByproductNode.svelte';
+  import ProductNode from '$lib/components/ProductNode.svelte';
   import ProfessionGroupNode from '$lib/components/ProfessionGroupNode.svelte';
   import LabeledEdge from '$lib/components/LabeledEdge.svelte';
   import TablePane from '$lib/components/TablePane.svelte';
@@ -41,6 +42,7 @@
     tagNode: TagNode,
     marketNode: MarketNode,
     byproductNode: ByproductNode,
+    productNode: ProductNode,
     professionGroup: ProfessionGroupNode
   } as unknown as NodeTypes;
 
@@ -88,6 +90,7 @@
   let plannerMarketNodes = $state<MarketPlannerNode[]>([]);
   let plannerUnresolvedTagNodes = $state<TagPlannerNode[]>([]);
   let plannerByproductNodes = $state<ByproductPlannerNode[]>([]);
+  let plannerProductNode = $state<ProductPlannerNode | null>(null);
   let lastPlannerGraph = $state<PlannerGraph | null>(null);
 
   const edmReport = $derived.by((): EdmReport | null => {
@@ -344,6 +347,7 @@
           (n.selectedItem === null || (n.byproductContributors?.length ?? 0) > 0)
       );
       plannerByproductNodes = plannerGraph.nodes.filter((n): n is ByproductPlannerNode => n.type === 'byproduct');
+      plannerProductNode = plannerGraph.nodes.find((n): n is ProductPlannerNode => n.type === 'product') ?? null;
 
       const { buildFlowGraph } = await import('$lib/graphBuilder.js');
       const flow = await buildFlowGraph(plannerGraph, groupByProfession, layoutOptions);
@@ -1028,6 +1032,24 @@
         </section>
       {/if}
 
+      {#if plannerProductNode}
+        <section>
+          <h3>Product</h3>
+          <table>
+            <tbody>
+              <tr>
+                <td class="item-name">{plannerProductNode.itemName}</td>
+                <td class="item-amt">{fmtNum(plannerProductNode.amount, true)} requested</td>
+              </tr>
+              <tr>
+                <td class="item-name muted">produced</td>
+                <td class="item-amt">{fmtNum(plannerProductNode.producedAmount, true)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+      {/if}
+
       <section>
         <h3>Market Purchases</h3>
         {#if plannerMarketNodes.length === 0}
@@ -1663,6 +1685,15 @@
   :global(html.light .market-node select) {
     background: #f0fdf4; border-color: #16a34a; color: #052e16;
   }
+
+  /* ProductNode */
+  :global(html.light .product-node) {
+    background: #dcfce7; border-color: #22c55e; color: #052e16;
+  }
+  :global(html.light .product-node .label) { color: #16a34a; }
+  :global(html.light .product-node .amount) { color: #15803d; }
+  :global(html.light .product-node .amount-label) { color: #4ade80; }
+  :global(html.light .product-node .amount-value) { color: #15803d; }
 
   /* TablePane */
   :global(html.light) .canvas-container :global(aside.table-pane) {

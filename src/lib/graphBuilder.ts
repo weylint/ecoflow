@@ -574,5 +574,6 @@ function plannerNodeType(node: PlannerNode): string {
     case 'tag':       return 'tagNode';
     case 'market':    return 'marketNode';
     case 'byproduct': return 'byproductNode';
+    case 'product':   return 'productNode';
   }
 }

@@ -266,7 +266,14 @@ export interface ByproductPlannerNode {
   itemName: string;
   amount: number;   // cycles × product.Ammount
 }
-export type PlannerNode = TablePlannerNode | ItemPlannerNode | RawPlannerNode | TagPlannerNode | MarketPlannerNode | ByproductPlannerNode;
+export interface ProductPlannerNode {
+  type: 'product';
+  id: string;
+  itemName: string;
+  amount: number;          // requested amount
+  producedAmount: number;  // actual output (may overshoot due to ceil)
+}
+export type PlannerNode = TablePlannerNode | ItemPlannerNode | RawPlannerNode | TagPlannerNode | MarketPlannerNode | ByproductPlannerNode | ProductPlannerNode;
 
 export interface PlannerEdge {
   id: string;

@@ -4,7 +4,7 @@ import { buildRecipeIndex } from '$lib/recipeIndex.js';
 import { buildTagsIndex } from '$lib/tagsIndex.js';
 import { buildTalentIndex } from '$lib/talentIndex.js';
 import { simpleRecipe, tagRecipe, multiProductRecipe, widgetRecipe, sampleTags, slabRecipe, pathRecipe, crushedRockTags, multiVariantRecipe, byproductOnlyRecipe, pumpJackRecipe, plasticRecipe, barrelRecipe, gasolineRecipe } from './fixtures.js';
-import type { UserChoices, RecipeObject, ProfessionData } from '$lib/types.js';
+import type { UserChoices, RecipeObject, ProfessionData, ProductPlannerNode } from '$lib/types.js';
 
 function emptyChoices(): UserChoices {
   return {
@@ -669,5 +669,82 @@ describe('inline production (Petroleum/Barrel cycle)', () => {
     expect(graph.nodes.find(n => n.id === 'item:Petroleum')).toBeDefined();
     const tableNode = graph.nodes.find(n => n.type === 'table' && (n as any).itemName === 'Gasoline') as any;
     expect(tableNode?.inlinedProductions ?? []).toHaveLength(0);
+  });
+});
+
+describe('product node', () => {
+  it('target item produces ProductPlannerNode with correct amounts', () => {
+    const recipeIndex = buildRecipeIndex([multiProductRecipe]);
+    const tagsIndex = buildTagsIndex({});
+    const graph = buildGraph({
+      targetItem: 'Steel Bar',
+      totalAmount: 7,
+      recipeIndex,
+      tagsIndex,
+      choices: emptyChoices(),
+      globalUpgrade: 0
+    });
+
+    // Should have a product node with amount=7, producedAmount=8 (2 cycles × 4)
+    const productNode = graph.nodes.find(n => n.type === 'product') as ProductPlannerNode | undefined;
+    expect(productNode).toBeDefined();
+    expect(productNode?.type).toBe('product');
+    if (productNode?.type === 'product') {
+      expect(productNode.itemName).toBe('Steel Bar');
+      expect(productNode.amount).toBe(7);
+      expect(productNode.producedAmount).toBe(8);
+    }
+
+    // Should have edge from table to product
+    const productEdge = graph.edges.find(e => e.source === 'table:Steel Bar' && e.target === 'product:Steel Bar');
+    expect(productEdge).toBeDefined();
+
+    // Should NOT have item:Steel Bar node (replaced by product)
+    expect(graph.nodes.find(n => n.id === 'item:Steel Bar')).toBeUndefined();
+  });
+
+  it('product node amount matches produced when no overshoot', () => {
+    const recipeIndex = buildRecipeIndex([simpleRecipe]);
+    const tagsIndex = buildTagsIndex({});
+    const graph = buildGraph({
+      targetItem: 'Iron Bar',
+      totalAmount: 10,
+      recipeIndex,
+      tagsIndex,
+      choices: emptyChoices(),
+      globalUpgrade: 0
+    });
+
+    // 10 Iron Bar at 1/cycle = 10 cycles, produced = 10
+    const productNode = graph.nodes.find(n => n.type === 'product') as ProductPlannerNode | undefined;
+    expect(productNode).toBeDefined();
+    if (productNode?.type === 'product') {
+      expect(productNode.amount).toBe(10);
+      expect(productNode.producedAmount).toBe(10);
+    }
+  });
+
+  it('market target item skips product node', () => {
+    const recipeIndex = buildRecipeIndex([simpleRecipe]);
+    const tagsIndex = buildTagsIndex({});
+    const choices: UserChoices = {
+      recipeByItem: new Map(),
+      variantByItem: new Map(),
+      itemByTag: new Map(),
+      marketItems: new Set(['Iron Bar']),
+      upgradeByTable: new Map()
+    };
+    const graph = buildGraph({
+      targetItem: 'Iron Bar',
+      totalAmount: 50,
+      recipeIndex,
+      tagsIndex,
+      choices,
+      globalUpgrade: 0
+    });
+
+    // Should have a market node but no product node
+    expect(graph.nodes.find(n => n.type === 'market')).toBeDefined();
+    expect(graph.nodes.find(n => n.type === 'product')).toBeUndefined();
   });
 });

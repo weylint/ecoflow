@@ -10,6 +10,7 @@ import type {
   TagPlannerNode,
   MarketPlannerNode,
   ByproductPlannerNode,
+  ProductPlannerNode,
   InlinedProduction,
   UserChoices
 } from './types.js';
@@ -32,6 +33,7 @@ interface BuildOptions {
 // Node IDs are prefixed with their type to avoid collisions between,
 // e.g., an item node and a table node for the same item.
 function itemNodeId(name: string) { return `item:${name}`; }
+function productNodeId(name: string) { return `product:${name}`; }
 function tableNodeId(name: string) { return `table:${name}`; }
 function tagNodeId(tag: string) { return `tag:${tag}`; }
 
@@ -517,6 +519,40 @@ export function buildGraph(opts: BuildOptions): PlannerGraph {
         if (itemNode && 'byproductSupply' in itemNode) {
           (itemNode as ItemPlannerNode | RawPlannerNode).byproductSupply = undefined;
         }
+      }
+    }
+  }
+
+  // ── Create Product node for the target item ─────────────────────
+  const targetTableId = tableNodeId(targetItem);
+  const targetTable = nodes.find(n => n.id === targetTableId);
+  if (targetTable?.type === 'table' && !choices.marketItems.has(targetItem)) {
+    const product = targetTable.variant.Products.find(p => p.Name === targetItem) ?? targetTable.variant.Products[0];
+    const producedAmount = product.Ammount * targetTable.cycles;
+    const itemTargetId = itemNodeId(targetItem);
+    const prodTargetId = productNodeId(targetItem);
+
+    // Replace item node with product node
+    const itemNodeIdx = nodes.findIndex(n => n.id === itemTargetId);
+    if (itemNodeIdx !== -1) {
+      const productNode: ProductPlannerNode = {
+        type: 'product',
+        id: prodTargetId,
+        itemName: targetItem,
+        amount: totalAmount,
+        producedAmount
+      };
+      nodes[itemNodeIdx] = productNode;
+    }
+
+    // Update edges: replace all references to itemTargetId with prodTargetId
+    for (const edge of edges) {
+      const newSource = edge.source === itemTargetId ? prodTargetId : edge.source;
+      const newTarget = edge.target === itemTargetId ? prodTargetId : edge.target;
+      if (newSource !== edge.source || newTarget !== edge.target) {
+        edge.source = newSource;
+        edge.target = newTarget;
+        edge.id = `${newSource}->${newTarget}`;
       }
     }
   }
