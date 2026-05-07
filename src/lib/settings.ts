@@ -51,6 +51,7 @@ export const DEFAULT_EDM_VALUES: Record<string, number> = {
   'Coal':          1,
   // Individual raw resources (no tag default)
   'Dirt':          0.01, // gathered resource; Incinerate Garbage recipe is excluded by default
+  'Compost':       0.01, // only ever a byproduct (raw node); negligible cost
   // Individual raw resources (no tag default)
   'Clay':         0.5,
   'Cotton Boll':  0.2,

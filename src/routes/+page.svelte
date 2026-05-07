@@ -240,9 +240,13 @@
   let fitViewPending = $state(false);
 
   // ── Data loading ─────────────────────────────────────────────────
-  const RECIPES_URL = dev
-    ? './recipes.json'
-    : 'https://white-tiger.play.eco/api/v1/plugins/EcoPriceCalculator/recipes';
+  function getRecipesUrl(mode: 'eco12' | 'eco13'): string {
+    if (dev) return mode === 'eco13' ? './recipes.wt56.json' : './recipes.wt55.json';
+    return 'https://white-tiger.play.eco/api/v1/plugins/EcoPriceCalculator/recipes';
+  }
+  function getRecipesFallback(mode: 'eco12' | 'eco13'): string {
+    return mode === 'eco13' ? './recipes.wt56.json' : './recipes.wt55.json';
+  }
   const TAGS_URL = dev
     ? './tags.json'
     : 'https://white-tiger.play.eco/api/v1/plugins/EcoPriceCalculator/tags';
@@ -261,6 +265,40 @@
     }
   }
 
+  async function loadData(mode: 'eco12' | 'eco13'): Promise<void> {
+    const [recipesRes, tagsRes, professionsRes] = await Promise.all([
+      fetchWithFallback(getRecipesUrl(mode), getRecipesFallback(mode)),
+      fetchWithFallback(TAGS_URL, './tags.json'),
+      fetch('./professions.json')
+    ]);
+
+    if (!recipesRes.ok || !tagsRes.ok) throw new Error('Failed to load data files');
+
+    const recipesData: RecipeFile = await recipesRes.json();
+    const tagsData: TagsFile = await tagsRes.json();
+
+    recipeIndex = buildRecipeIndex(recipesData.Recipes);
+    tagsIndex = buildTagsIndex(tagsData.Tags);
+
+    if (professionsRes.ok) {
+      const professionsData: { professions: ProfessionData[] } = await professionsRes.json();
+      talentIndex = buildTalentIndex(professionsData.professions, recipesData.Recipes, tagsData.Tags);
+    }
+
+    // Apply default recipe selections (e.g. Clean Medium Fish for Raw Fish)
+    for (const [itemName, recipeKey] of Object.entries(DEFAULT_RECIPE_CHOICES)) {
+      if (!choices.recipeByItem.has(itemName)) {
+        const match = (recipeIndex.byProduct.get(itemName) ?? []).find(r => r.Key === recipeKey);
+        if (match) choices.recipeByItem.set(itemName, match);
+      }
+    }
+
+    // Validate product after data loads; fall back to first craftable if unknown
+    if (!recipeIndex.allCraftableNames.includes(selectedProduct)) {
+      selectedProduct = recipeIndex.allCraftableNames[0] ?? '';
+    }
+  }
+
   onMount(async () => {
     // Load persisted settings before first render/plan
     const saved = loadSettings();
@@ -273,40 +311,8 @@
     if (_urlReport) pendingOpenReport = true;
 
     try {
-      const [recipesRes, tagsRes, professionsRes] = await Promise.all([
-        fetchWithFallback(RECIPES_URL, './recipes.json'),
-        fetchWithFallback(TAGS_URL, './tags.json'),
-        fetch('./professions.json')
-      ]);
-
-      if (!recipesRes.ok || !tagsRes.ok) throw new Error('Failed to load data files');
-
-      const recipesData: RecipeFile = await recipesRes.json();
-      const tagsData: TagsFile = await tagsRes.json();
-
-      recipeIndex = buildRecipeIndex(recipesData.Recipes);
-      tagsIndex = buildTagsIndex(tagsData.Tags);
-
-      if (professionsRes.ok) {
-        const professionsData: { professions: ProfessionData[] } = await professionsRes.json();
-        talentIndex = buildTalentIndex(professionsData.professions, recipesData.Recipes, tagsData.Tags);
-      }
-
-      // Apply default recipe selections (e.g. Clean Medium Fish for Raw Fish)
-      for (const [itemName, recipeKey] of Object.entries(DEFAULT_RECIPE_CHOICES)) {
-        if (!choices.recipeByItem.has(itemName)) {
-          const match = (recipeIndex.byProduct.get(itemName) ?? []).find(r => r.Key === recipeKey);
-          if (match) choices.recipeByItem.set(itemName, match);
-        }
-      }
-
-      // Validate product after data loads; fall back to first craftable if unknown
-      if (!recipeIndex.allCraftableNames.includes(selectedProduct)) {
-        selectedProduct = recipeIndex.allCraftableNames[0] ?? '';
-      }
-
+      await loadData(settings.ecoMode);
       loading = false;
-
       // Auto-plan on load — fresh layout so viewport fits
       await replan(false);
     } catch (e) {
@@ -624,7 +630,7 @@
         <input
           type="checkbox"
           checked={settings.ecoMode === 'eco13'}
-          onchange={(e) => {
+          onchange={async (e) => {
             const newMode = (e.target as HTMLInputElement).checked ? 'eco13' : 'eco12';
             settings = { ...settings, ecoMode: newMode };
             // Clamp globalUpgrade to nearest valid level in new mode
@@ -634,6 +640,15 @@
               Math.abs(cur - globalUpgrade) < Math.abs(prev - globalUpgrade) ? cur : prev
             );
             globalUpgrade = closest;
+            // Reset per-item choices that may be invalid under the new recipe set
+            choices = { ...choices, recipeByItem: new Map(), variantByItem: new Map() };
+            loading = true;
+            try {
+              await loadData(newMode);
+            } finally {
+              loading = false;
+            }
+            await replan(false);
           }}
         />
         Eco 13
