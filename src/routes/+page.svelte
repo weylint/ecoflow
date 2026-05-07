@@ -66,11 +66,45 @@
   let selectedProduct = $state(_urlParams?.get('product') ?? 'Steel Bar');
   let amount = $state(_urlAmount > 0 ? _urlAmount : 100);
 
+  const _urlEcoMode = (() => {
+    const v = _urlParams?.get('ecoMode');
+    return v === 'eco12' || v === 'eco13' ? v : null;
+  })();
+  const _urlUpgrade = (() => {
+    const v = parseFloat(_urlParams?.get('upgrade') ?? '');
+    return isFinite(v) && v >= 0 && v <= 1 ? v : null;
+  })();
+  const _urlReport  = _urlParams?.get('report') === '1';
+  const _urlCmpMode = (() => {
+    const v = _urlParams?.get('cmpMode');
+    return v === 'eco12' || v === 'eco13' ? v : null;
+  })();
+  const _urlCmpVal  = (() => {
+    const v = parseFloat(_urlParams?.get('cmpVal') ?? '');
+    return isFinite(v) && v >= 0 && v <= 1 ? v : null;
+  })();
+
   $effect(() => {
     if (!browser) return;
     const url = new URL(window.location.href);
     url.searchParams.set('product', selectedProduct);
     url.searchParams.set('amount', String(amount));
+    url.searchParams.set('ecoMode', settings.ecoMode);
+    url.searchParams.set('upgrade', String(globalUpgrade));
+    if (showReport) {
+      url.searchParams.set('report', '1');
+      if (compareUpgrade) {
+        url.searchParams.set('cmpMode', compareUpgrade.mode);
+        url.searchParams.set('cmpVal', String(compareUpgrade.value));
+      } else {
+        url.searchParams.delete('cmpMode');
+        url.searchParams.delete('cmpVal');
+      }
+    } else {
+      url.searchParams.delete('report');
+      url.searchParams.delete('cmpMode');
+      url.searchParams.delete('cmpVal');
+    }
     history.replaceState({}, '', url.toString());
   });
   let globalUpgrade = $state(0.25);  // Eco13 default max
@@ -149,11 +183,14 @@
       tagByName:        new Map(unresolvedTagNodes.map(n => [n.tag, n.amount])),
       byproductByKey:   new Map(byproductNodes.map(n => [n.id, n.amount])),
       laborByProfession: [...laborMap.entries()].sort((a, b) => b[1] - a[1]),
-      edmReport:        computeEdmReport(pg, settings, tagsIndex)
+      edmReport:        computeEdmReport(pg, settings, tagsIndex),
+      tableNodes:       cmpTableNodes,
     };
   });
 
   let showReport = $state(false);
+  let pendingOpenReport = $state(false);
+  let copyLinkLabel = $state('Copy Link');
   let showResolve = $state(false);
   let expandedTransition = $state<number | null>(null);
   let expandedVaProf = $state<string | null>(null);
@@ -180,12 +217,12 @@
     return (pct > 0 ? '+' : '') + pct + '%';
   }
 
-  function openReport() {
+  function openReport(cmpOverride?: { value: number; mode: 'eco12' | 'eco13' }) {
     expandedTransition = null;
     expandedVaProf = null;
     const otherMode: 'eco12' | 'eco13' = settings.ecoMode === 'eco13' ? 'eco12' : 'eco13';
     const otherLevels = getUpgradeLevels(otherMode);
-    compareUpgrade = { value: otherLevels[otherLevels.length - 1].value, mode: otherMode };
+    compareUpgrade = cmpOverride ?? { value: otherLevels[otherLevels.length - 1].value, mode: otherMode };
     showReport = true;
   }
 
@@ -228,9 +265,12 @@
     // Load persisted settings before first render/plan
     const saved = loadSettings();
     settings = saved;
-    // Initialise globalUpgrade to max of whichever mode was saved
-    const levels = getUpgradeLevels(saved.ecoMode);
-    globalUpgrade = levels[levels.length - 1].value;
+    // Apply URL eco-mode override before computing upgrade (shareable links)
+    if (_urlEcoMode) settings = { ...settings, ecoMode: _urlEcoMode };
+    const activeLevels = getUpgradeLevels(settings.ecoMode);
+    globalUpgrade = activeLevels[activeLevels.length - 1].value;
+    if (_urlUpgrade !== null) globalUpgrade = _urlUpgrade;
+    if (_urlReport) pendingOpenReport = true;
 
     try {
       const [recipesRes, tagsRes, professionsRes] = await Promise.all([
@@ -480,6 +520,13 @@
       }));
       flowEdges.set(flow.edges);
       if (!preservePositions) fitViewPending = true;
+      if (pendingOpenReport && lastPlannerGraph) {
+        pendingOpenReport = false;
+        const cmp = (_urlCmpMode && _urlCmpVal !== null)
+          ? { value: _urlCmpVal, mode: _urlCmpMode as 'eco12' | 'eco13' }
+          : undefined;
+        openReport(cmp);
+      }
     } finally {
       graphBuilding = false;
     }
@@ -606,7 +653,7 @@
         Plan!
       </button>
 
-      <button onclick={openReport} disabled={loading || $flowNodes.length === 0}>
+      <button onclick={() => openReport()} disabled={loading || $flowNodes.length === 0}>
         Generate Report
       </button>
 
@@ -689,6 +736,18 @@
     <div class="report-panel" class:wide={!!comparisonReport}>
       <div class="report-header">
         <h2>Production Report</h2>
+        <button
+          class="copy-link-btn"
+          onclick={async () => {
+            try {
+              await navigator.clipboard.writeText(window.location.href);
+              copyLinkLabel = 'Copied!';
+            } catch {
+              prompt('Copy this link:', window.location.href);
+            }
+            setTimeout(() => { copyLinkLabel = 'Copy Link'; }, 1500);
+          }}
+        >{copyLinkLabel}</button>
         <button class="close-btn" onclick={closeReport}>✕</button>
       </div>
       <div class="report-body">
@@ -765,14 +824,30 @@
         </div>
       {/if}
 
-      {#if edmReport && [...edmReport.tableValueAdded.values()].some(v => v != null && v > 0)}
-        {@const vaEntries = [...edmReport.tableValueAdded.entries()]
-          .map(([id, va]) => {
-            const node = plannerTableNodes.find(n => n.id === id);
-            return { va, table: node?.table ?? id, item: node?.itemName ?? '', profession: node?.recipe.SkillNeeds[0]?.Skill ?? '' };
+      {#if edmReport && (
+        [...edmReport.tableValueAdded.values()].some(v => v != null && v > 0) ||
+        (comparisonReport && [...comparisonReport.edmReport.tableValueAdded.values()].some(v => v != null && v > 0))
+      )}
+        {@const cmpVA = comparisonReport?.edmReport.tableValueAdded ?? null}
+        {@const allTableIds = cmpVA
+          ? [...new Set([...edmReport.tableValueAdded.keys(), ...cmpVA.keys()])]
+          : [...edmReport.tableValueAdded.keys()]}
+        {@const vaEntries = allTableIds
+          .map(id => {
+            const va    = edmReport.tableValueAdded.get(id) ?? null;
+            const cmpVa = cmpVA?.get(id) ?? null;
+            if ((va == null || va <= 0) && (cmpVa == null || cmpVa <= 0)) return null;
+            const node    = plannerTableNodes.find(n => n.id === id);
+            const cmpNode = comparisonReport?.tableNodes.find(n => n.id === id);
+            return {
+              id, va, cmpVa,
+              table:      node?.table      ?? cmpNode?.table      ?? id,
+              item:       node?.itemName   ?? cmpNode?.itemName   ?? '',
+              profession: node?.recipe.SkillNeeds[0]?.Skill ?? cmpNode?.recipe.SkillNeeds[0]?.Skill ?? '',
+            };
           })
-          .filter(e => e.va != null && e.va > 0)
-          .sort((a, b) => (b.va ?? 0) - (a.va ?? 0))}
+          .filter((e): e is NonNullable<typeof e> => e !== null)
+          .sort((a, b) => (b.va ?? b.cmpVa ?? 0) - (a.va ?? a.cmpVa ?? 0))}
         {@const vaByProf = (() => {
           const map = new Map<string, number | null>();
           for (const e of vaEntries) {
@@ -784,12 +859,30 @@
         <section class="va-section">
           <h3>Value Added by Table</h3>
           <table>
+            {#if comparisonReport}
+              <thead><tr>
+                <th class="item-name"></th>
+                <th class="item-name"></th>
+                <th class="item-amt col-hdr">Current</th>
+                <th class="item-amt col-hdr">Compare</th>
+                <th class="item-amt col-hdr">Δ%</th>
+              </tr></thead>
+            {/if}
             <tbody>
               {#each vaEntries as e}
                 <tr>
                   <td class="item-name">{e.table}</td>
                   <td class="item-name muted">→ {e.item}</td>
-                  <td class="item-amt">+{e.va != null ? fmtEdm(e.va / amount) : '—'} EDM</td>
+                  {#if comparisonReport}
+                    <td class="item-amt">{e.va   != null ? '+' + fmtEdm(e.va   / amount) + ' EDM' : '—'}</td>
+                    <td class="item-amt">{e.cmpVa != null ? '+' + fmtEdm(e.cmpVa / amount) + ' EDM' : '—'}</td>
+                    <td class="item-amt"
+                      class:delta-neg={(e.cmpVa ?? 0) < (e.va ?? 0)}
+                      class:delta-pos={(e.cmpVa ?? 0) > (e.va ?? 0)}
+                    >{fmtDeltaPct(e.va ?? 0, e.cmpVa ?? 0)}</td>
+                  {:else}
+                    <td class="item-amt">+{e.va != null ? fmtEdm(e.va / amount) : '—'} EDM</td>
+                  {/if}
                 </tr>
               {/each}
             </tbody>
@@ -824,6 +917,48 @@
               {/if}
             {/each}
           </div>
+        </section>
+      {/if}
+
+      {#if comparisonReport}
+        {@const laborCur = new Map(plannerTableNodes.map(n =>
+          [n.id, { table: n.table, item: n.itemName, labor: n.recipe.BaseLaborCost * n.cycles }]))}
+        {@const laborCmp = new Map(comparisonReport.tableNodes.map(n =>
+          [n.id, { table: n.table, item: n.itemName, labor: n.recipe.BaseLaborCost * n.cycles }]))}
+        {@const allLaborIds = [...new Set([...laborCur.keys(), ...laborCmp.keys()])]}
+        {@const laborEntries = allLaborIds
+          .map(id => {
+            const c = laborCur.get(id);
+            const r = laborCmp.get(id);
+            return { table: c?.table ?? r?.table ?? id, item: c?.item ?? r?.item ?? '',
+                     cur: c?.labor ?? 0, cmp: r?.labor ?? 0 };
+          })
+          .sort((a, b) => b.cur - a.cur)}
+        <section>
+          <h3>Labor by Table</h3>
+          <table>
+            <thead><tr>
+              <th class="item-name"></th>
+              <th class="item-name"></th>
+              <th class="item-amt col-hdr">Current</th>
+              <th class="item-amt col-hdr">Compare</th>
+              <th class="item-amt col-hdr">Δ%</th>
+            </tr></thead>
+            <tbody>
+              {#each laborEntries as e}
+                <tr>
+                  <td class="item-name">{e.table}</td>
+                  <td class="item-name muted">→ {e.item}</td>
+                  <td class="item-amt">{fmtLabor(e.cur)}</td>
+                  <td class="item-amt">{fmtLabor(e.cmp)}</td>
+                  <td class="item-amt"
+                    class:delta-neg={e.cmp < e.cur}
+                    class:delta-pos={e.cmp > e.cur}
+                  >{fmtDeltaPct(e.cur, e.cmp)}</td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
         </section>
       {/if}
 
@@ -1532,6 +1667,12 @@
   .close-btn {
     background: none; border: none; color: #888; font-size: 18px; cursor: pointer; padding: 0;
   }
+
+  .copy-link-btn {
+    background: none; border: 1px solid #555; color: #aaa; font-size: 12px; cursor: pointer;
+    padding: 2px 8px; border-radius: 4px; margin-right: 8px;
+  }
+  .copy-link-btn:hover { border-color: #aaa; color: #ddd; }
 
   .report-panel section {
     margin-bottom: 20px;
