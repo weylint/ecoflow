@@ -74,6 +74,12 @@ When a byproduct auto-satisfies a tag ingredient:
 - `emptyChoices()` helper returns a zeroed `UserChoices` — always include `upgradeByTable: new Map()`
 - `buildGraph` parameter is `globalUpgrade` (not `skillReduction`)
 
+## EDM CLI
+
+`./edm "<item name>" <amount> [--eco eco12|eco13] [--upgrade 0-5] [--csv]`
+
+Computes the EDM for a recipe chain without the browser UI. Defaults to Eco13 + Upgrade 5. Run `./edm --help` for full usage. Entry point: `cli/edm.ts`; shell wrapper: `edm` (repo root).
+
 ## Known Gotchas
 
 - **`Ammount` double-m**: intentional misspelling in both `recipes.json` and `types.ts` — matches the game's export format
