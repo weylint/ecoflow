@@ -1,3 +1,8 @@
+import type { EcoMode, LayoutOptions, ModuleSlot } from './types.js';
+import type { SandboxPatch } from './sandbox.js';
+import { EMPTY_SANDBOX_PATCH, parseSandboxPatch } from './sandbox.js';
+import { DEFAULT_LAYOUT_OPTIONS, DEFAULT_MODULE_SLOTS, DEFAULT_TAG_CHOICES, isModuleSlot } from './types.js';
+
 export interface FoodTierCosts {
   baseline: number;
   basic: number;
@@ -6,13 +11,24 @@ export interface FoodTierCosts {
 }
 
 export interface AppSettings {
-  ecoMode: 'eco12' | 'eco13';
+  ecoMode: EcoMode;
   edmValues: Record<string, number>;
   edmTagDefaults: Record<string, number>;
   crossProfessionMarkup: number;
   foodCostEnabled: boolean;
   foodTierCosts: FoodTierCosts;
   showNodeStats: boolean;
+  // Optional so existing AppSettings literals (tests, CLI) stay valid;
+  // loadSettings always fills them.
+  darkMode?: boolean;
+  groupByProfession?: boolean;
+  layoutOptions?: LayoutOptions;
+  tagDefaults?: Record<string, string>;
+  // Eco 14 only: which of the four module slots are filled. Eco 12/13 use the
+  // globalUpgrade ladder instead.
+  moduleSlots?: ModuleSlot[];
+  // The Sandbox version's recipe and talent overrides.
+  sandboxPatch?: SandboxPatch;
 }
 
 export const DEFAULT_EDM_TAG_DEFAULTS: Record<string, number> = {
@@ -62,6 +78,22 @@ export const DEFAULT_EDM_VALUES: Record<string, number> = {
   'Acorn':        0.2,
   'Sunflower':    0.2,
   'Urchin':       0.2,
+  // Waste / recycling feedstock: nothing produces these, so they arrive as raw
+  // leaves. Negligible value, like Dirt and Compost above.
+  'Bio Residue':       0.01,
+  'Food Scrap':        0.01,
+  'Glass Scrap':       0.01,
+  'Plastic Scrap':     0.01,
+  'Electronic Scrap':  0.01,
+  'Tailings':          0.01,
+  'Wet Tailings':      0.01,
+  'Spoiled Food':      0.01, // eco12 / eco13 only
+  // Marine life with no usable tag default. Deliberately per-item: a 'Fish' or
+  // 'Small Fish' tag default would be picked ahead of 'Large Fish' for items
+  // carrying both, since resolveItemEdmValue takes the first matching tag.
+  'Clam':              0.2,
+  'Moon Jellyfish':    0.2,
+  'Pacific Sardine':   0.3,
 };
 
 export const DEFAULT_FOOD_TIER_COSTS: FoodTierCosts = {
@@ -72,13 +104,19 @@ export const DEFAULT_FOOD_TIER_COSTS: FoodTierCosts = {
 };
 
 export const DEFAULT_SETTINGS: AppSettings = {
-  ecoMode: 'eco13',
+  ecoMode: 'eco14',
   edmValues: { ...DEFAULT_EDM_VALUES },
   edmTagDefaults: { ...DEFAULT_EDM_TAG_DEFAULTS },
   crossProfessionMarkup: 0.25,
   foodCostEnabled: true,
   foodTierCosts: { ...DEFAULT_FOOD_TIER_COSTS },
   showNodeStats: true,
+  darkMode: true,
+  groupByProfession: false,
+  layoutOptions: { ...DEFAULT_LAYOUT_OPTIONS },
+  tagDefaults: { ...DEFAULT_TAG_CHOICES },
+  moduleSlots: [...DEFAULT_MODULE_SLOTS],
+  sandboxPatch: { ...EMPTY_SANDBOX_PATCH },
 };
 
 const STORAGE_KEY = 'eco-planner-settings';
@@ -90,12 +128,26 @@ export function loadSettings(): AppSettings {
     const parsed = JSON.parse(raw) as Partial<AppSettings>;
     return {
       ecoMode: parsed.ecoMode ?? DEFAULT_SETTINGS.ecoMode,
-      edmValues: { ...DEFAULT_EDM_VALUES, ...(parsed.edmValues ?? {}) },
-      edmTagDefaults: { ...DEFAULT_EDM_TAG_DEFAULTS, ...(parsed.edmTagDefaults ?? {}) },
+      // Persisted maps are taken verbatim (not merged with defaults) so that
+      // user deletions of default entries survive a reload.
+      edmValues: parsed.edmValues ?? { ...DEFAULT_EDM_VALUES },
+      edmTagDefaults: parsed.edmTagDefaults ?? { ...DEFAULT_EDM_TAG_DEFAULTS },
       crossProfessionMarkup: parsed.crossProfessionMarkup ?? DEFAULT_SETTINGS.crossProfessionMarkup,
       foodCostEnabled: parsed.foodCostEnabled ?? DEFAULT_SETTINGS.foodCostEnabled,
       foodTierCosts: { ...DEFAULT_FOOD_TIER_COSTS, ...(parsed.foodTierCosts ?? {}) },
       showNodeStats: parsed.showNodeStats ?? DEFAULT_SETTINGS.showNodeStats,
+      darkMode: parsed.darkMode ?? true,
+      groupByProfession: parsed.groupByProfession ?? false,
+      layoutOptions: { ...DEFAULT_LAYOUT_OPTIONS, ...(parsed.layoutOptions ?? {}) },
+      tagDefaults: parsed.tagDefaults ?? { ...DEFAULT_TAG_CHOICES },
+      // Filter rather than trust: a slot name removed from a future Eco version
+      // must not survive in localStorage and resolve to a module that is gone.
+      moduleSlots: Array.isArray(parsed.moduleSlots)
+        ? parsed.moduleSlots.filter(isModuleSlot)
+        : [...DEFAULT_MODULE_SLOTS],
+      // Validated rather than trusted: a hand-edited or stale patch must not
+      // reach applySandboxPatch with a non-numeric amount in it.
+      sandboxPatch: parseSandboxPatch(parsed.sandboxPatch) ?? { ...EMPTY_SANDBOX_PATCH },
     };
   } catch {
     return { ...DEFAULT_SETTINGS, edmValues: { ...DEFAULT_EDM_VALUES }, edmTagDefaults: { ...DEFAULT_EDM_TAG_DEFAULTS } };

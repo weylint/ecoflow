@@ -1,0 +1,73 @@
+/*
+ * Design tokens. Light mode is a token swap, not a second set of rules: any
+ * component styled through these vars needs no `html.light` override at all.
+ * (`+page.svelte` and `ResolveModal.svelte` still carry hand-written overrides
+ * and have not been converted yet — the report components have.)
+ */
+:root {
+  --bg-panel:      #1e1e1e;
+  --bg-overlay:    rgba(0, 0, 0, 0.6);
+  --bg-input:      #2a2a2a;
+  --border:        #444;
+  --border-subtle: #2a2a2a;
+
+  --text:          #e0e0e0;
+  --text-dim:      #aaa;
+  --text-muted:    #8a8a8a;   /* >= 4.5:1 on --bg-panel */
+  --text-subhead:  #9a9a9a;
+
+  --heading:       #7ec8e3;
+  --heading-sec:   #a0c4e0;
+  --accent:        #4a90c4;
+
+  --num:           #7ec8e3;   /* active version */
+  --num-history:   #6a8f9e;   /* frozen versions, deliberately quieter */
+  --delta-good:    #4ec870;
+  --delta-bad:     #f08080;
+  --edm-missing:   #e08a8a;   /* marks errors: must be legible, not dimmed */
+
+  --prof:          #c8a0f0;
+  --amt-warm:      #f0c070;
+
+  --row-hover:     rgba(255, 255, 255, 0.045);
+  --row-zebra:     rgba(255, 255, 255, 0.02);
+  --row-selected:  rgba(200, 160, 240, 0.10);
+  --prof-bg:       rgba(90, 58, 122, 0.14);
+  --panel-shadow:  0 12px 40px rgba(0, 0, 0, 0.5);
+
+  --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas,
+               'Liberation Mono', monospace;
+}
+
+html.light {
+  --bg-panel:      #ffffff;
+  --bg-overlay:    rgba(0, 0, 0, 0.35);
+  --bg-input:      #ffffff;
+  --border:        #d0d0d0;
+  --border-subtle: #e5e7eb;
+
+  --text:          #1a1a1a;
+  --text-dim:      #555;
+  --text-muted:    #6b7280;
+  --text-subhead:  #4b5563;
+
+  --heading:       #1a6b9a;
+  --heading-sec:   #374151;
+  --accent:        #2563eb;
+
+  --num:           #1d4ed8;
+  --num-history:   #64748b;
+  --delta-good:    #15803d;
+  --delta-bad:     #b91c1c;
+  --edm-missing:   #9a3412;
+
+  --prof:          #7c3aed;
+  --amt-warm:      #b45309;
+
+  --row-hover:     rgba(0, 0, 0, 0.05);
+  --row-zebra:     rgba(0, 0, 0, 0.022);
+  --row-selected:  rgba(124, 58, 237, 0.08);
+  --prof-bg:       rgba(159, 122, 234, 0.08);
+  --panel-shadow:  0 12px 40px rgba(0, 0, 0, 0.18);
+}
+

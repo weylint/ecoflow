@@ -1,0 +1,2755 @@
+{
+  "professions": [
+    {
+      "profession": "Carpenter",
+      "source_file": "CarpenterProfession.cs",
+      "skills": [
+        {
+          "skill": "Logging",
+          "talents": [
+            {
+              "display_name": "Cleanup Crew: Logging",
+              "description": "Allows picking up Wood Debris by hand.",
+              "level": 6,
+              "class": "LoggingCleanupCrewTalentGroup",
+              "max_takes": 1
+            },
+            {
+              "display_name": "Loggers Luck: Logging",
+              "description": "Felling a tree has a chance of destroying tree stumps and splitting trunks immediately.",
+              "level": 6,
+              "class": "LoggingLoggersLuckTalentGroup",
+              "max_takes": 1
+            },
+            {
+              "display_name": "Tool Efficiency: Logging",
+              "description": "Lowers the calorie cost of using related tool by 20 percent.",
+              "level": 3,
+              "class": "LoggingToolEfficiencyTalentGroup",
+              "max_takes": 1
+            },
+            {
+              "display_name": "Tool Strength: Logging",
+              "description": "Increases the damage of related tools by 1.",
+              "level": 3,
+              "class": "LoggingToolStrengthTalentGroup",
+              "max_takes": 1
+            },
+            {
+              "display_name": "Wood Burner: Logging",
+              "description": "Increases output of all charcoal recipes.",
+              "level": 3,
+              "class": "LoggingWoodBurnerTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "+1 yield",
+                  "penalty": false,
+                  "recipes": [
+                    "Dense Charcoal",
+                    "Peat Charcoal",
+                    "Charcoal"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "skill": "Carpentry",
+          "talents": [
+            {
+              "display_name": "Extra Effort: Carpentry",
+              "description": "Increases craft speed for Carpentry skill recipes but also increases labor costs.",
+              "level": 6,
+              "class": "CarpentryExtraEffortTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "-50% craft time",
+                  "penalty": false,
+                  "skills": [
+                    "Carpentry"
+                  ]
+                },
+                {
+                  "effect": "+20% labor cost",
+                  "penalty": true,
+                  "skills": [
+                    "Carpentry"
+                  ]
+                }
+              ]
+            },
+            {
+              "display_name": "Fine Carpentry: Carpentry",
+              "description": "Reduce cost for Housing items and labor cost of Carpentry recipes.",
+              "level": 3,
+              "class": "CarpentryFineCarpentryTalentGroup",
+              "max_takes": 5,
+              "effects": [
+                {
+                  "effect": "-12% resource cost per take (cap: -60%)",
+                  "penalty": false,
+                  "item_tags": [
+                    "Housing"
+                  ],
+                  "skills": [
+                    "Carpentry"
+                  ]
+                },
+                {
+                  "effect": "-10% labor cost per take (cap: -50%)",
+                  "penalty": false,
+                  "skills": [
+                    "Carpentry"
+                  ]
+                }
+              ]
+            },
+            {
+              "display_name": "Lumber Investment: Carpentry",
+              "description": "Reduce costs for Lumber Blocks and labor cost of Carpentry recipes.",
+              "level": 3,
+              "class": "CarpentryLumberInvestmentTalentGroup",
+              "max_takes": 5,
+              "effects": [
+                {
+                  "effect": "-8% resource cost per take (cap: -40%)",
+                  "penalty": false,
+                  "item_tags": [
+                    "Lumber"
+                  ],
+                  "skills": [
+                    "Carpentry"
+                  ]
+                },
+                {
+                  "effect": "-8% labor cost per take (cap: -40%)",
+                  "penalty": false,
+                  "skills": [
+                    "Carpentry"
+                  ]
+                }
+              ]
+            },
+            {
+              "display_name": "Quality Control: Carpentry",
+              "description": "Reduce power consumption and labor cost of the Sawmill recipes.",
+              "level": 6,
+              "class": "CarpentryQualityControlTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "-50% power usage",
+                  "penalty": false,
+                  "craft_stations": [
+                    "Sawmill"
+                  ],
+                  "skills": [
+                    "Carpentry"
+                  ]
+                },
+                {
+                  "effect": "-15% labor cost",
+                  "penalty": false,
+                  "craft_stations": [
+                    "Sawmill"
+                  ],
+                  "skills": [
+                    "Carpentry"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "skill": "Paper Milling",
+          "talents": [
+            {
+              "display_name": "Focused Workflow: PaperMilling",
+              "description": "Doubles the speed of related tables when alone.",
+              "level": 3,
+              "class": "PaperMillingFocusedWorkflowTalentGroup",
+              "max_takes": 1
+            },
+            {
+              "display_name": "Frugal Workspace: PaperMilling",
+              "description": "Lowers the tier requirement of related tables by 0.2.(Only applies to claimed workstations)",
+              "level": 6,
+              "class": "PaperMillingFrugalWorkspaceTalentGroup",
+              "max_takes": 1
+            },
+            {
+              "display_name": "Lavish Workspace: PaperMilling",
+              "description": "Increases the tier requirement of tables by 0.2, but reduces the resources needed by 5 percent.(Only applies to claimed workstations)",
+              "level": 6,
+              "class": "PaperMillingLavishWorkspaceTalentGroup",
+              "max_takes": 1
+            },
+            {
+              "display_name": "Parallel Processing: PaperMilling",
+              "description": "Increases the crafting speed of identical tables when they share a room by 20 percent.",
+              "level": 3,
+              "class": "PaperMillingParallelProcessingTalentGroup",
+              "max_takes": 1
+            }
+          ]
+        },
+        {
+          "skill": "Composites",
+          "talents": [
+            {
+              "display_name": "Hardwood Expert: Composites",
+              "description": "Reduces resource cost of Hardwood Composite Lumber.",
+              "level": 3,
+              "class": "CompositesHardwoodExpertTalentGroup",
+              "max_takes": 5,
+              "effects": [
+                {
+                  "effect": "-10% resource cost per take (cap: -50%)",
+                  "penalty": false,
+                  "item_tags": [
+                    "HardwoodLumber"
+                  ],
+                  "skills": [
+                    "Composites"
+                  ]
+                }
+              ]
+            },
+            {
+              "display_name": "Lessons Learned: Composites",
+              "description": "Reduces all Composite recipe labor costs.",
+              "level": 6,
+              "class": "CompositesLessonsLearnedTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "-25% labor cost",
+                  "penalty": false,
+                  "skills": [
+                    "Composites"
+                  ]
+                }
+              ]
+            },
+            {
+              "display_name": "Overdrive: Composites",
+              "description": "Increase crafting speed of the Advanced Carpentry Table  but also increases power consumption.",
+              "level": 6,
+              "class": "CompositesOverdriveTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "+50% power usage",
+                  "penalty": true,
+                  "craft_stations": [
+                    "Advanced Carpentry Table"
+                  ]
+                },
+                {
+                  "effect": "-50% craft time",
+                  "penalty": false,
+                  "craft_stations": [
+                    "Advanced Carpentry Table"
+                  ]
+                }
+              ]
+            },
+            {
+              "display_name": "Softwood Expert: Composites",
+              "description": "Reduces resource cost of Softwood Composite Lumber.",
+              "level": 3,
+              "class": "CompositesSoftwoodExpertTalentGroup",
+              "max_takes": 5,
+              "effects": [
+                {
+                  "effect": "-10% resource cost per take (cap: -50%)",
+                  "penalty": false,
+                  "item_tags": [
+                    "SoftwoodLumber"
+                  ],
+                  "skills": [
+                    "Composites"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "skill": "Shipwright",
+          "talents": [
+            {
+              "display_name": "Planking: Shipwright",
+              "description": "Reduces resource cost of Hull Planks per talent level.",
+              "level": 3,
+              "class": "ShipwrightPlankingTalentGroup",
+              "max_takes": 5,
+              "effects": [
+                {
+                  "effect": "-10% resource cost per take (cap: -50%)",
+                  "penalty": false,
+                  "recipes": [
+                    "Wooden Hull Planks"
+                  ]
+                }
+              ]
+            },
+            {
+              "display_name": "Riveter: Shipwright",
+              "description": "Reduce resource cost of Hull Sheets per talent level.",
+              "level": 3,
+              "class": "ShipwrightRiveterTalentGroup",
+              "max_takes": 5,
+              "effects": [
+                {
+                  "effect": "-10% resource cost per take (cap: -50%)",
+                  "penalty": false,
+                  "recipes": [
+                    "Iron Hull Sheet"
+                  ]
+                }
+              ]
+            },
+            {
+              "display_name": "Rope Maker: Shipwright",
+              "description": "Increases craft speed and reducing labor costs of ropes.",
+              "level": 6,
+              "class": "ShipwrightRopeMakerTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "-40% labor cost",
+                  "penalty": false,
+                  "recipes": [
+                    "Hemp Mooring Rope",
+                    "Nylon Mooring Rope"
+                  ]
+                },
+                {
+                  "effect": "-50% craft time",
+                  "penalty": false,
+                  "recipes": [
+                    "Hemp Mooring Rope",
+                    "Nylon Mooring Rope"
+                  ]
+                }
+              ]
+            },
+            {
+              "display_name": "Ship Builder: Shipwright",
+              "description": "Increases craft speed and reducing labor costs of Shipwright Vehicles.",
+              "level": 6,
+              "class": "ShipwrightShipBuilderTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "-20% labor cost",
+                  "penalty": false,
+                  "item_tags": [
+                    "Vehicles"
+                  ],
+                  "skills": [
+                    "Shipwright"
+                  ]
+                },
+                {
+                  "effect": "-50% craft time",
+                  "penalty": false,
+                  "item_tags": [
+                    "Vehicles"
+                  ],
+                  "skills": [
+                    "Shipwright"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "profession": "Chief",
+      "source_file": "ChiefProfession.cs",
+      "skills": [
+        {
+          "skill": "Advanced Baking",
+          "talents": [
+            {
+              "display_name": "Abundant: AdvancedBaking",
+              "description": "Reduce resource cost for Pirozhok.",
+              "level": 3,
+              "class": "AdvancedBakingAbundantTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "-15% resource cost",
+                  "penalty": false,
+                  "recipes": [
+                    "Pirozhok"
+                  ]
+                }
+              ]
+            },
+            {
+              "display_name": "Fruit Centric: AdvancedBaking",
+              "description": "Reduce resource cost for Fruit Tarts.",
+              "level": 3,
+              "class": "AdvancedBakingFruitCentricTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "-15% resource cost",
+                  "penalty": false,
+                  "recipes": [
+                    "Fruit Tart"
+                  ]
+                }
+              ]
+            },
+            {
+              "display_name": "Stuff It: AdvancedBaking",
+              "description": "Increases craft speed for specific recipes.",
+              "level": 6,
+              "class": "AdvancedBakingStuffItTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "-30% craft time",
+                  "penalty": false,
+                  "recipes": [
+                    "Elk Wellington",
+                    "Bearclaw",
+                    "Macarons",
+                    "Pirozhok"
+                  ]
+                }
+              ]
+            },
+            {
+              "display_name": "Top It: AdvancedBaking",
+              "description": "Increases craft speed for specific recipes.",
+              "level": 6,
+              "class": "AdvancedBakingTopItTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "-30% craft time",
+                  "penalty": false,
+                  "recipes": [
+                    "Fantastic Forest Pizza",
+                    "Hearty Hometown Pizza",
+                    "Sensuous Sea Pizza",
+                    "Tasty Tropical Pizza",
+                    "Fruit Tart"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "skill": "Cooking",
+          "talents": [
+            {
+              "display_name": "Dual Dexterity: Cooking",
+              "description": "Increased crafting speed of Salads and reduced labor costs of all Cooking recipes",
+              "level": 3,
+              "class": "CookingDualDexterityTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "-50% craft time",
+                  "penalty": false,
+                  "item_tags": [
+                    "Salad"
+                  ]
+                },
+                {
+                  "effect": "-15% labor cost",
+                  "penalty": false,
+                  "skills": [
+                    "Cooking"
+                  ]
+                }
+              ]
+            },
+            {
+              "display_name": "Extra Pans: Cooking",
+              "description": "Increased crafting speed of Simmered meat, stocks and reduced labor costs of all Cooking recipes.",
+              "level": 3,
+              "class": "CookingExtraPansTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "-50% craft time",
+                  "penalty": false,
+                  "recipes": [
+                    "Simmered Meat",
+                    "Meat Stock",
+                    "Vegetable Stock"
+                  ]
+                },
+                {
+                  "effect": "-15% labor cost",
+                  "penalty": false,
+                  "skills": [
+                    "Cooking"
+                  ]
+                }
+              ]
+            },
+            {
+              "display_name": "Fast Food: Cooking",
+              "description": "Reduced resource cost of specific recipes.",
+              "level": 6,
+              "class": "CookingFastFoodTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "-15% resource cost",
+                  "penalty": false,
+                  "recipes": [
+                    "Pupusas",
+                    "Loaded Taro Fries"
+                  ]
+                }
+              ]
+            },
+            {
+              "display_name": "Something Fishy: Cooking",
+              "description": "Reduced resource cost of specific recipes.",
+              "level": 6,
+              "class": "CookingSomethingFishyTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "-15% resource cost",
+                  "penalty": false,
+                  "recipes": [
+                    "Shark Fillet Soup",
+                    "Clam Chowder"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "skill": "Baking",
+          "talents": [
+            {
+              "display_name": "Filled Meals: Baking",
+              "description": "Reduced resource cost of pies but increased cost for pastries.",
+              "level": 6,
+              "class": "BakingFilledMealsTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "-15% resource cost",
+                  "penalty": false,
+                  "recipes": [
+                    "Huckleberry Pie",
+                    "Meat Pie"
+                  ]
+                },
+                {
+                  "effect": "+5% resource cost",
+                  "penalty": true,
+                  "recipes": [
+                    "Huckleberry Fritter",
+                    "Worldly Donut",
+                    "Fruit Muffin"
+                  ]
+                }
+              ]
+            },
+            {
+              "display_name": "Homegrown: Baking",
+              "description": "Increased craft speed of baked vegetables.",
+              "level": 3,
+              "class": "BakingHomegrownTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "-30% craft time",
+                  "penalty": false,
+                  "item_tags": [
+                    "BakedVegetable"
+                  ]
+                }
+              ]
+            },
+            {
+              "display_name": "Meat Specialist: Baking",
+              "description": "Increased craft speed of baked meats.",
+              "level": 3,
+              "class": "BakingMeatSpecialistTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "-30% craft time",
+                  "penalty": false,
+                  "recipes": [
+                    "Baked Roast",
+                    "Baked Meat"
+                  ]
+                }
+              ]
+            },
+            {
+              "display_name": "Sweet: Baking",
+              "description": "Reduced resource cost of pastries but increased pie cost.",
+              "level": 6,
+              "class": "BakingSweetTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "+5% resource cost",
+                  "penalty": true,
+                  "recipes": [
+                    "Huckleberry Pie",
+                    "Meat Pie"
+                  ]
+                },
+                {
+                  "effect": "-15% resource cost",
+                  "penalty": false,
+                  "recipes": [
+                    "Huckleberry Fritter",
+                    "Worldly Donut",
+                    "Fruit Muffin"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "skill": "Cutting Edge Cooking",
+          "talents": [
+            {
+              "display_name": "Focused Workflow: CuttingEdgeCooking",
+              "description": "Doubles the speed of related tables when alone.",
+              "level": 3,
+              "class": "CuttingEdgeCookingFocusedWorkflowTalentGroup",
+              "max_takes": 1
+            },
+            {
+              "display_name": "Frugal Workspace: CuttingEdgeCooking",
+              "description": "Lowers the tier requirement of related tables by 0.2.(Only applies to claimed workstations)",
+              "level": 6,
+              "class": "CuttingEdgeCookingFrugalWorkspaceTalentGroup",
+              "max_takes": 1
+            },
+            {
+              "display_name": "Lavish Workspace: CuttingEdgeCooking",
+              "description": "Increases the tier requirement of tables by 0.2, but reduces the resources needed by 5 percent.(Only applies to claimed workstations)",
+              "level": 6,
+              "class": "CuttingEdgeCookingLavishWorkspaceTalentGroup",
+              "max_takes": 1
+            },
+            {
+              "display_name": "Parallel Processing: CuttingEdgeCooking",
+              "description": "Increases the crafting speed of identical tables when they share a room by 20 percent.",
+              "level": 3,
+              "class": "CuttingEdgeCookingParallelProcessingTalentGroup",
+              "max_takes": 1
+            }
+          ]
+        },
+        {
+          "skill": "Advanced Cooking",
+          "talents": [
+            {
+              "display_name": "Fully Staffed: AdvancedCooking",
+              "description": "Increased craft speed by 30% and resource reduction by 15% for Advanced Cooking recipes.",
+              "level": 3,
+              "class": "AdvancedCookingFullyStaffedTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "-30% craft time",
+                  "penalty": false,
+                  "skills": [
+                    "Advanced Cooking"
+                  ]
+                },
+                {
+                  "effect": "-15% resource cost",
+                  "penalty": false,
+                  "skills": [
+                    "Advanced Cooking"
+                  ]
+                }
+              ]
+            },
+            {
+              "display_name": "Ina Bowl: AdvancedCooking",
+              "description": "Increase crafting speed and resource reduction for specific recipes.",
+              "level": 6,
+              "class": "AdvancedCookingInaBowlTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "-20% craft time",
+                  "penalty": false,
+                  "recipes": [
+                    "Pineapple Friend Rice",
+                    "Poke Bowl",
+                    "Sweet Salad",
+                    "Crimson Salad"
+                  ]
+                },
+                {
+                  "effect": "-10% resource cost",
+                  "penalty": false,
+                  "recipes": [
+                    "Pineapple Friend Rice",
+                    "Poke Bowl",
+                    "Sweet Salad",
+                    "Crimson Salad"
+                  ]
+                }
+              ]
+            },
+            {
+              "display_name": "Refined Scraps: AdvancedCooking",
+              "description": "Unlocks Refine tallow recipe.",
+              "level": 3,
+              "class": "AdvancedCookingRefinedScrapsTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "unlocks": [
+                    "Refine Tallow"
+                  ]
+                }
+              ]
+            },
+            {
+              "display_name": "Take Out: AdvancedCooking",
+              "description": "Increase crafting speed and resource reduction for specific recipes.",
+              "level": 6,
+              "class": "AdvancedCookingTakeOutTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "-20% craft time",
+                  "penalty": false,
+                  "recipes": [
+                    "Agouti Enchiladas",
+                    "Banh Xeo",
+                    "Elk Taco"
+                  ]
+                },
+                {
+                  "effect": "-10% resource cost",
+                  "penalty": false,
+                  "recipes": [
+                    "Agouti Enchiladas",
+                    "Banh Xeo",
+                    "Elk Taco"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "skill": "Campfire Cooking",
+          "talents": [
+            {
+              "display_name": "Roasted: CampfireCooking",
+              "description": "Unlocks Campfire Roast recipe.",
+              "level": 3,
+              "class": "CampfireCookingRoastedTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "unlocks": [
+                    "Campfire Roast"
+                  ]
+                }
+              ]
+            },
+            {
+              "display_name": "Side Dishes: CampfireCooking",
+              "description": "Reduces resource cost of salads.",
+              "level": 6,
+              "class": "CampfireCookingSideDishesTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "-25% resource cost",
+                  "penalty": false,
+                  "recipes": [
+                    "Beet Campfire Salad",
+                    "Root Campfire Salad",
+                    "Jungle Campfire Salad",
+                    "Fern Campfire Salad"
+                  ]
+                }
+              ]
+            },
+            {
+              "display_name": "Stew Gourmand: CampfireCooking",
+              "description": "Reduces resource cost of stews.",
+              "level": 6,
+              "class": "CampfireCookingStewGourmandTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "-25% resource cost",
+                  "penalty": false,
+                  "recipes": [
+                    "Field Campfire Stew",
+                    "Jungle Campfire Stew",
+                    "Meaty Stew",
+                    "Root Campfire Stew",
+                    "Wild Stew",
+                    "Fish Stew"
+                  ]
+                }
+              ]
+            },
+            {
+              "display_name": "Using Scraps: CampfireCooking",
+              "description": "Unlocks Render Fat recipe.",
+              "level": 3,
+              "class": "CampfireCookingUsingScrapsTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "unlocks": [
+                    "Render Fat"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "profession": "Engineer",
+      "source_file": "EngineerProfession.cs",
+      "skills": [
+        {
+          "skill": "Electronics",
+          "talents": [
+            {
+              "display_name": "Ceramic Safety: Electronics",
+              "description": "Unlocks Ceramic Fuse recipe and increases crafting speed of Electronics Skill.",
+              "level": 3,
+              "class": "ElectronicsCeramicSafetyTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "unlocks": [
+                    "Ceramic Fuse"
+                  ]
+                },
+                {
+                  "effect": "-25% craft time",
+                  "penalty": false,
+                  "skills": [
+                    "Electronics"
+                  ]
+                }
+              ]
+            },
+            {
+              "display_name": "Etching Techniques: Electronics",
+              "description": "Unlocks Basic and Advanced Circuit etching recipes.",
+              "level": 3,
+              "class": "ElectronicsEtchingTechniquesTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "unlocks": [
+                    "Etched Basic Circuit",
+                    "Etched Advanced Circuit"
+                  ]
+                }
+              ]
+            },
+            {
+              "display_name": "Heavy Equipment: Electronics",
+              "description": "Reduce resource cost for Crafting Tables.",
+              "level": 6,
+              "class": "ElectronicsHeavyEquipmentTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "-15% resource cost",
+                  "penalty": false,
+                  "item_tags": [
+                    "Crafting Table"
+                  ],
+                  "skills": [
+                    "Electronics"
+                  ]
+                }
+              ]
+            },
+            {
+              "display_name": "Quality Of Life: Electronics",
+              "description": "Reduce cost for Housing items.",
+              "level": 6,
+              "class": "ElectronicsQualityOfLifeTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "-25% resource cost",
+                  "penalty": false,
+                  "item_tags": [
+                    "Housing"
+                  ],
+                  "skills": [
+                    "Electronics"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "skill": "Industry",
+          "talents": [
+            {
+              "display_name": "Electrical Efficiency: Industry",
+              "description": "Reduce power consumption and labor costs of Industry crafting tables.",
+              "level": 6,
+              "class": "IndustryElectricalEfficiencyTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "-50% power usage",
+                  "penalty": false,
+                  "skills": [
+                    "Industry"
+                  ]
+                },
+                {
+                  "effect": "-10% resource cost",
+                  "penalty": false,
+                  "craft_stations": [
+                    "Electronics Assembly"
+                  ],
+                  "skills": [
+                    "Industry"
+                  ]
+                },
+                {
+                  "effect": "-15% craft time",
+                  "penalty": false,
+                  "craft_stations": [
+                    "Electronics Assembly"
+                  ],
+                  "skills": [
+                    "Industry"
+                  ]
+                }
+              ]
+            },
+            {
+              "display_name": "Precision Tooling: Industry",
+              "description": "Reduce resource cost of Industry skill Parts and increases their Durability and Integrity per talent level.",
+              "level": 3,
+              "class": "IndustryPrecisionToolingTalentGroup",
+              "max_takes": 3,
+              "effects": [
+                {
+                  "effect": "-10% resource cost per take (cap: -40%)",
+                  "penalty": false,
+                  "item_tags": [
+                    "Parts"
+                  ],
+                  "skills": [
+                    "Industry"
+                  ]
+                },
+                {
+                  "effect": "+25% durability per take (cap: +100%)",
+                  "penalty": false,
+                  "item_tags": [
+                    "Parts"
+                  ],
+                  "skills": [
+                    "Industry"
+                  ]
+                },
+                {
+                  "effect": "+25% integrity per take (cap: +100%)",
+                  "penalty": false,
+                  "item_tags": [
+                    "Parts"
+                  ],
+                  "skills": [
+                    "Industry"
+                  ]
+                }
+              ]
+            },
+            {
+              "display_name": "Robotic Assistance: Industry",
+              "description": "Reduced resource cost of Industry recipes in the Robotic Assembly Line and increased crafting speed at the cost of significantly increased power cost per talent level.",
+              "level": 6,
+              "class": "IndustryRoboticAssistanceTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "-10% resource cost",
+                  "penalty": false,
+                  "craft_stations": [
+                    "Robotic Assembly Line"
+                  ],
+                  "skills": [
+                    "Industry"
+                  ]
+                },
+                {
+                  "effect": "-20% craft time",
+                  "penalty": false,
+                  "craft_stations": [
+                    "Robotic Assembly Line"
+                  ],
+                  "skills": [
+                    "Industry"
+                  ]
+                },
+                {
+                  "effect": "+100% power usage",
+                  "penalty": true,
+                  "craft_stations": [
+                    "Robotic Assembly Line"
+                  ],
+                  "skills": [
+                    "Industry"
+                  ]
+                }
+              ]
+            },
+            {
+              "display_name": "Skilled Labor: Industry",
+              "description": "Reduce resource cost of Vehicles but increases Labor costs.",
+              "level": 3,
+              "class": "IndustrySkilledLaborTalentGroup",
+              "max_takes": 4,
+              "effects": [
+                {
+                  "effect": "-10% resource cost per take (cap: -40%)",
+                  "penalty": false,
+                  "item_tags": [
+                    "Vehicles"
+                  ],
+                  "skills": [
+                    "Industry"
+                  ]
+                },
+                {
+                  "effect": "+30% labor cost per take (cap: +120%)",
+                  "penalty": true,
+                  "item_tags": [
+                    "Vehicles"
+                  ],
+                  "skills": [
+                    "Industry"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "skill": "Mechanics",
+          "talents": [
+            {
+              "display_name": "Improved Assembly: Mechanics",
+              "description": "Reduces Assembly Line recipe costs per talent level.",
+              "level": 6,
+              "class": "MechanicsImprovedAssemblyTalentGroup",
+              "max_takes": 5,
+              "effects": [
+                {
+                  "effect": "-5% resource cost per take (cap: -25%)",
+                  "penalty": false,
+                  "craft_stations": [
+                    "Assembly Line"
+                  ],
+                  "skills": [
+                    "Mechanics"
+                  ]
+                }
+              ]
+            },
+            {
+              "display_name": "Partial Quality: Mechanics",
+              "description": "Increased durability and integrity of parts per talent level.",
+              "level": 6,
+              "class": "MechanicsPartialQualityTalentGroup",
+              "max_takes": 4,
+              "effects": [
+                {
+                  "effect": "+10% durability per take (cap: +50%)",
+                  "penalty": false,
+                  "item_tags": [
+                    "Parts"
+                  ],
+                  "skills": [
+                    "Mechanics"
+                  ]
+                },
+                {
+                  "effect": "+5% integrity per take (cap: +25%)",
+                  "penalty": false,
+                  "item_tags": [
+                    "Parts"
+                  ],
+                  "skills": [
+                    "Mechanics"
+                  ]
+                }
+              ]
+            },
+            {
+              "display_name": "Press On: Mechanics",
+              "description": "Reduces Screw Press recipe costs and increases its craft speed.",
+              "level": 3,
+              "class": "MechanicsPressOnTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "-50% craft time",
+                  "penalty": false,
+                  "craft_stations": [
+                    "Screw Press"
+                  ]
+                },
+                {
+                  "effect": "-20% resource cost",
+                  "penalty": false,
+                  "craft_stations": [
+                    "Screw Press"
+                  ]
+                }
+              ]
+            },
+            {
+              "display_name": "Shaping Up: Mechanics",
+              "description": "Reduces Shaper recipe costs and increases its craft speed.",
+              "level": 3,
+              "class": "MechanicsShapingUpTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "-50% craft time",
+                  "penalty": false,
+                  "craft_stations": [
+                    "Shaper"
+                  ]
+                },
+                {
+                  "effect": "-10% resource cost",
+                  "penalty": false,
+                  "craft_stations": [
+                    "Shaper"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "skill": "Basic Engineering",
+          "talents": [
+            {
+              "display_name": "Roadworks: BasicEngineering",
+              "description": "Unlocks Asphalt Recipe.",
+              "level": 6,
+              "class": "BasicEngineeringRoadworksTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "unlocks": [
+                    "Asphalt Concrete"
+                  ]
+                }
+              ]
+            },
+            {
+              "display_name": "Vehicular Design: BasicEngineering",
+              "description": "Reduce resource costs for wheels recipes.",
+              "level": 6,
+              "class": "BasicEngineeringVehicularDesignTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "-15% resource cost",
+                  "penalty": false,
+                  "recipes": [
+                    "Wooden Gear",
+                    "Iron Wheel",
+                    "Wooden Wheel"
+                  ]
+                },
+                {
+                  "effect": "-25% craft time",
+                  "penalty": false,
+                  "recipes": [
+                    "Wooden Gear",
+                    "Iron Wheel",
+                    "Wooden Wheel"
+                  ]
+                }
+              ]
+            },
+            {
+              "display_name": "Wateristheway: BasicEngineering",
+              "description": "Reduce resource cost of Waterwheels and increases craft speed.",
+              "level": 3,
+              "class": "BasicEngineeringWateristhewayTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "-10% resource cost",
+                  "penalty": false,
+                  "recipes": [
+                    "Waterwheel"
+                  ]
+                },
+                {
+                  "effect": "-25% craft time",
+                  "penalty": false,
+                  "recipes": [
+                    "Waterwheel"
+                  ]
+                }
+              ]
+            },
+            {
+              "display_name": "Windequalsenergy: BasicEngineering",
+              "description": "Reduce resource cost of Windmills and increases craft speed.",
+              "level": 3,
+              "class": "BasicEngineeringWindequalsenergyTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "-10% resource cost",
+                  "penalty": false,
+                  "recipes": [
+                    "Windmill"
+                  ]
+                },
+                {
+                  "effect": "-25% craft time",
+                  "penalty": false,
+                  "recipes": [
+                    "Windmill"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "profession": "Farmer",
+      "source_file": "FarmerProfession.cs",
+      "skills": [
+        {
+          "skill": "Milling",
+          "talents": [
+            {
+              "display_name": "Another Beat: Milling",
+              "description": "Unlocks Beet Sugar recipe.",
+              "level": 6,
+              "class": "MillingAnotherBeatTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "unlocks": [
+                    "Beet Sugar",
+                    "Processed Beet Sugar"
+                  ]
+                }
+              ]
+            },
+            {
+              "display_name": "Flour It: Milling",
+              "description": "Increase craft speed and resource reduction of all Flour types.",
+              "level": 3,
+              "class": "MillingFlourItTalentGroup",
+              "max_takes": 5,
+              "effects": [
+                {
+                  "effect": "-5% resource cost per take (cap: -25%)",
+                  "penalty": false,
+                  "recipes": [
+                    "Flour",
+                    "Rice Flour",
+                    "Cornmeal"
+                  ]
+                },
+                {
+                  "effect": "-18% craft time per take (cap: -80%)",
+                  "penalty": false,
+                  "recipes": [
+                    "Flour",
+                    "Rice Flour",
+                    "Cornmeal"
+                  ]
+                }
+              ]
+            },
+            {
+              "display_name": "Omega3: Milling",
+              "description": "Unlocks Fish Oil recipe.",
+              "level": 6,
+              "class": "MillingOmega3TalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "unlocks": [
+                    "Fish Oil"
+                  ]
+                }
+              ]
+            },
+            {
+              "display_name": "Sugar Rush: Milling",
+              "description": "Increase craft speed and resource reduction of Sugar recipes.",
+              "level": 3,
+              "class": "MillingSugarRushTalentGroup",
+              "max_takes": 5,
+              "effects": [
+                {
+                  "effect": "-5% resource cost per take (cap: -25%)",
+                  "penalty": false,
+                  "recipes": [
+                    "Sugar",
+                    "Processed Sugar",
+                    "Beet Sugar",
+                    "Processed Beet Sugar"
+                  ]
+                },
+                {
+                  "effect": "-18% craft time per take (cap: -80%)",
+                  "penalty": false,
+                  "recipes": [
+                    "Sugar",
+                    "Processed Sugar",
+                    "Beet Sugar",
+                    "Processed Beet Sugar"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "skill": "Fertilizers",
+          "talents": [
+            {
+              "display_name": "Enriched Soil: Fertilizers",
+              "description": "Increases the nutrient value of fertilizers when applied.",
+              "level": 6,
+              "class": "FertilizersEnrichedSoilTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "+200% fertilizernutrient",
+                  "penalty": false
+                }
+              ]
+            },
+            {
+              "display_name": "Organic Abundance: Fertilizers",
+              "description": "Reduce resource cost for specific recipes.",
+              "level": 3,
+              "class": "FertilizersOrganicAbundanceTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "-15% resource cost",
+                  "penalty": false,
+                  "recipes": [
+                    "Compost Fertilizer",
+                    "Berry Extract Fertilizer",
+                    "Camas Ash Fertilizer"
+                  ]
+                }
+              ]
+            },
+            {
+              "display_name": "Refined Processing: Fertilizers",
+              "description": "Reduce resource cost for specific recipes.",
+              "level": 3,
+              "class": "FertilizersRefinedProcessingTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "-15% resource cost",
+                  "penalty": false,
+                  "recipes": [
+                    "Blood Meal Fertilizer",
+                    "Phosphate Fertilizer",
+                    "Pelt Fertilizer",
+                    "Hide Ash Fertilizer"
+                  ]
+                }
+              ]
+            },
+            {
+              "display_name": "Sustainable Practice: Fertilizers",
+              "description": "Increases yield by crafting fertilizers by +1",
+              "level": 6,
+              "class": "FertilizersSustainablePracticeTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "+1 yield",
+                  "penalty": false,
+                  "recipes": [
+                    "Berry Extract Fertilizer",
+                    "Blood Meal Fertilizer",
+                    "Camas Ash Fertilizer",
+                    "Compost Fertilizer",
+                    "Hide Ash Fertilizer",
+                    "Pelt Fertilizer",
+                    "Phosphate Fertilizer"
+                  ],
+                  "skills": [
+                    "Fertilizers"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "skill": "Gathering",
+          "talents": [
+            {
+              "display_name": "Fruiturist: Gathering",
+              "description": "Increases yields of fruits when gathered by +1.",
+              "level": 3,
+              "class": "GatheringFruituristTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "+1 harvestyield",
+                  "penalty": false,
+                  "item_tags": [
+                    "Fruit"
+                  ]
+                }
+              ]
+            },
+            {
+              "display_name": "Grainiac: Gathering",
+              "description": "Increases yields of grains when gathered by +1.",
+              "level": 3,
+              "class": "GatheringGrainiacTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "+1 harvestyield",
+                  "penalty": false,
+                  "item_tags": [
+                    "Grain"
+                  ]
+                }
+              ]
+            },
+            {
+              "display_name": "Keeping It Fresh: Gathering",
+              "description": "Increases freshness of all harvested crops by 50%.",
+              "level": 6,
+              "class": "GatheringKeepingItFreshTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "+50% harvestfreshness",
+                  "penalty": false
+                }
+              ]
+            },
+            {
+              "display_name": "Natural Gatherer: Gathering",
+              "description": "Increases all gathering yield of Crops by +1.",
+              "level": 6,
+              "class": "GatheringNaturalGathererTalentGroup",
+              "max_takes": 1
+            },
+            {
+              "display_name": "Tool Efficiency: Gathering",
+              "description": "Lowers the calorie cost of using related tool by 20 percent.",
+              "level": 3,
+              "class": "GatheringToolEfficiencyTalentGroup",
+              "max_takes": 1
+            },
+            {
+              "display_name": "Tool Strength: Gathering",
+              "description": "Increases the damage of related tools by 1.",
+              "level": 3,
+              "class": "GatheringToolStrengthTalentGroup",
+              "max_takes": 1
+            }
+          ]
+        },
+        {
+          "skill": "Farming",
+          "talents": [
+            {
+              "display_name": "Gentle Seeding: Farming",
+              "description": "Increases base maturity of a plant when seeded.",
+              "level": 6,
+              "class": "FarmingGentleSeedingTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "+0.2 plantmaturity",
+                  "penalty": false
+                }
+              ]
+            },
+            {
+              "display_name": "Natural Selection: Farming",
+              "description": "Reduce labor cost for Farming recipes.",
+              "level": 6,
+              "class": "FarmingNaturalSelectionTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "-30% labor cost",
+                  "penalty": false,
+                  "skills": [
+                    "Farming"
+                  ]
+                }
+              ]
+            },
+            {
+              "display_name": "Nutrient Deficient: Farming",
+              "description": "Reduce resource cost for Farming recipes.",
+              "level": 3,
+              "class": "FarmingNutrientDeficientTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "-10% resource cost",
+                  "penalty": false,
+                  "skills": [
+                    "Farming"
+                  ]
+                }
+              ]
+            },
+            {
+              "display_name": "Seed Sorting: Farming",
+              "description": "Increase Farming recipe craft speed.",
+              "level": 3,
+              "class": "FarmingSeedSortingTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "-20% craft time",
+                  "penalty": false,
+                  "skills": [
+                    "Farming"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "profession": "Hunter",
+      "source_file": "HunterProfession.cs",
+      "skills": [
+        {
+          "skill": "Hunting",
+          "talents": [
+            {
+              "display_name": "Arrow Recovery: Hunting",
+              "description": "Allows you to recover arrows shot into animals when harvesting them with a 50 percent chance.",
+              "level": 3,
+              "class": "HuntingArrowRecoveryTalentGroup",
+              "max_takes": 1
+            },
+            {
+              "display_name": "Deadeye: Hunting",
+              "description": "Increases the headshot damage by 50 percent.",
+              "level": 6,
+              "class": "HuntingDeadeyeTalentGroup",
+              "max_takes": 1
+            },
+            {
+              "display_name": "Master Tracker: Hunting",
+              "description": "A master tracker is capable of following its prey over the highest peaks or through the densest of jungles.",
+              "level": 3,
+              "class": "HuntingMasterTrackerTalentGroup",
+              "max_takes": 1
+            },
+            {
+              "display_name": "Power Shot: Hunting",
+              "description": "Increases the damage tier of Bows",
+              "level": 6,
+              "class": "HuntingPowerShotTalentGroup",
+              "max_takes": 1
+            }
+          ]
+        },
+        {
+          "skill": "Butchery",
+          "talents": [
+            {
+              "display_name": "Local Fauna: Butchery",
+              "description": "Increase Output of specific recipes.",
+              "level": 3,
+              "class": "ButcheryLocalFaunaTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "+1 yield",
+                  "penalty": false,
+                  "recipes": [
+                    "Butcher Tiny Fur Animal",
+                    "Butcher Tiny Leather Animal",
+                    "Butcher Small Animal",
+                    "Butcher Hare"
+                  ]
+                }
+              ]
+            },
+            {
+              "display_name": "Poor Cuts: Butchery",
+              "description": "Reduced resource cost of the specific recipes and increase crafting speed of Butchery recipes.",
+              "level": 6,
+              "class": "ButcheryPoorCutsTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "-20% resource cost",
+                  "penalty": false,
+                  "recipes": [
+                    "Raw Bacon",
+                    "Raw Sausage"
+                  ]
+                },
+                {
+                  "effect": "-50% craft time",
+                  "penalty": false,
+                  "skills": [
+                    "Butchery"
+                  ]
+                }
+              ]
+            },
+            {
+              "display_name": "Prime Examples: Butchery",
+              "description": "Reduced resource cost of the specific recipe and increase crafting speed of Butchery recipes.",
+              "level": 6,
+              "class": "ButcheryPrimeExamplesTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "-15% resource cost",
+                  "penalty": false,
+                  "recipes": [
+                    "Prime Cut"
+                  ]
+                },
+                {
+                  "effect": "-20% craft time",
+                  "penalty": false,
+                  "skills": [
+                    "Butchery"
+                  ]
+                }
+              ]
+            },
+            {
+              "display_name": "Scrapped But Useful: Butchery",
+              "description": "Increase yield of the Scrap Meat recipe.",
+              "level": 3,
+              "class": "ButcheryScrappedButUsefulTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "+3 yield",
+                  "penalty": false,
+                  "recipes": [
+                    "Scrap Meat"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "profession": "Mason",
+      "source_file": "MasonProfession.cs",
+      "skills": [
+        {
+          "skill": "Pottery",
+          "talents": [
+            {
+              "display_name": "Brick Layer: Pottery",
+              "description": "Reduced resource cost for Constructable blocks, but increased cost for Housing items.",
+              "level": 6,
+              "class": "PotteryBrickLayerTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "-10% resource cost",
+                  "penalty": false,
+                  "item_tags": [
+                    "Constructable"
+                  ],
+                  "skills": [
+                    "Pottery"
+                  ]
+                },
+                {
+                  "effect": "+5% resource cost",
+                  "penalty": true,
+                  "item_tags": [
+                    "Housing"
+                  ],
+                  "skills": [
+                    "Pottery"
+                  ]
+                }
+              ]
+            },
+            {
+              "display_name": "Clay Mastery: Pottery",
+              "description": "Faster crafting and reduced labor cost at the Pottery Table.",
+              "level": 3,
+              "class": "PotteryClayMasteryTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "-25% craft time",
+                  "penalty": false,
+                  "craft_stations": [
+                    "Pottery Table"
+                  ],
+                  "skills": [
+                    "Pottery"
+                  ]
+                },
+                {
+                  "effect": "-12.5% labor cost",
+                  "penalty": false,
+                  "craft_stations": [
+                    "Pottery Table"
+                  ],
+                  "skills": [
+                    "Pottery"
+                  ]
+                }
+              ]
+            },
+            {
+              "display_name": "Mass Production: Pottery",
+              "description": "Faster crafting and reduced labor cost at the Kiln.",
+              "level": 3,
+              "class": "PotteryMassProductionTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "-25% craft time",
+                  "penalty": false,
+                  "craft_stations": [
+                    "Kiln"
+                  ],
+                  "skills": [
+                    "Pottery"
+                  ]
+                },
+                {
+                  "effect": "-12.5% labor cost",
+                  "penalty": false,
+                  "craft_stations": [
+                    "Kiln"
+                  ],
+                  "skills": [
+                    "Pottery"
+                  ]
+                }
+              ]
+            },
+            {
+              "display_name": "Porcelain Polish: Pottery",
+              "description": "Reduced resource cost for Housing furniture in Pottery.",
+              "level": 6,
+              "class": "PotteryPorcelainPolishTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "-10% resource cost",
+                  "penalty": false,
+                  "item_tags": [
+                    "Housing"
+                  ],
+                  "skills": [
+                    "Pottery"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "skill": "Glassworking",
+          "talents": [
+            {
+              "display_name": "Bright Applications: Glassworking",
+              "description": "Faster crafting for Glassworking recipes and increased Output for Light Bulb recipes.",
+              "level": 3,
+              "class": "GlassworkingBrightApplicationsTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "+1 yield",
+                  "penalty": false,
+                  "recipes": [
+                    "Light Bulb"
+                  ]
+                },
+                {
+                  "effect": "-50% craft time",
+                  "penalty": false,
+                  "skills": [
+                    "Glassworking"
+                  ]
+                }
+              ]
+            },
+            {
+              "display_name": "Double Speed: Glassworking",
+              "description": "Faster crafting for all Glassworking recipes and cost reduction on Glass Blocks.",
+              "level": 3,
+              "class": "GlassworkingDoubleSpeedTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "-50% craft time",
+                  "penalty": false,
+                  "skills": [
+                    "Glassworking"
+                  ]
+                },
+                {
+                  "effect": "-15% resource cost",
+                  "penalty": false,
+                  "recipes": [
+                    "Glass",
+                    "Quicklime Glass"
+                  ]
+                }
+              ]
+            },
+            {
+              "display_name": "Framed: Glassworking",
+              "description": "Resource reduction for Framed Glass recipe.",
+              "level": 6,
+              "class": "GlassworkingFramedTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "-10% resource cost",
+                  "penalty": false,
+                  "recipes": [
+                    "Framed Glass"
+                  ]
+                }
+              ]
+            },
+            {
+              "display_name": "Tailored Glass: Glassworking",
+              "description": "Resource reduction for Fiberglass recipe.",
+              "level": 6,
+              "class": "GlassworkingTailoredGlassTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "-10% resource cost",
+                  "penalty": false,
+                  "recipes": [
+                    "Fiberglass"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "skill": "Advanced Masonry",
+          "talents": [
+            {
+              "display_name": "Coastal Rock: AdvancedMasonry",
+              "description": "Reduce resource cost for specific recipes.",
+              "level": 3,
+              "class": "AdvancedMasonryCoastalRockTalentGroup",
+              "max_takes": 5,
+              "effects": [
+                {
+                  "effect": "-5% resource cost per take (cap: -25%)",
+                  "penalty": false,
+                  "recipes": [
+                    "Ashlar Sandstone",
+                    "Ashlar Limestone",
+                    "Ashlar Basalt"
+                  ],
+                  "skills": [
+                    "Advanced Masonry"
+                  ]
+                }
+              ]
+            },
+            {
+              "display_name": "Sharp Blades: AdvancedMasonry",
+              "description": "Increase power usage and craft speed at the Advanced Masonry Table.",
+              "level": 6,
+              "class": "AdvancedMasonrySharpBladesTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "+50% power usage",
+                  "penalty": true,
+                  "craft_stations": [
+                    "Advanced Masonry Table"
+                  ]
+                },
+                {
+                  "effect": "-25% craft time",
+                  "penalty": false,
+                  "craft_stations": [
+                    "Advanced Masonry Table"
+                  ]
+                }
+              ]
+            },
+            {
+              "display_name": "Smooth Stone: AdvancedMasonry",
+              "description": "Reduce labor cost of all Advanced Masonry recipes.",
+              "level": 6,
+              "class": "AdvancedMasonrySmoothStoneTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "-10% labor cost",
+                  "penalty": false,
+                  "skills": [
+                    "Advanced Masonry"
+                  ]
+                }
+              ]
+            },
+            {
+              "display_name": "Sub Terrain Sourced: AdvancedMasonry",
+              "description": "Reduce resource cost for specific recipes.",
+              "level": 3,
+              "class": "AdvancedMasonrySubTerrainSourcedTalentGroup",
+              "max_takes": 5,
+              "effects": [
+                {
+                  "effect": "-5% resource cost per take (cap: -25%)",
+                  "penalty": false,
+                  "recipes": [
+                    "Ashlar Shale",
+                    "Ashlar Granite",
+                    "Ashlar Gneiss"
+                  ],
+                  "skills": [
+                    "Advanced Masonry"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "skill": "Masonry",
+          "talents": [
+            {
+              "display_name": "Concrete Applications: Masonry",
+              "description": "Unlocks Fiber Concrete recipe.",
+              "level": 6,
+              "class": "MasonryConcreteApplicationsTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "unlocks": [
+                    "Fiber Reinforced Concrete"
+                  ]
+                }
+              ]
+            },
+            {
+              "display_name": "Mineral Baking: Masonry",
+              "description": "Increase Output of Quicklime Recipe.",
+              "level": 6,
+              "class": "MasonryMineralBakingTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "+1 yield",
+                  "penalty": false,
+                  "recipes": [
+                    "Quicklime"
+                  ]
+                }
+              ]
+            },
+            {
+              "display_name": "Set In Stone: Masonry",
+              "description": "Reduce cost for Blocks.",
+              "level": 3,
+              "class": "MasonrySetInStoneTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "-10% resource cost",
+                  "penalty": false,
+                  "item_tags": [
+                    "Constructable"
+                  ],
+                  "skills": [
+                    "Masonry"
+                  ]
+                }
+              ]
+            },
+            {
+              "display_name": "Stone Mixing: Masonry",
+              "description": "Reduced cost and increased crafting speed for specific recipes.",
+              "level": 3,
+              "class": "MasonryStoneMixingTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "-40% craft time",
+                  "penalty": false,
+                  "recipes": [
+                    "Rice Mortar",
+                    "Wheat Mortar",
+                    "Baked Mortar",
+                    "Masonry Mortar",
+                    "Cement"
+                  ],
+                  "skills": [
+                    "Masonry"
+                  ]
+                },
+                {
+                  "effect": "-15% resource cost",
+                  "penalty": false,
+                  "recipes": [
+                    "Rice Mortar",
+                    "Wheat Mortar",
+                    "Baked Mortar",
+                    "Masonry Mortar",
+                    "Cement"
+                  ],
+                  "skills": [
+                    "Masonry"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "skill": "Mining",
+          "talents": [
+            {
+              "display_name": "Lucky Break: Mining",
+              "description": "Mining rocks no longer has a chance to create large chunks.",
+              "level": 6,
+              "class": "MiningLuckyBreakTalentGroup",
+              "max_takes": 1
+            },
+            {
+              "display_name": "Sweeping Hands: Mining",
+              "description": "Picking up rocks also attempts to pick up similar rocks in an area.",
+              "level": 6,
+              "class": "MiningSweepingHandsTalentGroup",
+              "max_takes": 1
+            },
+            {
+              "display_name": "Tool Efficiency: Mining",
+              "description": "Lowers the calorie cost of using related tool by 20 percent.",
+              "level": 3,
+              "class": "MiningToolEfficiencyTalentGroup",
+              "max_takes": 1
+            },
+            {
+              "display_name": "Tool Strength: Mining",
+              "description": "Increases the damage of related tools by 1.",
+              "level": 3,
+              "class": "MiningToolStrengthTalentGroup",
+              "max_takes": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "profession": "Scientist",
+      "source_file": "ScientistProfession.cs",
+      "skills": [
+        {
+          "skill": "Oil Drilling",
+          "talents": [
+            {
+              "display_name": "Crude Refining: OilDrilling",
+              "description": "Increasing craft speed of the Pumpjack but increasing pollution.",
+              "level": 6,
+              "class": "OilDrillingCrudeRefiningTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "-25% craft time",
+                  "penalty": false,
+                  "craft_stations": [
+                    "Pump Jack"
+                  ]
+                },
+                {
+                  "effect": "+50% pollution",
+                  "penalty": true,
+                  "craft_stations": [
+                    "Pump Jack"
+                  ]
+                }
+              ]
+            },
+            {
+              "display_name": "Fuel Focus: OilDrilling",
+              "description": "Reduced crafting cost of the specific recipe but increasing pollution.",
+              "level": 6,
+              "class": "OilDrillingFuelFocusTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "-5% resource cost",
+                  "penalty": false,
+                  "recipes": [
+                    "Gasoline",
+                    "Biodiesel"
+                  ]
+                },
+                {
+                  "effect": "+30% pollution",
+                  "penalty": true,
+                  "craft_stations": [
+                    "Oil Refinery"
+                  ]
+                }
+              ]
+            },
+            {
+              "display_name": "Improved Extraction: OilDrilling",
+              "description": "Reduced labor cost of specific recipe.",
+              "level": 3,
+              "class": "OilDrillingImprovedExtractionTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "-50% labor cost",
+                  "penalty": false,
+                  "recipes": [
+                    "Petroleum"
+                  ]
+                }
+              ]
+            },
+            {
+              "display_name": "Synthetic Materials: OilDrilling",
+              "description": "Reduced crafting cost of the specific recipes.",
+              "level": 3,
+              "class": "OilDrillingSyntheticMaterialsTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "-10% resource cost",
+                  "penalty": false,
+                  "recipes": [
+                    "Synthetic Rubber",
+                    "Plastic"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "skill": "Painting",
+          "talents": [
+            {
+              "display_name": "Focused Workflow: Painting",
+              "description": "Doubles the speed of related tables when alone.",
+              "level": 3,
+              "class": "PaintingFocusedWorkflowTalentGroup",
+              "max_takes": 1
+            },
+            {
+              "display_name": "Frugal Workspace: Painting",
+              "description": "Lowers the tier requirement of related tables by 0.2.(Only applies to claimed workstations)",
+              "level": 6,
+              "class": "PaintingFrugalWorkspaceTalentGroup",
+              "max_takes": 1
+            },
+            {
+              "display_name": "Lavish Workspace: Painting",
+              "description": "Increases the tier requirement of tables by 0.2, but reduces the resources needed by 5 percent.(Only applies to claimed workstations)",
+              "level": 6,
+              "class": "PaintingLavishWorkspaceTalentGroup",
+              "max_takes": 1
+            },
+            {
+              "display_name": "Parallel Processing: Painting",
+              "description": "Increases the crafting speed of identical tables when they share a room by 20 percent.",
+              "level": 3,
+              "class": "PaintingParallelProcessingTalentGroup",
+              "max_takes": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "profession": "Self Improvement",
+      "source_file": "SelfImprovementProfession.cs",
+      "skills": [
+        {
+          "skill": "Self Improvement",
+          "talents": [
+            {
+              "display_name": "Deeper Pockets: SelfImprovement",
+              "description": "Increase your inventory size by 5kg.",
+              "level": 3,
+              "class": "SelfImprovementDeeperPocketsTalentGroup",
+              "max_takes": 1
+            },
+            {
+              "display_name": "Glutton: SelfImprovement",
+              "description": "Increase your stomach capacity count by 1000 calories.",
+              "level": 3,
+              "class": "SelfImprovementGluttonTalentGroup",
+              "max_takes": 1
+            },
+            {
+              "display_name": "Nature Adventurer: SelfImprovement",
+              "description": "Slightly increases movement speed in low activity areas.",
+              "level": 6,
+              "class": "SelfImprovementNatureAdventurerTalentGroup",
+              "max_takes": 1
+            },
+            {
+              "display_name": "Urban Traveller: SelfImprovement",
+              "description": "Slightly increases movement speed in high activity areas.",
+              "level": 6,
+              "class": "SelfImprovementUrbanTravellerTalentGroup",
+              "max_takes": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "profession": "Smith",
+      "source_file": "SmithProfession.cs",
+      "skills": [
+        {
+          "skill": "Blacksmith",
+          "talents": [
+            {
+              "display_name": "Better Axes: Blacksmith",
+              "description": "Increases integrity and durability of the specified tools but increases their cost.",
+              "level": 6,
+              "class": "BlacksmithBetterAxesTalentGroup",
+              "max_takes": 3,
+              "effects": [
+                {
+                  "effect": "+20% integrity per take (cap: +100%)",
+                  "penalty": false,
+                  "recipes": [
+                    "Iron Axe",
+                    "Steel Axe",
+                    "Modern Axe",
+                    "Iron Pickaxe",
+                    "Steel Pickaxe",
+                    "Modern Pickaxe"
+                  ]
+                },
+                {
+                  "effect": "+20% durability per take (cap: +100%)",
+                  "penalty": false,
+                  "recipes": [
+                    "Iron Axe",
+                    "Steel Axe",
+                    "Modern Axe",
+                    "Iron Pickaxe",
+                    "Steel Pickaxe",
+                    "Modern Pickaxe"
+                  ]
+                },
+                {
+                  "effect": "+5% resource cost per take (cap: +25%)",
+                  "penalty": true,
+                  "recipes": [
+                    "Iron Axe",
+                    "Steel Axe",
+                    "Modern Axe",
+                    "Iron Pickaxe",
+                    "Steel Pickaxe",
+                    "Modern Pickaxe"
+                  ]
+                }
+              ]
+            },
+            {
+              "display_name": "Empower: Blacksmith",
+              "description": "Axes and Pickaxes has a +1 Damage when used.",
+              "level": 3,
+              "class": "BlacksmithEmpowerTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "+1 usetool",
+                  "penalty": false
+                }
+              ]
+            },
+            {
+              "display_name": "Garden Tools: Blacksmith",
+              "description": "Increases integrity and durability of the specified tools but increases their cost.",
+              "level": 6,
+              "class": "BlacksmithGardenToolsTalentGroup",
+              "max_takes": 3,
+              "effects": [
+                {
+                  "effect": "+20% integrity per take (cap: +100%)",
+                  "penalty": false,
+                  "recipes": [
+                    "Iron Shovel",
+                    "Steel Shovel",
+                    "Modern Shovel",
+                    "Iron Hoe",
+                    "Steel Hoe",
+                    "Modern Hoe",
+                    "Iron Hammer",
+                    "Steel Hammer",
+                    "Modern Hammer",
+                    "Iron Sickle",
+                    "Steel Sickle",
+                    "Modern Scythe"
+                  ]
+                },
+                {
+                  "effect": "+20% durability per take (cap: +100%)",
+                  "penalty": false,
+                  "recipes": [
+                    "Iron Shovel",
+                    "Steel Shovel",
+                    "Modern Shovel",
+                    "Iron Hoe",
+                    "Steel Hoe",
+                    "Modern Hoe",
+                    "Iron Hammer",
+                    "Steel Hammer",
+                    "Modern Hammer",
+                    "Iron Sickle",
+                    "Steel Sickle",
+                    "Modern Scythe"
+                  ]
+                },
+                {
+                  "effect": "+5% resource cost per take (cap: +25%)",
+                  "penalty": true,
+                  "recipes": [
+                    "Iron Shovel",
+                    "Steel Shovel",
+                    "Modern Shovel",
+                    "Iron Hoe",
+                    "Steel Hoe",
+                    "Modern Hoe",
+                    "Iron Hammer",
+                    "Steel Hammer",
+                    "Modern Hammer",
+                    "Iron Sickle",
+                    "Steel Sickle",
+                    "Modern Scythe"
+                  ]
+                }
+              ]
+            },
+            {
+              "display_name": "Quality Repairs: Blacksmith",
+              "description": "Reduces integrity loss when repairing.",
+              "level": 3,
+              "class": "BlacksmithQualityRepairsTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "-20% repairpenalty",
+                  "penalty": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "skill": "Advanced Smelting",
+          "talents": [
+            {
+              "display_name": "Carbon Enrichment: AdvancedSmelting",
+              "description": "Unlocks Charcoal Steel recipe and reduces pollution of Advanced Smelting recipes.",
+              "level": 3,
+              "class": "AdvancedSmeltingCarbonEnrichmentTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "-10% pollution",
+                  "penalty": false,
+                  "skills": [
+                    "Advanced Smelting"
+                  ]
+                },
+                {
+                  "unlocks": [
+                    "Charcoal Steel"
+                  ]
+                }
+              ]
+            },
+            {
+              "display_name": "Metallurgy Improvements: AdvancedSmelting",
+              "description": "Reduced resource cost of Steel Bars and reduced pollution of Advanced Smelting recipes in the blast furnace.",
+              "level": 3,
+              "class": "AdvancedSmeltingMetallurgyImprovementsTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "-5% resource cost",
+                  "penalty": false,
+                  "recipes": [
+                    "Steel Bar"
+                  ]
+                },
+                {
+                  "effect": "-7.5% pollution",
+                  "penalty": false,
+                  "craft_stations": [
+                    "Blast Furnace"
+                  ],
+                  "skills": [
+                    "Advanced Smelting"
+                  ]
+                }
+              ]
+            },
+            {
+              "display_name": "Rolling Steel: AdvancedSmelting",
+              "description": "Reduce costs of specific recipes and reduce labor costs for Advanced Smelting recipes.",
+              "level": 6,
+              "class": "AdvancedSmeltingRollingSteelTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "-7.5% resource cost",
+                  "penalty": false,
+                  "recipes": [
+                    "Barrel",
+                    "Corrugated Steel",
+                    "Flat Steel"
+                  ]
+                },
+                {
+                  "effect": "-5% labor cost",
+                  "penalty": false,
+                  "skills": [
+                    "Advanced Smelting"
+                  ]
+                }
+              ]
+            },
+            {
+              "display_name": "Steel Processing: AdvancedSmelting",
+              "description": "Increase craft speed of all Advanced Smelting recipes and reduces resource cost of specific recipes.",
+              "level": 6,
+              "class": "AdvancedSmeltingSteelProcessingTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "-10% resource cost",
+                  "penalty": false,
+                  "recipes": [
+                    "Rebar",
+                    "Rivet",
+                    "Steel Spring"
+                  ]
+                },
+                {
+                  "effect": "-5% craft time",
+                  "penalty": false,
+                  "skills": [
+                    "Advanced Smelting"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "skill": "Smelting",
+          "talents": [
+            {
+              "display_name": "Copper Enrichment: Smelting",
+              "description": "Reduce Copper Bar recipes resource cost and decreases pollution but increases costs of Gold Bars.",
+              "level": 3,
+              "class": "SmeltingCopperEnrichmentTalentGroup",
+              "max_takes": 5,
+              "effects": [
+                {
+                  "effect": "-6% resource cost per take (cap: -30%)",
+                  "penalty": false,
+                  "recipes": [
+                    "Smelt Copper",
+                    "Copper Bar"
+                  ]
+                },
+                {
+                  "effect": "-5% pollution per take (cap: -25%)",
+                  "penalty": false,
+                  "recipes": [
+                    "Smelt Copper",
+                    "Copper Bar"
+                  ]
+                },
+                {
+                  "effect": "+3% resource cost per take (cap: +15%)",
+                  "penalty": true,
+                  "recipes": [
+                    "Smelt Gold",
+                    "Gold Bar"
+                  ]
+                }
+              ]
+            },
+            {
+              "display_name": "Fuel Efficiency: Smelting",
+              "description": "Significantly reduces fuel usage of the Bloomery and Blast furnace but slightly decreases craft time.",
+              "level": 6,
+              "class": "SmeltingFuelEfficiencyTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "-37.5% power usage",
+                  "penalty": false,
+                  "craft_stations": [
+                    "Bloomery",
+                    "Blast Furnace"
+                  ]
+                },
+                {
+                  "effect": "+5% craft time",
+                  "penalty": true,
+                  "craft_stations": [
+                    "Bloomery",
+                    "Blast Furnace"
+                  ]
+                }
+              ]
+            },
+            {
+              "display_name": "Gilded Expert: Smelting",
+              "description": "Reduce Gold Bar recipes resource cost and decreases pollution but increases costs of Copper Bars.",
+              "level": 3,
+              "class": "SmeltingGildedExpertTalentGroup",
+              "max_takes": 5,
+              "effects": [
+                {
+                  "effect": "-6% resource cost per take (cap: -30%)",
+                  "penalty": false,
+                  "recipes": [
+                    "Smelt Gold",
+                    "Gold Bar"
+                  ]
+                },
+                {
+                  "effect": "-5% pollution per take (cap: -25%)",
+                  "penalty": false,
+                  "recipes": [
+                    "Smelt Gold",
+                    "Gold Bar"
+                  ]
+                },
+                {
+                  "effect": "+3% resource cost per take (cap: +15%)",
+                  "penalty": true,
+                  "recipes": [
+                    "Smelt Copper",
+                    "Copper Bar"
+                  ]
+                }
+              ]
+            },
+            {
+              "display_name": "Using Bellows: Smelting",
+              "description": "Increases craft speed of the Bloomery and Blast furnace but also increases pollution.",
+              "level": 6,
+              "class": "SmeltingUsingBellowsTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "-20% craft time",
+                  "penalty": false,
+                  "craft_stations": [
+                    "Bloomery",
+                    "Blast Furnace"
+                  ]
+                },
+                {
+                  "effect": "+75% pollution",
+                  "penalty": true,
+                  "craft_stations": [
+                    "Bloomery",
+                    "Blast Furnace"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "profession": "Tailor",
+      "source_file": "TailorProfession.cs",
+      "skills": [
+        {
+          "skill": "Tailoring",
+          "talents": [
+            {
+              "display_name": "Custom Made: Tailoring",
+              "description": "Reduces resource cost for Clothing and Furniture but increases labor costs.",
+              "level": 6,
+              "class": "TailoringCustomMadeTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "-25% resource cost",
+                  "penalty": false,
+                  "item_tags": [
+                    "Clothes",
+                    "Housing"
+                  ],
+                  "skills": [
+                    "Tailoring"
+                  ]
+                },
+                {
+                  "effect": "+20% labor cost",
+                  "penalty": true,
+                  "item_tags": [
+                    "Clothes",
+                    "Housing"
+                  ],
+                  "skills": [
+                    "Tailoring"
+                  ]
+                }
+              ]
+            },
+            {
+              "display_name": "Flooring Fitter: Tailoring",
+              "description": "Reduces resource cost for tailoring Blocks.",
+              "level": 6,
+              "class": "TailoringFlooringFitterTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "-15% resource cost",
+                  "penalty": false,
+                  "item_tags": [
+                    "Constructable"
+                  ],
+                  "skills": [
+                    "Tailoring"
+                  ]
+                }
+              ]
+            },
+            {
+              "display_name": "Modern Materials: Tailoring",
+              "description": "Reduces resource cost for Nylon Fabric.",
+              "level": 3,
+              "class": "TailoringModernMaterialsTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "-15% resource cost",
+                  "penalty": false,
+                  "recipes": [
+                    "Weave Nylon Fabric",
+                    "Weave Nylon Fabric"
+                  ]
+                },
+                {
+                  "effect": "-30% craft time",
+                  "penalty": false,
+                  "skills": [
+                    "Tailoring"
+                  ]
+                }
+              ]
+            },
+            {
+              "display_name": "Natural Fibers: Tailoring",
+              "description": "Reduces resource cost for Wool and Cotton Fabric.",
+              "level": 3,
+              "class": "TailoringNaturalFibersTalentGroup",
+              "max_takes": 1,
+              "effects": [
+                {
+                  "effect": "-15% resource cost",
+                  "penalty": false,
+                  "recipes": [
+                    "Cotton Fabric",
+                    "Weave Cotton Fabric",
+                    "Wool Fabric",
+                    "Weave Wool Fabric"
+                  ]
+                },
+                {
+                  "effect": "-30% craft time",
+                  "penalty": false,
+                  "skills": [
+                    "Tailoring"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

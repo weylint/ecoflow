@@ -2,16 +2,17 @@
   import { onMount } from 'svelte';
   import { dev, browser } from '$app/environment';
   import { writable, get } from 'svelte/store';
+  import { SvelteMap } from 'svelte/reactivity';
   import { SvelteFlow, Controls, Background, MiniMap, Panel } from '@xyflow/svelte';
   import '@xyflow/svelte/dist/style.css';
 
   import type { Node, Edge, NodeTypes, EdgeTypes } from '@xyflow/svelte';
-  import { ECO12_UPGRADE_LEVELS, ECO13_UPGRADE_LEVELS, getUpgradeLevels, EXCLUDED_BYPRODUCTS, DEFAULT_LAYOUT_OPTIONS, DEFAULT_TAG_CHOICES, DEFAULT_RECIPE_CHOICES, DEFAULT_MARKET_ITEMS, EDM_MARKUP_EXCLUDED_RECIPES } from '$lib/types.js';
-  import type { LayoutOptions, PlannerGraph, ProductPlannerNode } from '$lib/types.js';
+  import { usesModuleSlots, dataVersionOf, ECO12_UPGRADE_LEVELS, ECO13_UPGRADE_LEVELS, getUpgradeLevels, EXCLUDED_BYPRODUCTS, DEFAULT_LAYOUT_OPTIONS, DEFAULT_TAG_CHOICES, DEFAULT_RECIPE_CHOICES, DEFAULT_MARKET_ITEMS, EDM_MARKUP_EXCLUDED_RECIPES, ECO_MODES, ECO_MODE_LABELS, MODULE_SLOTS, DEFAULT_MODULE_SLOTS, isEcoMode, isModuleSlot } from '$lib/types.js';
+  import type { EcoMode, LayoutOptions, ModuleSlot, PlannerGraph, ProductPlannerNode } from '$lib/types.js';
   import type { RecipeObject, Variant, TagsFile, RecipeFile, UserChoices, TablePlannerNode, RawPlannerNode, MarketPlannerNode, TagPlannerNode, ByproductPlannerNode, ByproductResolveOption, IngredientStats, ProductStats } from '$lib/types.js';
   import { DEFAULT_SETTINGS, loadSettings, saveSettings } from '$lib/settings.js';
   import type { AppSettings } from '$lib/settings.js';
-  import { computeEdmReport, resolveItemEdmValue, PROFESSION_FOOD_TIER } from '$lib/edm.js';
+  import { computeEdmReport, resolveItemEdmValue, PROFESSION_FOOD_TIER, WORK_PARTY_EDM_PER_LABOR } from '$lib/edm.js';
   import type { EdmReport, TransitionPathEntry } from '$lib/edm.js';
   import { tableEdmPerUnit } from '$lib/nodeEdmDisplay.js';
   import { fmtNum, fmtEdm, fmtLabor } from '$lib/format.js';
@@ -19,8 +20,15 @@
   import { buildTagsIndex } from '$lib/tagsIndex.js';
   import { buildTalentIndex } from '$lib/talentIndex.js';
   import type { TalentIndex } from '$lib/talentIndex.js';
+  import { buildModuleIndex } from '$lib/moduleIndex.js';
+  import type { ModuleIndex, ModulesFile } from '$lib/moduleIndex.js';
+  import { buildSnapshot, serializeColumnTargets, parseColumnTargets } from '$lib/reportColumns.js';
+  import type { ColumnTarget, ReportColumn } from '$lib/reportColumns.js';
   import { ingredientAmountPerCycle } from '$lib/resourceCost.js';
   import { buildGraph } from '$lib/planner.js';
+  import { isPatchEmpty, applySandboxPatch, applyTalentPatch, patchedVariantCount, parseSandboxPatch, EMPTY_SANDBOX_PATCH } from '$lib/sandbox.js';
+  import type { SandboxPatch } from '$lib/sandbox.js';
+  import { withDerivedEdmValues } from '$lib/edmDerived.js';
   import type { ProfessionData } from '$lib/types.js';
 
   import TableNode from '$lib/components/TableNode.svelte';
@@ -32,6 +40,8 @@
   import ProfessionGroupNode from '$lib/components/ProfessionGroupNode.svelte';
   import LabeledEdge from '$lib/components/LabeledEdge.svelte';
   import TablePane from '$lib/components/TablePane.svelte';
+  import ReportModal from '$lib/components/ReportModal.svelte';
+  import SandboxModal from '$lib/components/SandboxModal.svelte';
   import ResolveModal from '$lib/components/ResolveModal.svelte';
   import FitViewOnDemand from '$lib/components/FitViewOnDemand.svelte';
 
@@ -54,11 +64,16 @@
   let recipeIndex = $state<ReturnType<typeof buildRecipeIndex> | null>(null);
   let tagsIndex = $state<ReturnType<typeof buildTagsIndex> | null>(null);
   let talentIndex = $state<TalentIndex>(new Map());
+  let moduleIndex = $state<ModuleIndex | null>(null);
   let loading = $state(true);
   let error = $state<string | null>(null);
 
   let settings = $state<AppSettings>({ ...DEFAULT_SETTINGS, edmValues: { ...DEFAULT_SETTINGS.edmValues }, edmTagDefaults: { ...DEFAULT_SETTINGS.edmTagDefaults } });
-  const upgradeLevels = $derived(getUpgradeLevels(settings.ecoMode));
+  // Eco 14 has no upgrade ladder — it uses independent module slots instead.
+  const usesModules = $derived(usesModuleSlots(settings.ecoMode));
+  // Only rendered when !usesModules; Eco 14 shows the module slot checkboxes instead.
+  const upgradeLevels = $derived(getUpgradeLevels(usesModules ? 'eco13' : settings.ecoMode as 'eco12' | 'eco13'));
+  const activeModuleSlots = $derived(new Set<ModuleSlot>(settings.moduleSlots ?? DEFAULT_MODULE_SLOTS));
 
   const _urlParams = browser ? new URL(window.location.href).searchParams : null;
   const _urlAmount = _urlParams ? parseInt(_urlParams.get('amount') ?? '', 10) : NaN;
@@ -66,10 +81,21 @@
   let selectedProduct = $state(_urlParams?.get('product') ?? 'Steel Bar');
   let amount = $state(_urlAmount > 0 ? _urlAmount : 100);
 
+  const parseSlots = (raw: string | null | undefined): ModuleSlot[] | null => {
+    if (raw === null || raw === undefined) return null;
+    if (raw === '') return [];
+    const parsed = raw.split(',').map(x => x.trim()).filter(Boolean)
+      .map(x => x.charAt(0).toUpperCase() + x.slice(1).toLowerCase());
+    return parsed.every(isModuleSlot) ? parsed as ModuleSlot[] : null;
+  };
+  const serializeSlots = (s2: readonly ModuleSlot[]) => s2.map(x => x.toLowerCase()).join(',');
+
   const _urlEcoMode = (() => {
     const v = _urlParams?.get('ecoMode');
-    return v === 'eco12' || v === 'eco13' ? v : null;
+    return isEcoMode(v) ? v : null;
   })();
+  const _urlSlots = parseSlots(_urlParams?.get('slots'));
+  const _urlCmpSlots = parseSlots(_urlParams?.get('cmpSlots'));
   const _urlUpgrade = (() => {
     const v = parseFloat(_urlParams?.get('upgrade') ?? '');
     return isFinite(v) && v >= 0 && v <= 1 ? v : null;
@@ -77,7 +103,7 @@
   const _urlReport  = _urlParams?.get('report') === '1';
   const _urlCmpMode = (() => {
     const v = _urlParams?.get('cmpMode');
-    return v === 'eco12' || v === 'eco13' ? v : null;
+    return isEcoMode(v) ? v : null;
   })();
   const _urlCmpVal  = (() => {
     const v = parseFloat(_urlParams?.get('cmpVal') ?? '');
@@ -90,26 +116,31 @@
     url.searchParams.set('product', selectedProduct);
     url.searchParams.set('amount', String(amount));
     url.searchParams.set('ecoMode', settings.ecoMode);
-    url.searchParams.set('upgrade', String(globalUpgrade));
+    if (usesModules) {
+      url.searchParams.set('slots', serializeSlots(settings.moduleSlots ?? DEFAULT_MODULE_SLOTS));
+      url.searchParams.delete('upgrade');
+    } else {
+      url.searchParams.set('upgrade', String(globalUpgrade));
+      url.searchParams.delete('slots');
+    }
     if (showReport) {
       url.searchParams.set('report', '1');
-      if (compareUpgrade) {
-        url.searchParams.set('cmpMode', compareUpgrade.mode);
-        url.searchParams.set('cmpVal', String(compareUpgrade.value));
-      } else {
-        url.searchParams.delete('cmpMode');
-        url.searchParams.delete('cmpVal');
-      }
+      // Only the columns on screen: an unused Sandbox target would be dead weight in every link.
+      url.searchParams.set('cols', serializeColumnTargets(
+        Object.fromEntries(REPORT_MODES.map(m => [m, columnTargets[m]]))
+      ));
     } else {
       url.searchParams.delete('report');
-      url.searchParams.delete('cmpMode');
-      url.searchParams.delete('cmpVal');
+      url.searchParams.delete('cols');
     }
+    // Superseded by `cols`; cleared so a refreshed link does not carry both.
+    for (const legacy of ['cmpMode', 'cmpVal', 'cmpSlots']) url.searchParams.delete(legacy);
     history.replaceState({}, '', url.toString());
   });
-  let globalUpgrade = $state(0.25);  // Eco13 default max
+  let globalUpgrade = $state(0);  // set in onMount from settings/URL
 
-  let tagDefaults = $state(new Map<string, string>(Object.entries(DEFAULT_TAG_CHOICES)));
+  // SvelteMap: plain Map in $state is not deeply reactive in Svelte 5
+  const tagDefaults = new SvelteMap<string, string>(Object.entries(DEFAULT_TAG_CHOICES));
 
   let choices = $state<UserChoices>({
     recipeByItem: new Map(),
@@ -127,10 +158,26 @@
   let plannerProductNode = $state<ProductPlannerNode | null>(null);
   let lastPlannerGraph = $state<PlannerGraph | null>(null);
 
+  // Settings with derived per-item EDM filled in (metal scrap priced off the
+  // matching concentrate). Everything that costs the live plan must use this
+  // rather than `settings`, or those items read as missing.
+  const edmSettings = $derived.by((): AppSettings => {
+    if (!recipeIndex || !tagsIndex) return settings;
+    return withDerivedEdmValues(settings, tagsIndex, {
+      recipeIndex,
+      tagsIndex,
+      choices: $state.snapshot(choices) as UserChoices,
+      globalUpgrade,
+      talentData: settings.ecoMode === 'eco12' ? undefined : talentIndex,
+      moduleData: usesModules ? (moduleIndex ?? undefined) : undefined,
+      moduleSlots: usesModules ? activeModuleSlots : undefined
+    });
+  });
+
   const edmReport = $derived.by((): EdmReport | null => {
     if (!lastPlannerGraph) return null;
     if (!tagsIndex) return null;
-    return computeEdmReport(lastPlannerGraph, settings, tagsIndex);
+    return computeEdmReport(lastPlannerGraph, edmSettings, tagsIndex);
   });
 
   const edmGrouped = $derived.by(() => {
@@ -155,60 +202,278 @@
     return [...map.entries()].sort((a, b) => b[1] - a[1]);
   });
 
-  let compareUpgrade = $state<{ value: number; mode: 'eco12' | 'eco13' } | null>(null);
+  // The report always shows the three real versions in release order, so the
+  // Eco 12 → 13 → 14 trend is visible whichever version is being planned. Sandbox
+  // joins them only when it has something to say — an empty patch would just
+  // duplicate the Eco 14 column and cost the report a fifth of its width.
+  const REPORT_MODES = $derived<EcoMode[]>(
+    settings.ecoMode === 'sandbox' || !isPatchEmpty(settings.sandboxPatch)
+      ? ['eco12', 'eco13', 'eco14', 'sandbox']
+      : ['eco12', 'eco13', 'eco14']
+  );
 
-  const comparisonReport = $derived.by(() => {
-    if (compareUpgrade === null || !recipeIndex || !tagsIndex) return null;
-    const snap = $state.snapshot(choices) as UserChoices;
-    const pg = buildGraph({
-      targetItem: selectedProduct,
-      totalAmount: amount,
-      recipeIndex,
-      tagsIndex,
-      choices: { ...snap, upgradeByTable: new Map() },
-      globalUpgrade: compareUpgrade.value,
-      talentData: compareUpgrade.mode === 'eco13' ? talentIndex : undefined
-    });
-    const rawNodes = pg.nodes.filter((n): n is RawPlannerNode => n.type === 'raw');
-    const cmpTableNodes = pg.nodes.filter((n): n is TablePlannerNode => n.type === 'table');
-    const unresolvedTagNodes = pg.nodes.filter((n): n is TagPlannerNode => n.type === 'tag' && n.amount > 0 && n.selectedItem === null);
-    const byproductNodes = pg.nodes.filter((n): n is ByproductPlannerNode => n.type === 'byproduct');
-    const laborMap = new Map<string, number>();
-    for (const n of cmpTableNodes) {
-      const prof = n.recipe.SkillNeeds[0]?.Skill ?? 'No Skill Required';
-      laborMap.set(prof, (laborMap.get(prof) ?? 0) + n.recipe.BaseLaborCost * n.cycles);
-    }
-    return {
-      rawByItem:        new Map(rawNodes.map(n => [n.itemName, n.amount])),
-      tagByName:        new Map(unresolvedTagNodes.map(n => [n.tag, n.amount])),
-      byproductByKey:   new Map(byproductNodes.map(n => [n.id, n.amount])),
-      laborByProfession: [...laborMap.entries()].sort((a, b) => b[1] - a[1]),
-      edmReport:        computeEdmReport(pg, settings, tagsIndex),
-      tableNodes:       cmpTableNodes,
-    };
+  function maxEfficiencyTarget(mode: EcoMode): ColumnTarget {
+    if (usesModuleSlots(mode)) return { mode, slots: [...DEFAULT_MODULE_SLOTS] };
+    const levels = getUpgradeLevels(mode);
+    return { mode, value: levels[levels.length - 1].value };
+  }
+
+
+  // Per-version efficiency shown in the report. The active version's entry tracks the
+  // planner's own setting; the others default to that version's maximum.
+  let columnTargets = $state<Record<EcoMode, ColumnTarget>>({
+    eco12: maxEfficiencyTarget('eco12'),
+    eco13: maxEfficiencyTarget('eco13'),
+    eco14: maxEfficiencyTarget('eco14'),
+    sandbox: maxEfficiencyTarget('sandbox'),
   });
+
+  // The planner's own efficiency setting, so the active column can tell whether it may
+  // reuse the live graph or has to rebuild at a different efficiency.
+  function activePlanTarget(): ColumnTarget {
+    return usesModuleSlots(settings.ecoMode)
+      ? { mode: settings.ecoMode, slots: MODULE_SLOTS.filter(s => activeModuleSlots.has(s)) }
+      : { mode: settings.ecoMode as 'eco12' | 'eco13', value: globalUpgrade };
+  }
+
+  function sameTarget(a: ColumnTarget, b: ColumnTarget): boolean {
+    if (a.mode !== b.mode) return false;
+    if ('slots' in a && 'slots' in b) {
+      return a.slots.length === b.slots.length && a.slots.every(s => b.slots.includes(s));
+    }
+    return 'value' in a && 'value' in b && a.value === b.value;
+  }
+
+  function targetLabel(target: ColumnTarget): string {
+    if ('slots' in target) {
+      if (target.slots.length === 0) return 'no modules';
+      if (target.slots.length === MODULE_SLOTS.length) return 'all modules';
+      return target.slots.join('+');
+    }
+    return getUpgradeLevels(target.mode as 'eco12' | 'eco13').find(l => l.value === target.value)?.label
+      ?? `${Math.round(target.value * 100)}%`;
+  }
+
+  // Recipes, tags and talents are all version-specific, so every column must be built
+  // from its own version's data. Loaded lazily, once per mode.
+  const recipeIndexByMode = new SvelteMap<EcoMode, ReturnType<typeof buildRecipeIndex>>();
+  const tagsIndexByMode = new SvelteMap<EcoMode, ReturnType<typeof buildTagsIndex>>();
+  const talentIndexByMode = new SvelteMap<EcoMode, TalentIndex>();
+
+  // The parsed files, before any sandbox patch. Kept because the Sandbox version
+  // rebuilds its indexes from these on every edit — refetching Eco 14's 1.1 MB of
+  // recipes for each keystroke would be absurd — and because the editor lists the
+  // stock amounts a patch is departing from.
+  interface RawVersionData {
+    recipes: RecipeObject[];
+    tags: Record<string, string[]>;
+    professions: ProfessionData[] | null;
+  }
+  const rawDataByVersion = new SvelteMap<DataVersion, RawVersionData>();
+
+  /** Indexes for one mode, with the sandbox patch folded in when mode is 'sandbox'. */
+  function buildIndexesFor(mode: EcoMode, raw: RawVersionData) {
+    const patch = settings.sandboxPatch ?? EMPTY_SANDBOX_PATCH;
+    const applied = mode === 'sandbox'
+      ? applySandboxPatch(raw.recipes, patch)
+      : { recipes: raw.recipes, unmatched: [] as string[] };
+    const professions = mode === 'sandbox' && raw.professions
+      ? applyTalentPatch(raw.professions, patch)
+      : raw.professions;
+
+    return {
+      recipeIndex: buildRecipeIndex(applied.recipes),
+      tagsIndex: buildTagsIndex(raw.tags),
+      talentIndex: mode !== 'eco12' && professions
+        ? buildTalentIndex(professions, applied.recipes, raw.tags)
+        : new Map() as TalentIndex,
+      unmatched: applied.unmatched,
+    };
+  }
+
+  function setIndexesFor(mode: EcoMode, raw: RawVersionData) {
+    const built = buildIndexesFor(mode, raw);
+    tagsIndexByMode.set(mode, built.tagsIndex);
+    if (built.talentIndex.size > 0) talentIndexByMode.set(mode, built.talentIndex);
+    // Set last: the column builder keys off this, so the other two indexes
+    // must already be in place when it re-runs.
+    recipeIndexByMode.set(mode, built.recipeIndex);
+    return built;
+  }
+
+  async function fetchRawVersion(version: DataVersion): Promise<RawVersionData | null> {
+    const cached = rawDataByVersion.get(version);
+    if (cached) return cached;
+    // The live API serves only the server's current version, so the other
+    // versions always come from their version-specific static files.
+    const [recipesRes, tagsRes, professionsRes] = await Promise.all([
+      fetch(RECIPES_FILE[version]),
+      fetch(TAGS_FILE[version]),
+      fetch(PROFESSIONS_FILE[version]),
+    ]);
+    if (!recipesRes.ok || !tagsRes.ok) return null;
+    const data: RecipeFile = await recipesRes.json();
+    const tags: TagsFile = await tagsRes.json();
+    const raw: RawVersionData = {
+      recipes: data.Recipes,
+      tags: tags.Tags,
+      professions: professionsRes.ok
+        ? ((await professionsRes.json()) as { professions: ProfessionData[] }).professions
+        : null,
+    };
+    rawDataByVersion.set(version, raw);
+    return raw;
+  }
+
+  $effect(() => {
+    if (!showReport) return;  // only the report needs the other versions
+    for (const mode of REPORT_MODES) {
+      if (recipeIndexByMode.has(mode)) continue;
+      (async () => {
+        try {
+          const raw = await fetchRawVersion(dataVersionOf(mode));
+          if (raw) setIndexesFor(mode, raw);
+        } catch {
+          // That version's column stays unavailable and renders as dashes.
+        }
+      })();
+    }
+  });
+
+  // An edit to the patch invalidates every Sandbox index. Rebuilt from the cached
+  // raw data, so editing is instant and never refetches.
+  function rebuildSandbox() {
+    const raw = rawDataByVersion.get('eco14');
+    if (!raw) return;
+    const built = setIndexesFor('sandbox', raw);
+    sandboxUnmatched = built.unmatched;
+    if (settings.ecoMode === 'sandbox') {
+      recipeIndex = built.recipeIndex;
+      tagsIndex = built.tagsIndex;
+      talentIndex = built.talentIndex;
+      scheduleReplan();
+    }
+  }
+
+  let sandboxUnmatched = $state<string[]>([]);
+
+  /** Opening the editor needs Eco 14's raw data, which may not be loaded yet. */
+  async function openSandbox() {
+    if (!rawDataByVersion.has('eco14')) {
+      loading = true;
+      try { await fetchRawVersion('eco14'); } finally { loading = false; }
+    }
+    showSandbox = true;
+  }
+
+  function applySandboxEdit(next: SandboxPatch) {
+    settings = { ...settings, sandboxPatch: next };
+    saveSettings($state.snapshot(settings) as AppSettings);
+    rebuildSandbox();
+  }
+
+  // One planned graph per version, reduced to the figures the report renders.
+  const reportColumns = $derived.by((): ReportColumn[] => {
+    if (!showReport || !recipeIndex || !tagsIndex) return [];
+    const snap = $state.snapshot(choices) as UserChoices;
+
+    return REPORT_MODES.map((mode): ReportColumn => {
+      const target = columnTargets[mode];
+      const isActive = mode === settings.ecoMode;
+      const base = { mode, target, isActive, label: `${ECO_MODE_LABELS[mode]} · ${targetLabel(target)}` };
+
+      const modeRecipeIndex = isActive ? recipeIndex : recipeIndexByMode.get(mode);
+      const modeTagsIndex = isActive ? tagsIndex : tagsIndexByMode.get(mode);
+      if (!modeRecipeIndex || !modeTagsIndex) return { ...base, snapshot: null };
+
+      // The active version reports on the live plan, so the user's recipe, tag,
+      // market and per-table choices are what they see. Other versions are rebuilt
+      // clean: those choices reference the active version's recipe objects and its
+      // table names, so carrying them over would silently mis-plan.
+      if (isActive && lastPlannerGraph && sameTarget(target, activePlanTarget())) {
+        return { ...base, snapshot: buildSnapshot(lastPlannerGraph, edmSettings, modeTagsIndex) };
+      }
+
+      const talentData = mode === 'eco12'
+        ? undefined
+        : (isActive ? talentIndex : talentIndexByMode.get(mode));
+
+      const planOpts = {
+        recipeIndex: modeRecipeIndex,
+        tagsIndex: modeTagsIndex,
+        choices: {
+          ...snap,
+          recipeByItem: isActive ? snap.recipeByItem : new Map(),
+          variantByItem: isActive ? snap.variantByItem : new Map(),
+          upgradeByTable: new Map(),
+          moduleSlotsByTable: new Map()
+        },
+        globalUpgrade: 'slots' in target ? 0 : target.value,
+        talentData,
+        moduleData: 'slots' in target ? (moduleIndex ?? undefined) : undefined,
+        moduleSlots: 'slots' in target ? new Set(target.slots) : undefined
+      };
+
+      try {
+        const pg = buildGraph({ targetItem: selectedProduct, totalAmount: amount, ...planOpts });
+        // Derived values are per column: a version's scrap is worth that version's concentrate.
+        const colSettings = withDerivedEdmValues(settings, modeTagsIndex, planOpts);
+        return { ...base, snapshot: buildSnapshot(pg, colSettings, modeTagsIndex) };
+      } catch {
+        return { ...base, snapshot: null };  // product does not exist in this version
+      }
+    });
+  });
+
+
+  // Per-unit figures divide by the amount actually produced, since batch rounding
+  // can push it above the requested amount.
+  const displayedAmount = $derived(plannerProductNode?.producedAmount ?? amount);
 
   let showReport = $state(false);
   let pendingOpenReport = $state(false);
-  let copyLinkLabel = $state('Copy Link');
   let showResolve = $state(false);
-  let expandedTransition = $state<number | null>(null);
-  let expandedVaProf = $state<string | null>(null);
   let showLayoutSettings = $state(false);
+  let showSandbox = $state(false);
   let layoutOptions = $state<LayoutOptions>({ ...DEFAULT_LAYOUT_OPTIONS });
   let darkMode = $state(true);
   let groupByProfession = $state(false);
+
+  // When the eco mode came from a shared URL, keep persisting the user's own
+  // mode so that opening someone's link doesn't rewrite their saved settings.
+  let persistedEcoMode = $state<EcoMode | null>(null);
 
   $effect(() => {
     document.documentElement.classList.toggle('dark', darkMode);
     document.documentElement.classList.toggle('light', !darkMode);
   });
 
+  // Effects run in creation order, and this one is created before onMount. Without
+  // the guard it fires first, writes DEFAULT_SETTINGS over localStorage, and then
+  // onMount's loadSettings() reads back the defaults it just clobbered — which is
+  // why nothing at all used to survive a reload.
+  let settingsLoaded = $state(false);
+
   $effect(() => {
+    if (!settingsLoaded) return;
     // Persist settings to localStorage whenever they change.
     // We snapshot to avoid capturing reactive proxies.
-    saveSettings($state.snapshot(settings) as AppSettings);
+    const snap = $state.snapshot(settings) as AppSettings;
+    if (persistedEcoMode) snap.ecoMode = persistedEcoMode;
+    snap.darkMode = darkMode;
+    snap.groupByProfession = groupByProfession;
+    snap.layoutOptions = $state.snapshot(layoutOptions) as LayoutOptions;
+    snap.tagDefaults = Object.fromEntries(tagDefaults);
+    saveSettings(snap);
   });
+
+  // Debounced replan for rapid-fire inputs (EDM values, markup) so node
+  // stats stay in sync without rebuilding the graph on every keystroke.
+  let replanTimer: ReturnType<typeof setTimeout> | null = null;
+  function scheduleReplan() {
+    if (replanTimer) clearTimeout(replanTimer);
+    replanTimer = setTimeout(() => { replanTimer = null; replan(); }, 400);
+  }
 
   function fmtDeltaPct(cur: number, cmp: number): string {
     if (cur === 0 && cmp === 0) return '—';
@@ -217,20 +482,23 @@
     return (pct > 0 ? '+' : '') + pct + '%';
   }
 
-  function openReport(cmpOverride?: { value: number; mode: 'eco12' | 'eco13' }) {
-    expandedTransition = null;
-    expandedVaProf = null;
-    const otherMode: 'eco12' | 'eco13' = settings.ecoMode === 'eco13' ? 'eco12' : 'eco13';
-    const otherLevels = getUpgradeLevels(otherMode);
-    compareUpgrade = cmpOverride ?? { value: otherLevels[otherLevels.length - 1].value, mode: otherMode };
+  // The compare dropdown must hold a single value, so Eco 14 is offered as the
+  // cumulative slot ladder. Free per-slot choice stays on the main plan controls.
+  // The Eco 14 slot ladder offered in the report's version bar. The planner itself
+  // keeps free per-slot checkboxes; a dropdown needs one ordered list.
+  function openReport() {
+    // The active version's column mirrors whatever the planner is set to, so the
+    // report always reflects the plan on screen rather than a hypothetical rebuild.
+    columnTargets = { ...columnTargets, [settings.ecoMode]: activePlanTarget() };
     showReport = true;
   }
 
   function closeReport() {
     showReport = false;
-    compareUpgrade = null;
-    expandedTransition = null;
-    expandedVaProf = null;
+  }
+
+  function handleColumnTargetChange(mode: EcoMode, target: ColumnTarget) {
+    columnTargets = { ...columnTargets, [mode]: target };
   }
 
   // SvelteFlow v0.1.x requires writable stores, not $state arrays
@@ -240,16 +508,36 @@
   let fitViewPending = $state(false);
 
   // ── Data loading ─────────────────────────────────────────────────
-  function getRecipesUrl(mode: 'eco12' | 'eco13'): string {
-    if (dev) return mode === 'eco13' ? './recipes.wt56.json' : './recipes.wt55.json';
-    return 'https://white-tiger.play.eco/api/v1/plugins/EcoPriceCalculator/recipes';
-  }
-  function getRecipesFallback(mode: 'eco12' | 'eco13'): string {
-    return mode === 'eco13' ? './recipes.wt56.json' : './recipes.wt55.json';
-  }
-  const TAGS_URL = dev
-    ? './tags.json'
-    : 'https://white-tiger.play.eco/api/v1/plugins/EcoPriceCalculator/tags';
+  // Recipes, tags and talents are all version-specific.
+  type DataVersion = 'eco12' | 'eco13' | 'eco14';
+
+  const RECIPES_FILE: Record<DataVersion, string> = {
+    eco12: './recipes.wt55.json',
+    eco13: './recipes.wt56.json',
+    eco14: './recipes.eco14.json',
+  };
+  const TAGS_FILE: Record<DataVersion, string> = {
+    eco12: './tags.json',
+    eco13: './tags.json',
+    eco14: './tags.eco14.json',
+  };
+  const PROFESSIONS_FILE: Record<DataVersion, string> = {
+    eco12: './professions.json',
+    eco13: './professions.json',
+    eco14: './professions.eco14.json',
+  };
+
+  // Only Eco 13 has a live endpoint we can use: white-tiger serves that version, and
+  // the Eco 14 GoodPrice endpoint is HTTP-only so an HTTPS page cannot reach it.
+  // Eco 12 and Eco 14 are frozen snapshots refreshed via scripts/refresh-eco14.sh.
+  const hasLiveApi = (mode: EcoMode) => !dev && mode === 'eco13';
+  const getRecipesUrl = (mode: EcoMode) =>
+    hasLiveApi(mode) ? 'https://white-tiger.play.eco/api/v1/plugins/EcoPriceCalculator/recipes' : RECIPES_FILE[dataVersionOf(mode)];
+  const getRecipesFallback = (mode: EcoMode) => RECIPES_FILE[dataVersionOf(mode)];
+  const getTagsUrl = (mode: EcoMode) =>
+    hasLiveApi(mode) ? 'https://white-tiger.play.eco/api/v1/plugins/EcoPriceCalculator/tags' : TAGS_FILE[dataVersionOf(mode)];
+  const getTagsFallback = (mode: EcoMode) => TAGS_FILE[dataVersionOf(mode)];
+  const getProfessionsUrl = (mode: EcoMode) => PROFESSIONS_FILE[dataVersionOf(mode)];
 
   async function fetchWithFallback(url: string, fallback: string): Promise<Response> {
     const controller = new AbortController();
@@ -265,11 +553,14 @@
     }
   }
 
-  async function loadData(mode: 'eco12' | 'eco13'): Promise<void> {
-    const [recipesRes, tagsRes, professionsRes] = await Promise.all([
+  async function loadData(mode: EcoMode): Promise<void> {
+    const [recipesRes, tagsRes, professionsRes, modulesRes] = await Promise.all([
       fetchWithFallback(getRecipesUrl(mode), getRecipesFallback(mode)),
-      fetchWithFallback(TAGS_URL, './tags.json'),
-      fetch('./professions.json')
+      fetchWithFallback(getTagsUrl(mode), getTagsFallback(mode)),
+      fetch(getProfessionsUrl(mode)),
+      // Always loaded: the report can hold an Eco 14 column while planning in
+      // Eco 12/13, and without this that column would silently get no modules.
+      moduleIndex ? Promise.resolve(null) : fetch('./modules.eco14.json')
     ]);
 
     if (!recipesRes.ok || !tagsRes.ok) throw new Error('Failed to load data files');
@@ -277,12 +568,29 @@
     const recipesData: RecipeFile = await recipesRes.json();
     const tagsData: TagsFile = await tagsRes.json();
 
-    recipeIndex = buildRecipeIndex(recipesData.Recipes);
-    tagsIndex = buildTagsIndex(tagsData.Tags);
+    // Cached unpatched, so switching to Sandbox — or editing its patch — rebuilds
+    // from memory instead of refetching. Eco 13 may have come from the live API,
+    // in which case that is genuinely this session's Eco 13 data.
+    const raw: RawVersionData = {
+      recipes: recipesData.Recipes,
+      tags: tagsData.Tags,
+      professions: professionsRes.ok
+        ? ((await professionsRes.json()) as { professions: ProfessionData[] }).professions
+        : null,
+    };
+    rawDataByVersion.set(dataVersionOf(mode), raw);
 
-    if (professionsRes.ok) {
-      const professionsData: { professions: ProfessionData[] } = await professionsRes.json();
-      talentIndex = buildTalentIndex(professionsData.professions, recipesData.Recipes, tagsData.Tags);
+    const built = setIndexesFor(mode, raw);
+    recipeIndex = built.recipeIndex;
+    tagsIndex = built.tagsIndex;
+    talentIndex = built.talentIndex;
+    sandboxUnmatched = mode === 'sandbox' ? built.unmatched : [];
+
+    // Without the module data an Eco 14 plan would silently fall back to a flat
+    // globalUpgrade of 0, so a failed load must be loud rather than quietly wrong.
+    if (modulesRes) {
+      if (!modulesRes.ok) throw new Error('Failed to load modules.eco14.json');
+      moduleIndex = buildModuleIndex(await modulesRes.json() as ModulesFile);
     }
 
     // Apply default recipe selections (e.g. Clean Medium Fish for Raw Fish)
@@ -303,12 +611,38 @@
     // Load persisted settings before first render/plan
     const saved = loadSettings();
     settings = saved;
-    // Apply URL eco-mode override before computing upgrade (shareable links)
-    if (_urlEcoMode) settings = { ...settings, ecoMode: _urlEcoMode };
-    const activeLevels = getUpgradeLevels(settings.ecoMode);
-    globalUpgrade = activeLevels[activeLevels.length - 1].value;
-    if (_urlUpgrade !== null) globalUpgrade = _urlUpgrade;
+    darkMode = saved.darkMode ?? true;
+    groupByProfession = saved.groupByProfession ?? false;
+    layoutOptions = { ...DEFAULT_LAYOUT_OPTIONS, ...(saved.layoutOptions ?? {}) };
+    if (saved.tagDefaults) {
+      tagDefaults.clear();
+      for (const [tag, item] of Object.entries(saved.tagDefaults)) tagDefaults.set(tag, item);
+      choices = { ...choices, itemByTag: new Map(tagDefaults) };
+    }
+    // Apply URL eco-mode override before computing upgrade (shareable links),
+    // without persisting it over the user's own saved mode
+    if (_urlEcoMode && _urlEcoMode !== saved.ecoMode) {
+      persistedEcoMode = saved.ecoMode;
+      settings = { ...settings, ecoMode: _urlEcoMode };
+    }
+    if (usesModuleSlots(settings.ecoMode)) {
+      globalUpgrade = 0;  // unused in Eco 14/Sandbox; reduction comes from the module slots
+      if (_urlSlots) settings = { ...settings, moduleSlots: _urlSlots };
+    } else {
+      const activeLevels = getUpgradeLevels(settings.ecoMode);
+      globalUpgrade = activeLevels[activeLevels.length - 1].value;
+      if (_urlUpgrade !== null) globalUpgrade = _urlUpgrade;
+    }
+    // `cols` wins; a link shared before it existed carries a single cmp* target,
+    // which still maps onto that version's column.
+    const urlCols = parseColumnTargets(_urlParams?.get('cols'));
+    if (_urlCmpMode === 'eco14' && _urlCmpSlots) urlCols.eco14 ??= { mode: 'eco14', slots: _urlCmpSlots };
+    else if (_urlCmpMode && !usesModuleSlots(_urlCmpMode) && _urlCmpVal !== null) urlCols[_urlCmpMode] ??= { mode: _urlCmpMode, value: _urlCmpVal };
+    if (Object.keys(urlCols).length > 0) columnTargets = { ...columnTargets, ...urlCols };
     if (_urlReport) pendingOpenReport = true;
+    // Everything restored from storage and the URL is now in place, so saving
+    // can no longer overwrite it with defaults.
+    settingsLoaded = true;
 
     try {
       await loadData(settings.ecoMode);
@@ -380,7 +714,9 @@
         tagsIndex,
         choices: $state.snapshot(choices) as UserChoices,
         globalUpgrade,
-        talentData: settings.ecoMode === 'eco13' ? talentIndex : undefined
+        talentData: settings.ecoMode === 'eco12' ? undefined : talentIndex,
+        moduleData: usesModules ? (moduleIndex ?? undefined) : undefined,
+        moduleSlots: usesModules ? activeModuleSlots : undefined
       });
 
       lastPlannerGraph = plannerGraph;
@@ -411,7 +747,7 @@
 
       // Inject callbacks into node data here (avoids infinite $effect loops)
       const pgNodeMap = new Map(plannerGraph.nodes.map(n => [n.id, n]));
-      const localEdmReport = computeEdmReport(plannerGraph, settings, tagsIndex!);
+      const localEdmReport = computeEdmReport(plannerGraph, edmSettings, tagsIndex!);
       const edgesByTarget = new Map<string, string[]>();
       const producerTableOf = new Map<string, TablePlannerNode>();
 
@@ -467,8 +803,7 @@
           if (isWorkParty) {
             const labourAmount = tNode.recipe.BaseLaborCost * tNode.cycles;
             if (labourAmount > 0) {
-              const wpEdmPerUnit = 50 / 1000;
-              ingredientStats.unshift({ name: 'Food', amount: labourAmount, edmPerUnit: wpEdmPerUnit, totalEdm: labourAmount * wpEdmPerUnit });
+              ingredientStats.unshift({ name: 'Food', amount: labourAmount, edmPerUnit: WORK_PARTY_EDM_PER_LABOR, totalEdm: labourAmount * WORK_PARTY_EDM_PER_LABOR });
             }
           } else {
             const foodCalories = tNode.recipe.BaseLaborCost * tNode.cycles / 2;
@@ -501,6 +836,10 @@
               onUpgradeChange: handleUpgradeChange,
               currentUpgrade: choices.upgradeByTable.get(tNode.table) ?? globalUpgrade,
               upgradeLevels,
+              // undefined in Eco 12/13, which keeps the upgrade-ladder dropdown
+              availableSlots: usesModules ? availableSlotsFor(tNode.table) : undefined,
+              currentSlots: usesModules ? currentSlotsFor(tNode.table) : undefined,
+              onModuleSlotsChange: handleModuleSlotsChange,
               ingredientStats,
               productStats,
               valueAdded: localEdmReport?.tableValueAdded.get(tNode.id) ?? null,
@@ -528,10 +867,7 @@
       if (!preservePositions) fitViewPending = true;
       if (pendingOpenReport && lastPlannerGraph) {
         pendingOpenReport = false;
-        const cmp = (_urlCmpMode && _urlCmpVal !== null)
-          ? { value: _urlCmpVal, mode: _urlCmpMode as 'eco12' | 'eco13' }
-          : undefined;
-        openReport(cmp);
+        openReport();
       }
     } finally {
       graphBuilding = false;
@@ -589,6 +925,25 @@
     replan();
   }
 
+  // Eco 14 per-table module slots. Which slots a table exposes comes from its
+  // allow-list, so a table that takes no Specialty module never offers the toggle.
+  const availableSlotsFor = (tableName: string): ModuleSlot[] =>
+    usesModules ? (moduleIndex?.availableSlotsFor(tableName) ?? []) : [];
+
+  const currentSlotsFor = (tableName: string): ModuleSlot[] => {
+    const override = choices.moduleSlotsByTable?.get(tableName);
+    if (override) return override;
+    // No override yet: the table follows the global selection, limited to what it can fill.
+    return availableSlotsFor(tableName).filter(s => activeModuleSlots.has(s));
+  };
+
+  function handleModuleSlotsChange(tableName: string, slots: ModuleSlot[]) {
+    const next = new Map(choices.moduleSlotsByTable ?? []);
+    next.set(tableName, slots);
+    choices = { ...choices, moduleSlotsByTable: next };
+    replan();
+  }
+
   function handleResolveApply(tagChoices: Map<string, string>) {
     for (const [tag, item] of tagChoices) {
       choices.itemByTag.set(tag, item);
@@ -602,6 +957,14 @@
 <svelte:head>
   <title>Eco Production Planner</title>
 </svelte:head>
+
+<svelte:window
+  onkeydown={(e) => {
+    if (e.key !== 'Escape') return;
+    if (showLayoutSettings) showLayoutSettings = false;
+    else if (showReport) closeReport();
+  }}
+/>
 
 <div class="app">
   <header class="toolbar">
@@ -626,43 +989,114 @@
         <input type="number" bind:value={amount} min="1" step="1" disabled={loading} />
       </label>
 
-      <label class="checkbox-label eco-mode-label">
-        <input
-          type="checkbox"
-          checked={settings.ecoMode === 'eco13'}
+      <label>
+        Version:
+        <select
+          value={settings.ecoMode}
+          disabled={loading}
           onchange={async (e) => {
-            const newMode = (e.target as HTMLInputElement).checked ? 'eco13' : 'eco12';
+            const newMode = (e.target as HTMLSelectElement).value as EcoMode;
+            const prevMode = settings.ecoMode;
+            const prevUpgrade = globalUpgrade;
+            persistedEcoMode = null; // manual switch: persist the user's choice
             settings = { ...settings, ecoMode: newMode };
-            // Clamp globalUpgrade to nearest valid level in new mode
-            const newLevels = getUpgradeLevels(newMode);
-            const validValues = newLevels.map(l => l.value);
-            const closest = validValues.reduce((prev, cur) =>
-              Math.abs(cur - globalUpgrade) < Math.abs(prev - globalUpgrade) ? cur : prev
-            );
-            globalUpgrade = closest;
-            // Reset per-item choices that may be invalid under the new recipe set
-            choices = { ...choices, recipeByItem: new Map(), variantByItem: new Map() };
+            // Eco 14 and Sandbox have no ladder. Coming *from* one of them there is
+            // no meaningful level to carry over (globalUpgrade is unused there), so
+            // land on the mode's max; between Eco 12 and 13, keep the closest level.
+            if (!usesModuleSlots(newMode)) {
+              const levels = getUpgradeLevels(newMode);
+              globalUpgrade = usesModuleSlots(prevMode)
+                ? levels[levels.length - 1].value
+                : levels.map(l => l.value).reduce((prev, cur) =>
+                    Math.abs(cur - globalUpgrade) < Math.abs(prev - globalUpgrade) ? cur : prev
+                  );
+            }
             loading = true;
             try {
               await loadData(newMode);
+            } catch (err) {
+              // Revert: keep the old mode's data and settings usable
+              console.error(`Failed to load ${newMode} data:`, err);
+              settings = { ...settings, ecoMode: prevMode };
+              globalUpgrade = prevUpgrade;
+              return;
             } finally {
               loading = false;
             }
+            // Reset per-item choices that may be invalid under the new recipe
+            // set, re-applying default recipe selections from the new index
+            const resetRecipes = new Map<string, RecipeObject>();
+            for (const [itemName, recipeKey] of Object.entries(DEFAULT_RECIPE_CHOICES)) {
+              const match = (recipeIndex?.byProduct.get(itemName) ?? []).find(r => r.Key === recipeKey);
+              if (match) resetRecipes.set(itemName, match);
+            }
+            choices = {
+              ...choices,
+              recipeByItem: resetRecipes,
+              variantByItem: new Map(),
+              itemByTag: new Map(tagDefaults),
+              marketItems: new Set(DEFAULT_MARKET_ITEMS),
+              // Table names and module allow-lists are version-specific
+              upgradeByTable: new Map(),
+              moduleSlotsByTable: new Map()
+            };
+            // The product may not exist in the new version's recipe set
+            if (recipeIndex && !recipeIndex.allCraftableNames.includes(selectedProduct)) {
+              selectedProduct = recipeIndex.allCraftableNames[0] ?? '';
+            }
             await replan(false);
           }}
-        />
-        Eco 13
-      </label>
-
-      <!-- svelte-ignore a11y_label_has_associated_control -->
-      <label>
-        Upgrade (global):
-        <select bind:value={globalUpgrade} disabled={loading}>
-          {#each upgradeLevels as lvl}
-            <option value={lvl.value}>{lvl.label} ({lvl.value * 100}%)</option>
+        >
+          {#each ECO_MODES as mode}
+            <option value={mode}>{ECO_MODE_LABELS[mode]}</option>
           {/each}
         </select>
       </label>
+
+      <!-- Reachable from any version: you edit the Sandbox to compare it against
+           whichever version you are currently planning in. -->
+      <button class="sandbox-btn" class:sandbox-btn-on={!isPatchEmpty(settings.sandboxPatch)}
+        disabled={loading} onclick={openSandbox}>
+        Overrides{#if patchedVariantCount(settings.sandboxPatch) > 0}
+          <span class="sandbox-count">{patchedVariantCount(settings.sandboxPatch)}</span>
+        {/if}
+      </button>
+
+      {#if usesModules}
+        <!-- Eco 14: four independent slots, each filled or empty. A specialty
+             module only reduces recipes of its own skill, so the effective
+             reduction differs per table and per recipe. -->
+        <!-- svelte-ignore a11y_label_has_associated_control -->
+        <fieldset class="module-slots" disabled={loading}>
+          <legend>Modules:</legend>
+          {#each MODULE_SLOTS as slot}
+            <label class="checkbox-label">
+              <input
+                type="checkbox"
+                checked={activeModuleSlots.has(slot)}
+                onchange={(e) => {
+                  const on = (e.target as HTMLInputElement).checked;
+                  const next = new Set(activeModuleSlots);
+                  if (on) next.add(slot); else next.delete(slot);
+                  settings = { ...settings, moduleSlots: MODULE_SLOTS.filter(x => next.has(x)) };
+                  scheduleReplan();
+                }}
+              />
+              {slot}
+            </label>
+          {/each}
+        </fieldset>
+      {:else}
+        <!-- svelte-ignore a11y_label_has_associated_control -->
+        <label>
+          Upgrade (global):
+          <select bind:value={globalUpgrade} disabled={loading}>
+            {#each upgradeLevels as lvl}
+              <option value={lvl.value}>{lvl.label} ({lvl.value * 100}%)</option>
+            {/each}
+          </select>
+        </label>
+      {/if}
 
       <button onclick={handlePlan} disabled={loading || graphBuilding}>
         Plan!
@@ -681,7 +1115,7 @@
         Re-layout
       </button>
 
-      <button onclick={() => showLayoutSettings = true} disabled={loading} title="ELK layout settings">
+      <button onclick={() => showLayoutSettings = true} disabled={loading} title="Layout, tag defaults and EDM settings">
         Settings
       </button>
 
@@ -741,523 +1175,35 @@
         onRecipeChange={handleRecipeChange}
         onUpgradeChange={handleUpgradeChange}
         onMarketSelect={handleMarketSelect}
+        availableSlots={availableSlotsFor}
+        currentSlots={currentSlotsFor}
+        onModuleSlotsChange={handleModuleSlotsChange}
       />
     {/if}
   </main>
 </div>
 
 {#if showReport}
-  <div class="report-overlay" role="dialog" aria-modal="true">
-    <div class="report-panel" class:wide={!!comparisonReport}>
-      <div class="report-header">
-        <h2>Production Report</h2>
-        <button
-          class="copy-link-btn"
-          onclick={async () => {
-            try {
-              await navigator.clipboard.writeText(window.location.href);
-              copyLinkLabel = 'Copied!';
-            } catch {
-              prompt('Copy this link:', window.location.href);
-            }
-            setTimeout(() => { copyLinkLabel = 'Copy Link'; }, 1500);
-          }}
-        >{copyLinkLabel}</button>
-        <button class="close-btn" onclick={closeReport}>✕</button>
-      </div>
-      <div class="report-body">
-      <div class="compare-row">
-        <span class="compare-label">Compare with:</span>
-        <select
-          onchange={e => {
-            const v = (e.target as HTMLSelectElement).value;
-            if (v === '') { compareUpgrade = null; return; }
-            const [mode, val] = v.split(':');
-            compareUpgrade = { value: Number(val), mode: mode as 'eco12' | 'eco13' };
-          }}
-        >
-          <option value="">— none —</option>
-          <optgroup label="Eco 13">
-            {#each getUpgradeLevels('eco13') as lvl}
-              <option value="eco13:{lvl.value}" selected={compareUpgrade?.mode === 'eco13' && compareUpgrade?.value === lvl.value}>{lvl.label}</option>
-            {/each}
-          </optgroup>
-          <optgroup label="Eco 12">
-            {#each getUpgradeLevels('eco12') as lvl}
-              <option value="eco12:{lvl.value}" selected={compareUpgrade?.mode === 'eco12' && compareUpgrade?.value === lvl.value}>{lvl.label}</option>
-            {/each}
-          </optgroup>
-        </select>
-      </div>
+  <ReportModal
+    columns={reportColumns}
+    {settings}
+    {selectedProduct}
+    requestedAmount={amount}
+    onTargetChange={handleColumnTargetChange}
+    onClose={closeReport}
+  />
+{/if}
 
-      {#if edmReport}
-        {@const cmpEdm = comparisonReport?.edmReport ?? null}
-        {@const cmpLabel = compareUpgrade ? `${compareUpgrade.mode === 'eco13' ? 'Eco 13' : 'Eco 12'} ${getUpgradeLevels(compareUpgrade.mode).find(l => l.value === compareUpgrade!.value)?.label ?? ''}` : ''}
-        {@const displayedAmount = plannerProductNode?.producedAmount ?? amount}
-        <div class="edm-summary" class:compare={!!cmpEdm}>
-          {#if cmpEdm}
-            <span class="edm-row edm-compare-header">
-              <span class="edm-label">per {selectedProduct}</span>
-              <span class="edm-col-hdr">Current</span>
-              <span class="edm-col-hdr">{cmpLabel}</span>
-            </span>
-            <span class="edm-row">
-              <span class="edm-label">Base EDM:</span>
-              <span class="edm-value">{edmReport.baseEdm != null ? fmtEdm(edmReport.baseEdm / amount) : '—'}</span>
-              <span class="edm-value">{cmpEdm.baseEdm != null ? fmtEdm(cmpEdm.baseEdm / amount) : '—'}</span>
-            </span>
-            {#if edmReport.laborFoodEdm !== null || cmpEdm.laborFoodEdm !== null}
-              <span class="edm-row">
-                <span class="edm-label">Food EDM:</span>
-                <span class="edm-value">{edmReport.laborFoodEdm !== null ? '+' + fmtEdm(edmReport.laborFoodEdm / amount) : '—'}</span>
-                <span class="edm-value">{cmpEdm.laborFoodEdm !== null ? '+' + fmtEdm(cmpEdm.laborFoodEdm / amount) : '—'}</span>
-              </span>
-            {/if}
-            {#if edmReport.crossProfTransitions.length > 0 || (cmpEdm.crossProfTransitions?.length ?? 0) > 0}
-              <span class="edm-row">
-                <span class="edm-label">Prof. markup:</span>
-                <span class="edm-value">{edmReport.markupEdm != null ? '+' + fmtEdm(edmReport.markupEdm / amount) : '—'}</span>
-                <span class="edm-value">{cmpEdm.markupEdm != null ? '+' + fmtEdm(cmpEdm.markupEdm / amount) : '—'}</span>
-              </span>
-            {/if}
-            <span class="edm-row edm-total">
-              <span class="edm-label">EDM / {selectedProduct}:</span>
-              <span class="edm-value">{edmReport.totalEdm != null ? fmtEdm(edmReport.totalEdm / displayedAmount) : '—'}</span>
-              <span class="edm-value">{cmpEdm.totalEdm != null ? fmtEdm(cmpEdm.totalEdm / amount) : '—'}</span>
-            </span>
-          {:else}
-            <span class="edm-row edm-subheader"><span class="edm-label">per {selectedProduct}</span></span>
-            <span class="edm-row"><span class="edm-label">Base EDM:</span> <span class="edm-value">{edmReport.baseEdm != null ? fmtEdm(edmReport.baseEdm / displayedAmount) : '— (missing values)'}</span></span>
-            {#if edmReport.laborFoodEdm !== null}
-              <span class="edm-row"><span class="edm-label">Food EDM:</span> <span class="edm-value">+{fmtEdm(edmReport.laborFoodEdm / displayedAmount)}</span></span>
-            {/if}
-            {#if edmReport.crossProfTransitions.length > 0}
-              <span class="edm-row"><span class="edm-label">Profession markup:</span> <span class="edm-value">{edmReport.markupEdm != null ? '+' + fmtEdm(edmReport.markupEdm / displayedAmount) : '—'}</span></span>
-            {/if}
-            <span class="edm-row edm-total"><span class="edm-label">EDM / {selectedProduct}:</span> <span class="edm-value">{edmReport.totalEdm != null ? fmtEdm(edmReport.totalEdm / displayedAmount) : '— (missing values)'}</span></span>
-          {/if}
-        </div>
-      {/if}
-
-      {#if edmReport && (
-        [...edmReport.tableValueAdded.values()].some(v => v != null && v > 0) ||
-        (comparisonReport && [...comparisonReport.edmReport.tableValueAdded.values()].some(v => v != null && v > 0))
-      )}
-        {@const cmpVA = comparisonReport?.edmReport.tableValueAdded ?? null}
-        {@const allTableIds = cmpVA
-          ? [...new Set([...edmReport.tableValueAdded.keys(), ...cmpVA.keys()])]
-          : [...edmReport.tableValueAdded.keys()]}
-        {@const vaEntries = allTableIds
-          .map(id => {
-            const va    = edmReport.tableValueAdded.get(id) ?? null;
-            const cmpVa = cmpVA?.get(id) ?? null;
-            if ((va == null || va <= 0) && (cmpVa == null || cmpVa <= 0)) return null;
-            const node    = plannerTableNodes.find(n => n.id === id);
-            const cmpNode = comparisonReport?.tableNodes.find(n => n.id === id);
-            return {
-              id, va, cmpVa,
-              table:      node?.table      ?? cmpNode?.table      ?? id,
-              item:       node?.itemName   ?? cmpNode?.itemName   ?? '',
-              profession: node?.recipe.SkillNeeds[0]?.Skill ?? cmpNode?.recipe.SkillNeeds[0]?.Skill ?? '',
-            };
-          })
-          .filter((e): e is NonNullable<typeof e> => e !== null)
-          .sort((a, b) => (b.va ?? b.cmpVa ?? 0) - (a.va ?? a.cmpVa ?? 0))}
-        {@const vaByProf = (() => {
-          const map = new Map<string, number | null>();
-          for (const e of vaEntries) {
-            const prev = map.get(e.profession) ?? 0;
-            map.set(e.profession, prev === null || e.va === null ? null : prev + e.va);
-          }
-          return [...map.entries()].sort((a, b) => (b[1] ?? 0) - (a[1] ?? 0));
-        })()}
-        <section class="va-section">
-          <h3>Value Added by Table</h3>
-          <table>
-            {#if comparisonReport}
-              <thead><tr>
-                <th class="item-name"></th>
-                <th class="item-name"></th>
-                <th class="item-amt col-hdr">Current</th>
-                <th class="item-amt col-hdr">Compare</th>
-                <th class="item-amt col-hdr">Δ%</th>
-              </tr></thead>
-            {/if}
-            <tbody>
-              {#each vaEntries as e}
-                <tr>
-                  <td class="item-name">{e.table}</td>
-                  <td class="item-name muted">→ {e.item}</td>
-                  {#if comparisonReport}
-                    <td class="item-amt">{e.va   != null ? '+' + fmtEdm(e.va   / amount) + ' EDM' : '—'}</td>
-                    <td class="item-amt">{e.cmpVa != null ? '+' + fmtEdm(e.cmpVa / amount) + ' EDM' : '—'}</td>
-                    <td class="item-amt"
-                      class:delta-neg={(e.cmpVa ?? 0) < (e.va ?? 0)}
-                      class:delta-pos={(e.cmpVa ?? 0) > (e.va ?? 0)}
-                    >{fmtDeltaPct(e.va ?? 0, e.cmpVa ?? 0)}</td>
-                  {:else}
-                    <td class="item-amt">+{e.va != null ? fmtEdm(e.va / amount) : '—'} EDM</td>
-                  {/if}
-                </tr>
-              {/each}
-            </tbody>
-          </table>
-          <h3>Value Added by Profession</h3>
-          <div class="va-prof-list">
-            {#each vaByProf as [prof, va]}
-              {@const isExpanded = expandedVaProf === prof}
-              {@const profEntries = vaEntries.filter(e => e.profession === prof)}
-              <div
-                class="cross-prof-row"
-                class:cross-prof-expanded={isExpanded}
-                role="button"
-                tabindex="0"
-                onclick={() => { expandedVaProf = isExpanded ? null : prof; }}
-                onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); expandedVaProf = isExpanded ? null : prof; } }}
-              >
-                <span class="cross-prof-chevron">{isExpanded ? '▾' : '▸'}</span>
-                <span class="cross-prof-profs">{prof}</span>
-                <span class="cross-prof-amt">+{va != null ? fmtEdm(va / amount) : '—'} EDM</span>
-              </div>
-              {#if isExpanded}
-                <div class="va-prof-detail">
-                  {#each profEntries as e}
-                    <div class="va-prof-entry">
-                      <span class="va-entry-table">{e.table}</span>
-                      <span class="va-entry-item muted">→ {e.item}</span>
-                      <span class="va-entry-amt">+{e.va != null ? fmtEdm(e.va / amount) : '—'} EDM</span>
-                    </div>
-                  {/each}
-                </div>
-              {/if}
-            {/each}
-          </div>
-        </section>
-      {/if}
-
-      {#if comparisonReport}
-        {@const laborCur = new Map(plannerTableNodes.map(n =>
-          [n.id, { table: n.table, item: n.itemName, labor: n.recipe.BaseLaborCost * n.cycles }]))}
-        {@const laborCmp = new Map(comparisonReport.tableNodes.map(n =>
-          [n.id, { table: n.table, item: n.itemName, labor: n.recipe.BaseLaborCost * n.cycles }]))}
-        {@const allLaborIds = [...new Set([...laborCur.keys(), ...laborCmp.keys()])]}
-        {@const laborEntries = allLaborIds
-          .map(id => {
-            const c = laborCur.get(id);
-            const r = laborCmp.get(id);
-            return { table: c?.table ?? r?.table ?? id, item: c?.item ?? r?.item ?? '',
-                     cur: c?.labor ?? 0, cmp: r?.labor ?? 0 };
-          })
-          .sort((a, b) => b.cur - a.cur)}
-        <section>
-          <h3>Labor by Table</h3>
-          <table>
-            <thead><tr>
-              <th class="item-name"></th>
-              <th class="item-name"></th>
-              <th class="item-amt col-hdr">Current</th>
-              <th class="item-amt col-hdr">Compare</th>
-              <th class="item-amt col-hdr">Δ%</th>
-            </tr></thead>
-            <tbody>
-              {#each laborEntries as e}
-                <tr>
-                  <td class="item-name">{e.table}</td>
-                  <td class="item-name muted">→ {e.item}</td>
-                  <td class="item-amt">{fmtLabor(e.cur)}</td>
-                  <td class="item-amt">{fmtLabor(e.cmp)}</td>
-                  <td class="item-amt"
-                    class:delta-neg={e.cmp < e.cur}
-                    class:delta-pos={e.cmp > e.cur}
-                  >{fmtDeltaPct(e.cur, e.cmp)}</td>
-                </tr>
-              {/each}
-            </tbody>
-          </table>
-        </section>
-      {/if}
-
-      <section>
-        <h3>Raw Ingredients</h3>
-        {#if plannerRawNodes.length === 0 && !comparisonReport}
-          <p class="empty">None</p>
-        {:else}
-          {@const allRawItems = [...new Set([
-            ...plannerRawNodes.map(n => n.itemName),
-            ...(comparisonReport ? comparisonReport.rawByItem.keys() : [])
-          ])].sort((a, b) => {
-            const ca = plannerRawNodes.find(n => n.itemName === a)?.amount ?? 0;
-            const cb = plannerRawNodes.find(n => n.itemName === b)?.amount ?? 0;
-            return cb - ca;
-          })}
-          <table>
-            {#if comparisonReport}
-              <thead><tr>
-                <th class="item-name"></th>
-                <th class="item-amt col-hdr">Current</th>
-                <th class="item-amt col-hdr">Compare</th>
-                <th class="item-amt col-hdr">Δ%</th>
-                <th class="item-amt col-hdr">EDM/u</th>
-                <th class="item-amt col-hdr">EDM/{selectedProduct}</th>
-              </tr></thead>
-            {:else}
-              <thead><tr>
-                <th class="item-name"></th>
-                <th class="item-amt col-hdr">Amount</th>
-                <th class="item-amt col-hdr">EDM/u</th>
-                <th class="item-amt col-hdr">EDM/{selectedProduct}</th>
-              </tr></thead>
-            {/if}
-            <tbody>
-              {#each allRawItems as itemName}
-                {@const cur = plannerRawNodes.find(n => n.itemName === itemName)?.amount ?? 0}
-                {@const rawCost = edmReport?.rawCosts.find(r => r.itemName === itemName)}
-                {@const isMissing = rawCost ? rawCost.edmPerUnit === null : true}
-                {#if comparisonReport}
-                  {@const cmp = comparisonReport.rawByItem.get(itemName) ?? 0}
-                  <tr>
-                    <td class="item-name" class:edm-missing-name={isMissing}>{itemName}{#if isMissing} ⚠{/if}</td>
-                    <td class="item-amt">{fmtNum(cur, true)}</td>
-                    <td class="item-amt">{fmtNum(cmp, true)}</td>
-                    <td class="item-amt" class:delta-neg={cmp < cur} class:delta-pos={cmp > cur}>{fmtDeltaPct(cur, cmp)}</td>
-                    <td class="item-amt" class:edm-missing={isMissing}>{rawCost?.edmPerUnit != null ? fmtEdm(rawCost.edmPerUnit) : '—'}</td>
-                    <td class="item-amt" class:edm-missing={isMissing}>{rawCost?.totalEdm != null ? fmtEdm(rawCost.totalEdm / amount) : '—'}</td>
-                  </tr>
-                {:else}
-                  <tr>
-                    <td class="item-name" class:edm-missing-name={isMissing}>{itemName}{#if isMissing} ⚠{/if}</td>
-                    <td class="item-amt">{fmtNum(cur, true)}</td>
-                    <td class="item-amt" class:edm-missing={isMissing}>{rawCost?.edmPerUnit != null ? fmtEdm(rawCost.edmPerUnit) : '—'}</td>
-                    <td class="item-amt" class:edm-missing={isMissing}>{rawCost?.totalEdm != null ? fmtEdm(rawCost.totalEdm / amount) : '—'}</td>
-                  </tr>
-                {/if}
-              {/each}
-            </tbody>
-          </table>
-
-          {#if edmReport && edmReport.crossProfTransitions.length > 0}
-              <div class="cross-prof-list">
-                <div class="cross-prof-header">Cross-profession transitions (+{(settings.crossProfessionMarkup * 100).toFixed(0)}% markup each):</div>
-                {#each [...edmReport.crossProfTransitions].sort((a, b) => (b.markupAmount ?? -Infinity) - (a.markupAmount ?? -Infinity)) as t, i}
-                  {@const isExpanded = expandedTransition === i}
-                  <div
-                    class="cross-prof-row"
-                    class:cross-prof-expanded={isExpanded}
-                    role="button"
-                    tabindex="0"
-                    onclick={() => { expandedTransition = isExpanded ? null : i; }}
-                    onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); expandedTransition = isExpanded ? null : i; } }}
-                  >
-                    <span class="cross-prof-chevron">{isExpanded ? '▾' : '▸'}</span>
-                    <span class="cross-prof-profs">{t.fromProf} → {t.toProf}</span>
-                    <span class="cross-prof-item muted">via {t.itemName}</span>
-                    <span class="cross-prof-amt">{t.markupAmount != null ? '+' + fmtEdm(t.markupAmount / amount) : '—'} EDM</span>
-                  </div>
-                  {#if isExpanded}
-                    <div class="cross-prof-detail">
-                      <div class="cp-detail-title">Production chain for <strong>{t.itemName}</strong> ({t.fromProf})</div>
-                      {#each t.pathEntries as entry}
-                        <div class="cp-entry" style="padding-left: {entry.depth * 14 + 6}px">
-                          {#if entry.kind === 'table'}
-                            {@const perItem = entry.subtreeEdm != null && entry.outputAmount > 0 ? entry.subtreeEdm / entry.outputAmount : null}
-                            {@const markupPerItem = (entry.markupApplied && perItem != null) ? perItem * settings.crossProfessionMarkup : null}
-                            <span class="cp-entry-profession">[{entry.profession}]</span>
-                            <span class="cp-entry-table">{entry.tableName}</span>
-                            <span class="cp-entry-item muted">→ {entry.itemName}</span>
-                            <span class="cp-entry-amount muted">{fmtNum(entry.neededAmount)} needed / {fmtNum(entry.outputAmount)} produced</span>
-                            {#if entry.markupApplied}<span class="cp-entry-markup">+{(settings.crossProfessionMarkup * 100).toFixed(0)}%</span>{/if}
-                            <span class="cp-entry-edm">{entry.subtreeEdm != null ? fmtEdm(entry.subtreeEdm / amount) : '—'} EDM</span>
-                            {#if entry.markupApplied && entry.subtreeEdm != null}<span class="cp-entry-va">VA: +{fmtEdm(entry.subtreeEdm * settings.crossProfessionMarkup / amount)} EDM</span>{/if}
-                            <span class="cp-entry-per-item">{perItem != null ? fmtEdm(perItem) : '—'}/item{#if markupPerItem != null} <span class="cp-entry-markup-amt">+{fmtEdm(markupPerItem)}</span>{/if}</span>
-                          {:else}
-                            <span class="cp-entry-leaf-type muted">[{entry.nodeType}]</span>
-                            <span class="cp-entry-item">{entry.itemName}</span>
-                            <span class="cp-entry-amount muted">{fmtNum(entry.amount)} × {entry.edmPerUnit != null ? fmtEdm(entry.edmPerUnit) : '?'}</span>
-                            <span class="cp-entry-edm">{entry.totalEdm != null ? fmtEdm(entry.totalEdm / amount) : '—'} EDM</span>
-                          {/if}
-                        </div>
-                      {/each}
-                      <div class="cp-detail-footer">
-                        <span>Subtree base: {t.baseEdm != null ? fmtEdm(t.baseEdm / amount) : '—'} EDM</span>
-                        <span class="cp-markup-highlight">Markup (+{(settings.crossProfessionMarkup * 100).toFixed(0)}%): {t.markupAmount != null ? '+' + fmtEdm(t.markupAmount / amount) : '—'} EDM</span>
-                      </div>
-                    </div>
-                  {/if}
-                {/each}
-              </div>
-            {/if}
-        {/if}
-      </section>
-
-      {#if plannerUnresolvedTagNodes.length > 0 || (comparisonReport?.tagByName.size ?? 0) > 0}
-        {@const allTags = [...new Set([
-          ...plannerUnresolvedTagNodes.map(n => n.tag),
-          ...(comparisonReport ? comparisonReport.tagByName.keys() : [])
-        ])].sort((a, b) => {
-          const ca = plannerUnresolvedTagNodes.find(n => n.tag === a)?.amount ?? 0;
-          const cb = plannerUnresolvedTagNodes.find(n => n.tag === b)?.amount ?? 0;
-          return cb - ca;
-        })}
-        <section>
-          <h3>Unresolved Tags</h3>
-          <table>
-            {#if comparisonReport}
-              <thead><tr>
-                <th class="item-name"></th>
-                <th class="item-amt col-hdr">Current</th>
-                <th class="item-amt col-hdr">Compare</th>
-                <th class="item-amt col-hdr">Δ%</th>
-              </tr></thead>
-            {/if}
-            <tbody>
-              {#each allTags as tag}
-                {@const cur = plannerUnresolvedTagNodes.find(n => n.tag === tag)?.amount ?? 0}
-                {#if comparisonReport}
-                  {@const cmp = comparisonReport.tagByName.get(tag) ?? 0}
-                  <tr>
-                    <td class="item-name">{tag}</td>
-                    <td class="item-amt">{fmtNum(cur, true)}</td>
-                    <td class="item-amt">{fmtNum(cmp, true)}</td>
-                    <td class="item-amt" class:delta-neg={cmp < cur} class:delta-pos={cmp > cur}>{fmtDeltaPct(cur, cmp)}</td>
-                  </tr>
-                {:else}
-                  <tr><td class="item-name">{tag}</td><td class="item-amt">{fmtNum(cur, true)}</td></tr>
-                {/if}
-              {/each}
-            </tbody>
-          </table>
-        </section>
-      {/if}
-
-      {#if plannerByproductNodes.length > 0 || (comparisonReport?.byproductByKey.size ?? 0) > 0}
-        {@const allBpKeys = [...new Set([
-          ...plannerByproductNodes.map(n => n.id),
-          ...(comparisonReport ? comparisonReport.byproductByKey.keys() : [])
-        ])]}
-        {@const showBpCmp = comparisonReport !== null && allBpKeys.some(key => {
-          const cur = plannerByproductNodes.find(n => n.id === key)?.amount ?? 0;
-          const cmp = comparisonReport.byproductByKey.get(key) ?? 0;
-          return Math.abs(cmp - cur) > 0.001;
-        })}
-        <section>
-          <h3>Byproducts</h3>
-          <table>
-            {#if showBpCmp}
-              <thead><tr>
-                <th class="item-name"></th>
-                <th class="item-name"></th>
-                <th class="item-amt col-hdr">Current</th>
-                <th class="item-amt col-hdr">Compare</th>
-                <th class="item-amt col-hdr">Δ%</th>
-              </tr></thead>
-            {/if}
-            <tbody>
-              {#each (showBpCmp ? allBpKeys : plannerByproductNodes.map(n => n.id)).sort((a, b) => {
-                const ca = plannerByproductNodes.find(n => n.id === a)?.amount ?? 0;
-                const cb = plannerByproductNodes.find(n => n.id === b)?.amount ?? 0;
-                return cb - ca;
-              }) as key}
-                {@const node = plannerByproductNodes.find(n => n.id === key)}
-                {@const itemName = node?.itemName ?? key.split(':')[1]}
-                {@const producer = key.split(':from:')[1]}
-                {@const cur = node?.amount ?? 0}
-                {#if showBpCmp}
-                  {@const cmp = comparisonReport!.byproductByKey.get(key) ?? 0}
-                  <tr>
-                    <td class="item-name">{itemName}</td>
-                    <td class="item-name muted">from {producer}</td>
-                    <td class="item-amt">{fmtNum(cur, true)}</td>
-                    <td class="item-amt">{fmtNum(cmp, true)}</td>
-                    <td class="item-amt" class:delta-neg={cmp < cur} class:delta-pos={cmp > cur}>{fmtDeltaPct(cur, cmp)}</td>
-                  </tr>
-                {:else}
-                  <tr>
-                    <td class="item-name">{itemName}</td>
-                    <td class="item-name muted">from {producer}</td>
-                    <td class="item-amt">{fmtNum(cur, true)}</td>
-                  </tr>
-                {/if}
-              {/each}
-            </tbody>
-          </table>
-        </section>
-      {/if}
-
-      {#if plannerProductNode}
-        <section>
-          <h3>Product</h3>
-          <table>
-            <tbody>
-              <tr>
-                <td class="item-name">{plannerProductNode.itemName}</td>
-                <td class="item-amt">{fmtNum(plannerProductNode.amount, true)} requested</td>
-              </tr>
-              <tr>
-                <td class="item-name muted">produced</td>
-                <td class="item-amt">{fmtNum(plannerProductNode.producedAmount, true)}</td>
-              </tr>
-            </tbody>
-          </table>
-        </section>
-      {/if}
-
-      <section>
-        <h3>Market Purchases</h3>
-        {#if plannerMarketNodes.length === 0}
-          <p class="empty">None</p>
-        {:else}
-          <table>
-            <tbody>
-              {#each [...plannerMarketNodes].sort((a, b) => b.amount - a.amount) as n}
-                <tr><td class="item-name">{n.itemName}</td><td class="item-amt">{fmtNum(n.amount, true)}</td></tr>
-              {/each}
-            </tbody>
-          </table>
-        {/if}
-      </section>
-
-      {#if laborByProfession.length > 0}
-        {@const allProfs = [...new Set([
-          ...laborByProfession.map(([p]) => p),
-          ...(comparisonReport ? comparisonReport.laborByProfession.map(([p]) => p) : [])
-        ])].sort((a, b) => {
-          const la = laborByProfession.find(([p]) => p === a)?.[1] ?? 0;
-          const lb = laborByProfession.find(([p]) => p === b)?.[1] ?? 0;
-          return lb - la;
-        })}
-        <section>
-          <h3>Labor (by Profession)</h3>
-          <table>
-            {#if comparisonReport}
-              <thead><tr>
-                <th class="item-name"></th>
-                <th class="item-amt col-hdr">Current</th>
-                <th class="item-amt col-hdr">Compare</th>
-                <th class="item-amt col-hdr">Δ%</th>
-              </tr></thead>
-            {/if}
-            <tbody>
-              {#each allProfs as prof}
-                {@const cur = laborByProfession.find(([p]) => p === prof)?.[1] ?? 0}
-                {#if comparisonReport}
-                  {@const cmp = comparisonReport.laborByProfession.find(([p]) => p === prof)?.[1] ?? 0}
-                  <tr>
-                    <td class="item-name">{prof}</td>
-                    <td class="item-amt">{fmtLabor(cur)}</td>
-                    <td class="item-amt">{fmtLabor(cmp)}</td>
-                    <td class="item-amt" class:delta-neg={cmp < cur} class:delta-pos={cmp > cur}>{fmtDeltaPct(cur, cmp)}</td>
-                  </tr>
-                {:else}
-                  <tr><td class="item-name">{prof}</td><td class="item-amt">{fmtLabor(cur)}</td></tr>
-                {/if}
-              {/each}
-            </tbody>
-          </table>
-        </section>
-      {/if}
-      </div><!-- report-body -->
-    </div>
-  </div>
+{#if showSandbox && rawDataByVersion.get('eco14')}
+  {@const raw = rawDataByVersion.get('eco14')!}
+  <SandboxModal
+    recipes={raw.recipes}
+    professions={raw.professions ?? []}
+    patch={settings.sandboxPatch ?? EMPTY_SANDBOX_PATCH}
+    unmatched={sandboxUnmatched}
+    onChange={applySandboxEdit}
+    onClose={() => (showSandbox = false)}
+  />
 {/if}
 
 {#if showResolve && recipeIndex && tagsIndex}
@@ -1273,7 +1219,9 @@
 {/if}
 
 {#if showLayoutSettings}
-  <div class="report-overlay" role="dialog" aria-modal="true">
+  <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
+  <div class="report-overlay" role="dialog" aria-modal="true" tabindex="-1"
+    onclick={(e) => { if (e.target === e.currentTarget) showLayoutSettings = false; }}>
     <div class="report-panel layout-settings-panel">
       <div class="report-header">
         <h2>Settings</h2>
@@ -1348,8 +1296,10 @@
               step="1"
               value={Math.round(settings.crossProfessionMarkup * 100)}
               oninput={e => {
-                const v = Number((e.target as HTMLInputElement).value);
-                if (!isNaN(v)) settings = { ...settings, crossProfessionMarkup: v / 100 };
+                const raw = (e.target as HTMLInputElement).value;
+                if (raw === '') return; // mid-edit, keep previous value
+                const v = Number(raw);
+                if (!isNaN(v)) { settings = { ...settings, crossProfessionMarkup: v / 100 }; scheduleReplan(); }
               }}
             />
             <span class="edm-unit">%</span>
@@ -1423,6 +1373,7 @@
                         newDefaults[tag] = num;
                       }
                       settings = { ...settings, edmTagDefaults: newDefaults };
+                      scheduleReplan();
                     }}
                   />
                   <span class="edm-tag-unit">tag default</span>
@@ -1431,7 +1382,7 @@
 
               {#each [...nodes].sort((a, b) => a.itemName.localeCompare(b.itemName)) as node}
                 {@const hasException = settings.edmValues[node.itemName] !== undefined}
-                {@const effectiveVal = resolveItemEdmValue(node.itemName, settings, tagsIndex)}
+                {@const effectiveVal = resolveItemEdmValue(node.itemName, edmSettings, tagsIndex)}
                 {@const isMissing = effectiveVal === null}
                 <div class="settings-row edm-item-row" class:edm-missing-row={isMissing}>
                   <span class="settings-label edm-item-label" class:edm-missing-name={isMissing}>
@@ -1455,6 +1406,7 @@
                             newEdm[node.itemName] = num;
                           }
                           settings = { ...settings, edmValues: newEdm };
+                          scheduleReplan();
                         }}
                       />
                       <button
@@ -1464,15 +1416,17 @@
                           const newEdm = { ...settings.edmValues };
                           delete newEdm[node.itemName];
                           settings = { ...settings, edmValues: newEdm };
+                          scheduleReplan();
                         }}
                       >↩</button>
                     {:else}
-                      <span class="edm-inherited-value">{effectiveVal !== null ? effectiveVal : '—'}</span>
+                      <span class="edm-inherited-value">{effectiveVal !== null ? +effectiveVal.toFixed(2) : '—'}</span>
                       <button
                         class="edm-icon-btn"
                         title="Override for this item"
                         onclick={() => {
                           settings = { ...settings, edmValues: { ...settings.edmValues, [node.itemName]: effectiveVal ?? 0 } };
+                          scheduleReplan();
                         }}
                       >✎</button>
                     {/if}
@@ -1642,29 +1596,6 @@
     display: flex; flex-direction: column;
   }
 
-  .report-panel.wide { width: min(1100px, 92vw); }
-
-  .report-body { padding: 16px 24px 24px; overflow-y: visible; }
-
-  .compare-row {
-    display: flex; align-items: center; gap: 8px;
-    padding: 6px 0 12px; font-size: 12px;
-  }
-
-  .compare-label { color: #888; white-space: nowrap; }
-
-  .compare-row select {
-    background: #2a2a2a; border: 1px solid #555; color: #e0e0e0;
-    border-radius: 4px; padding: 2px 6px; font-size: 12px;
-  }
-
-  .col-hdr {
-    font-size: 11px; color: #888; font-weight: normal; padding-bottom: 4px;
-  }
-
-  .delta-neg { color: #4ec870; }
-  .delta-pos { color: #f08080; }
-
   .report-header {
     display: flex; justify-content: space-between; align-items: center;
     padding: 20px 24px 12px;
@@ -1683,12 +1614,6 @@
     background: none; border: none; color: #888; font-size: 18px; cursor: pointer; padding: 0;
   }
 
-  .copy-link-btn {
-    background: none; border: 1px solid #555; color: #aaa; font-size: 12px; cursor: pointer;
-    padding: 2px 8px; border-radius: 4px; margin-right: 8px;
-  }
-  .copy-link-btn:hover { border-color: #aaa; color: #ddd; }
-
   .report-panel section {
     margin-bottom: 20px;
   }
@@ -1696,23 +1621,6 @@
   .report-panel h3 {
     font-size: 13px; color: #a0c4e0; margin: 0 0 8px;
     text-transform: uppercase; letter-spacing: 0.05em;
-  }
-
-  .report-panel table {
-    width: 100%; border-collapse: collapse; font-size: 13px;
-  }
-
-  .item-name {
-    padding: 3px 8px 3px 0;
-  }
-
-  .item-name.muted {
-    color: #777; font-size: 11px;
-  }
-
-  .item-amt {
-    text-align: right; color: #7ec8e3; font-variant-numeric: tabular-nums;
-    font-family: 'Courier New', Courier, monospace;
   }
 
   .empty {
@@ -1877,7 +1785,6 @@
   :global(html.light) .report-header { background: #ffffff; border-bottom-color: #e0e0e0; }
   :global(html.light) .report-header h2 { color: #1a6b9a; }
   :global(html.light) .report-panel h3 { color: #374151; }
-  :global(html.light) .item-amt { color: #1d4ed8; }
   :global(html.light) .close-btn { color: #555; }
   :global(html.light) .empty { color: #888; }
 
@@ -1942,130 +1849,8 @@
   }
 
   /* EDM styles */
-  .edm-summary {
-    margin-top: 0;
-    padding: 8px 10px;
-    background: #252525;
-    border-radius: 4px;
-    display: grid;
-    grid-template-columns: 1fr auto;
-    row-gap: 3px;
-    column-gap: 8px;
-    font-size: 12px;
-  }
-  .edm-summary.compare { grid-template-columns: 1fr auto auto; }
 
-  .edm-row { display: contents; }
-
-  .edm-label { color: #888; }
-  .edm-value { color: #7ec8e3; font-variant-numeric: tabular-nums; font-family: 'Courier New', Courier, monospace; text-align: right; }
-  .edm-total .edm-label { color: #b0b0b0; font-weight: bold; }
-  .edm-total .edm-value { color: #90e0b0; font-weight: bold; }
-  .edm-subheader .edm-label { font-style: italic; font-size: 11px; }
-
-  .edm-compare-header > * { border-bottom: 1px solid #333; padding-bottom: 3px; margin-bottom: 2px; }
-  .edm-col-hdr { font-size: 10px; color: #666; text-align: right; }
-  .edm-summary.compare .edm-row > :last-child { padding-left: 14px; }
-
-  .edm-missing { color: #d4a017 !important; }
   .edm-missing-name { color: #d4a017; }
-
-  .cross-prof-list {
-    margin-top: 8px;
-    font-size: 11px;
-  }
-
-  .cross-prof-header {
-    color: #888;
-    margin-bottom: 4px;
-    font-style: italic;
-  }
-
-  .cross-prof-row {
-    display: flex;
-    gap: 8px;
-    align-items: baseline;
-    padding: 3px 4px;
-    border-radius: 3px;
-    cursor: pointer;
-    user-select: none;
-  }
-
-  .cross-prof-row:hover { background: rgba(255,255,255,0.05); }
-  .cross-prof-row.cross-prof-expanded { background: rgba(200,160,240,0.08); }
-
-  .cross-prof-chevron { color: #888; font-size: 9px; width: 10px; flex-shrink: 0; }
-  .cross-prof-profs { color: #c8a0f0; white-space: nowrap; }
-  .cross-prof-item { color: #666; font-size: 10px; flex: 1; }
-  .cross-prof-amt { color: #f0c070; white-space: nowrap; font-variant-numeric: tabular-nums; font-family: 'Courier New', Courier, monospace; }
-
-  .va-prof-list { display: flex; flex-direction: column; margin-top: 8px; font-size: 11px; }
-
-  .va-prof-detail {
-    margin: 2px 0 6px 14px;
-    padding: 8px 10px;
-    border-left: 2px solid #2a6a4a;
-    background: rgba(42,106,74,0.1);
-    border-radius: 0 4px 4px 0;
-    font-size: 10px;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-
-  .va-prof-entry {
-    display: flex;
-    gap: 6px;
-    align-items: baseline;
-  }
-
-  .va-entry-table { color: #90e0b0; white-space: nowrap; }
-  .va-entry-item { color: #666; font-size: 10px; flex: 1; }
-  .va-entry-amt { color: #90e0b0; white-space: nowrap; font-variant-numeric: tabular-nums; font-family: 'Courier New', Courier, monospace; margin-left: auto; }
-
-  .cross-prof-detail {
-    margin: 2px 0 6px 14px;
-    padding: 8px 10px;
-    border-left: 2px solid #5a3a7a;
-    background: rgba(90,58,122,0.1);
-    border-radius: 0 4px 4px 0;
-    font-size: 10px;
-  }
-
-  .cp-detail-title {
-    color: #aaa;
-    margin-bottom: 6px;
-    font-style: italic;
-  }
-
-  .cp-entry {
-    display: flex;
-    gap: 6px;
-    align-items: baseline;
-    padding: 1px 0;
-  }
-
-  .cp-entry-profession { color: #888; white-space: nowrap; }
-  .cp-entry-table { color: #c8a0f0; white-space: nowrap; }
-  .cp-entry-leaf-type { color: #666; white-space: nowrap; }
-  .cp-entry-item { color: #e0e0e0; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .cp-entry-amount { color: #888; white-space: nowrap; font-variant-numeric: tabular-nums; font-family: 'Courier New', Courier, monospace; }
-  .cp-entry-edm { color: #f0c070; white-space: nowrap; font-variant-numeric: tabular-nums; margin-left: auto; font-family: 'Courier New', Courier, monospace; }
-  .cp-entry-markup { color: #f0a040; font-size: 9px; background: rgba(240,160,64,0.15); border: 1px solid rgba(240,160,64,0.4); border-radius: 2px; padding: 0 3px; white-space: nowrap; }
-  .cp-entry-va { color: #90e0b0; font-size: 9px; white-space: nowrap; font-family: 'Courier New', Courier, monospace; font-variant-numeric: tabular-nums; }
-  .cp-entry-per-item { color: #888; font-size: 9px; white-space: nowrap; margin-left: auto; font-family: 'Courier New', Courier, monospace; }
-  .cp-entry-markup-amt { color: #f0a040; }
-
-  .cp-detail-footer {
-    display: flex;
-    justify-content: space-between;
-    margin-top: 6px;
-    padding-top: 5px;
-    border-top: 1px solid #3a2a4a;
-    color: #888;
-  }
-
-  .cp-markup-highlight { color: #f0c070; }
 
   /* EDM Settings */
   .edm-resources-header {
@@ -2176,23 +1961,28 @@
 
   .export-edm-btn:hover:not(:disabled) { background: #334433; }
 
-  .eco-mode-label { font-weight: bold; color: #7ec8e3 !important; }
+  .sandbox-btn {
+    background: none; border: 1px solid #444; color: #aaa;
+    font-size: 12px; cursor: pointer; padding: 3px 9px; border-radius: 4px;
+  }
+  .sandbox-btn:hover:not(:disabled) { border-color: #aaa; color: #ddd; }
+  .sandbox-btn:disabled { opacity: 0.5; cursor: default; }
+  .sandbox-btn-on { border-color: #4a90c4; color: #7ec8e3; }
+  .sandbox-count {
+    margin-left: 5px; font-size: 10px; color: #1e1e1e;
+    background: #4a90c4; border-radius: 8px; padding: 0 5px;
+  }
+  :global(html.light) .sandbox-btn { border-color: #d0d0d0; color: #555; }
+  :global(html.light) .sandbox-btn-on { border-color: #2563eb; color: #1d4ed8; }
+  :global(html.light) .sandbox-count { color: #fff; background: #2563eb; }
 
-  :global(html.light) .edm-summary { background: #f0f4f8; }
-  :global(html.light) .edm-label { color: #666; }
-  :global(html.light) .edm-value { color: #1a6b9a; }
-  :global(html.light) .edm-total .edm-label { color: #333; }
-  :global(html.light) .edm-total .edm-value { color: #1a7a3a; }
-  :global(html.light) .cross-prof-row:hover { background: rgba(0,0,0,0.04); }
-  :global(html.light) .cross-prof-row.cross-prof-expanded { background: rgba(124,58,237,0.06); }
-  :global(html.light) .cross-prof-profs { color: #7c3aed; }
-  :global(html.light) .cross-prof-amt { color: #b45309; }
-  :global(html.light) .cross-prof-detail { border-left-color: #9f7aea; background: rgba(159,122,234,0.06); }
-  :global(html.light) .cp-entry-table { color: #7c3aed; }
-  :global(html.light) .cp-entry-item { color: #1a1a1a; }
-  :global(html.light) .cp-entry-edm { color: #b45309; }
-  :global(html.light) .cp-markup-highlight { color: #b45309; }
-  :global(html.light) .cp-detail-footer { border-top-color: #ddd; }
+  .module-slots {
+    display: flex; align-items: center; gap: 0.5rem;
+    border: 1px solid #444; border-radius: 4px; padding: 0.15rem 0.5rem; margin: 0;
+  }
+  .module-slots legend { padding: 0 0.3rem; font-weight: bold; color: #7ec8e3; }
+  .module-slots .checkbox-label { margin: 0; }
+
   :global(html.light) .edm-number-input {
     background: #fff; border-color: #bbb; color: #1a1a1a;
   }
@@ -2206,7 +1996,8 @@
   :global(html.light) .export-edm-btn {
     background: #e8f5e8; border-color: #4a9a4a; color: #1a5a1a;
   }
-  :global(html.light) .eco-mode-label { color: #1a6b9a !important; }
+  :global(html.light) .module-slots { border-color: #ccc; }
+  :global(html.light) .module-slots legend { color: #1a6b9a; }
 
   :global(.direction-select) {
     background: #1e1e1e;

@@ -47,6 +47,10 @@ export interface CrossProfTransition {
 
 export type FoodTier = 'baseline' | 'basic' | 'advanced' | 'modern';
 
+// Work-party recipes pay contributors in food: 50 EDM per 1000 labor points,
+// independent of the user's food-tier cost settings.
+export const WORK_PARTY_EDM_PER_LABOR = 50 / 1000;
+
 export const PROFESSION_FOOD_TIER: Record<string, FoodTier> = {
   // Baseline — raw gathering only
   'Farming':   'baseline',
@@ -568,7 +572,7 @@ export function computeEdmReport(graph: PlannerGraph, settings: AppSettings, tag
     if (node.type === 'table') {
       const tableNode = node as TablePlannerNode;
       if (EDM_MARKUP_EXCLUDED_RECIPES.has(tableNode.recipe.Key)) {
-        const workPartyEdm = (tableNode.recipe.BaseLaborCost * tableNode.cycles / 1000) * 50;
+        const workPartyEdm = tableNode.recipe.BaseLaborCost * tableNode.cycles * WORK_PARTY_EDM_PER_LABOR;
         if (workPartyEdm > 0) {
           const prev = tableValueAdded.get(tableNode.id) ?? 0;
           tableValueAdded.set(tableNode.id, prev === null ? null : prev + workPartyEdm);

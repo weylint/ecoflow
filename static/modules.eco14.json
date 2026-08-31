@@ -1,0 +1,620 @@
+{
+  "modules": [
+    {
+      "item": "AdvancedBakingUpgradeItem",
+      "name": "Advanced Baking Upgrade",
+      "slot": "Specialty",
+      "resourceCostPercent": 0.05,
+      "skill": "Advanced Baking"
+    },
+    {
+      "item": "AdvancedCookingUpgradeItem",
+      "name": "Advanced Cooking Upgrade",
+      "slot": "Specialty",
+      "resourceCostPercent": 0.05,
+      "skill": "Advanced Cooking"
+    },
+    {
+      "item": "AdvancedMasonryUpgradeItem",
+      "name": "Advanced Masonry Upgrade",
+      "slot": "Specialty",
+      "resourceCostPercent": 0.05,
+      "skill": "Advanced Masonry"
+    },
+    {
+      "item": "AdvancedSmeltingUpgradeItem",
+      "name": "Advanced Smelting Upgrade",
+      "slot": "Specialty",
+      "resourceCostPercent": 0.05,
+      "skill": "Advanced Smelting"
+    },
+    {
+      "item": "AdvancedUpgradeItem",
+      "name": "Advanced Upgrade",
+      "slot": "Advanced",
+      "resourceCostPercent": 0.1,
+      "skill": null
+    },
+    {
+      "item": "BakingUpgradeItem",
+      "name": "Baking Upgrade",
+      "slot": "Specialty",
+      "resourceCostPercent": 0.05,
+      "skill": "Baking"
+    },
+    {
+      "item": "BasicEngineeringUpgradeItem",
+      "name": "Basic Engineering Upgrade",
+      "slot": "Specialty",
+      "resourceCostPercent": 0.05,
+      "skill": "Basic Engineering"
+    },
+    {
+      "item": "BasicUpgradeItem",
+      "name": "Basic Upgrade",
+      "slot": "Basic",
+      "resourceCostPercent": 0.1,
+      "skill": null
+    },
+    {
+      "item": "BlacksmithUpgradeItem",
+      "name": "Blacksmith Upgrade",
+      "slot": "Specialty",
+      "resourceCostPercent": 0.05,
+      "skill": "Blacksmith"
+    },
+    {
+      "item": "ButcheryUpgradeItem",
+      "name": "Butchery Upgrade",
+      "slot": "Specialty",
+      "resourceCostPercent": 0.05,
+      "skill": "Butchery"
+    },
+    {
+      "item": "CampfireCookingUpgradeItem",
+      "name": "Campfire Cooking Upgrade",
+      "slot": "Specialty",
+      "resourceCostPercent": 0.05,
+      "skill": "Campfire Cooking"
+    },
+    {
+      "item": "CarpentryBasicUpgradeItem",
+      "name": "Carpentry Basic Upgrade",
+      "slot": "Specialty",
+      "resourceCostPercent": 0.05,
+      "skill": "Carpentry"
+    },
+    {
+      "item": "CompositesUpgradeItem",
+      "name": "Composites Upgrade",
+      "slot": "Specialty",
+      "resourceCostPercent": 0.05,
+      "skill": "Composites"
+    },
+    {
+      "item": "CookingUpgradeItem",
+      "name": "Cooking Upgrade",
+      "slot": "Specialty",
+      "resourceCostPercent": 0.05,
+      "skill": "Cooking"
+    },
+    {
+      "item": "CuttingEdgeCookingUpgradeItem",
+      "name": "Cutting Edge Cooking Upgrade",
+      "slot": "Specialty",
+      "resourceCostPercent": 0.05,
+      "skill": "Cutting Edge Cooking"
+    },
+    {
+      "item": "ElectronicsUpgradeItem",
+      "name": "Electronics Upgrade",
+      "slot": "Specialty",
+      "resourceCostPercent": 0.05,
+      "skill": "Electronics"
+    },
+    {
+      "item": "FarmingUpgradeItem",
+      "name": "Farming Upgrade",
+      "slot": "Specialty",
+      "resourceCostPercent": 0.05,
+      "skill": "Farming"
+    },
+    {
+      "item": "FertilizersUpgradeItem",
+      "name": "Fertilizers Upgrade",
+      "slot": "Specialty",
+      "resourceCostPercent": 0.05,
+      "skill": "Fertilizers"
+    },
+    {
+      "item": "GatheringBasicUpgradeItem",
+      "name": "Gathering Basic Upgrade",
+      "slot": "Specialty",
+      "resourceCostPercent": 0.05,
+      "skill": "Gathering"
+    },
+    {
+      "item": "GlassworkingAdvancedUpgradeItem",
+      "name": "Glassworking Advanced Upgrade",
+      "slot": "Specialty",
+      "resourceCostPercent": 0.05,
+      "skill": "Glassworking"
+    },
+    {
+      "item": "HuntingUpgradeItem",
+      "name": "Hunting Upgrade",
+      "slot": "Specialty",
+      "resourceCostPercent": 0.05,
+      "skill": "Hunting"
+    },
+    {
+      "item": "IndustryUpgradeItem",
+      "name": "Industry Upgrade",
+      "slot": "Specialty",
+      "resourceCostPercent": 0.05,
+      "skill": "Industry"
+    },
+    {
+      "item": "LoggingBasicUpgradeItem",
+      "name": "Logging Basic Upgrade",
+      "slot": "Specialty",
+      "resourceCostPercent": 0.05,
+      "skill": "Logging"
+    },
+    {
+      "item": "MasonryBasicUpgradeItem",
+      "name": "Masonry Basic Upgrade",
+      "slot": "Specialty",
+      "resourceCostPercent": 0.05,
+      "skill": "Masonry"
+    },
+    {
+      "item": "MechanicsAdvancedUpgradeItem",
+      "name": "Mechanics Advanced Upgrade",
+      "slot": "Specialty",
+      "resourceCostPercent": 0.05,
+      "skill": "Mechanics"
+    },
+    {
+      "item": "MillingUpgradeItem",
+      "name": "Milling Upgrade",
+      "slot": "Specialty",
+      "resourceCostPercent": 0.05,
+      "skill": "Milling"
+    },
+    {
+      "item": "MiningAdvancedUpgradeItem",
+      "name": "Mining Advanced Upgrade",
+      "slot": "Specialty",
+      "resourceCostPercent": 0.2,
+      "skill": "Mining"
+    },
+    {
+      "item": "MiningBasicUpgradeItem",
+      "name": "Mining Basic Upgrade",
+      "slot": "Specialty",
+      "resourceCostPercent": 0.15,
+      "skill": "Mining"
+    },
+    {
+      "item": "MiningModernUpgradeItem",
+      "name": "Mining Modern Upgrade",
+      "slot": "Specialty",
+      "resourceCostPercent": 0.2,
+      "skill": "Mining"
+    },
+    {
+      "item": "ModernUpgradeItem",
+      "name": "Modern Upgrade",
+      "slot": "Modern",
+      "resourceCostPercent": 0.15,
+      "skill": null
+    },
+    {
+      "item": "OilDrillingUpgradeItem",
+      "name": "Oil Drilling Upgrade",
+      "slot": "Specialty",
+      "resourceCostPercent": 0.05,
+      "skill": "Oil Drilling"
+    },
+    {
+      "item": "PaintingUpgradeItem",
+      "name": "Painting Upgrade",
+      "slot": "Specialty",
+      "resourceCostPercent": 0.05,
+      "skill": "Painting"
+    },
+    {
+      "item": "PaperMillingUpgradeItem",
+      "name": "Paper Milling Upgrade",
+      "slot": "Specialty",
+      "resourceCostPercent": 0.05,
+      "skill": "Paper Milling"
+    },
+    {
+      "item": "PotteryUpgradeItem",
+      "name": "Pottery Upgrade",
+      "slot": "Specialty",
+      "resourceCostPercent": 0.05,
+      "skill": "Pottery"
+    },
+    {
+      "item": "ShipwrightBasicUpgradeItem",
+      "name": "Shipwright Basic Upgrade",
+      "slot": "Specialty",
+      "resourceCostPercent": 0.05,
+      "skill": "Shipwright"
+    },
+    {
+      "item": "SmeltingUpgradeItem",
+      "name": "Smelting Upgrade",
+      "slot": "Specialty",
+      "resourceCostPercent": 0.05,
+      "skill": "Smelting"
+    },
+    {
+      "item": "TailoringUpgradeItem",
+      "name": "Tailoring Basic Upgrade",
+      "slot": "Specialty",
+      "resourceCostPercent": 0.05,
+      "skill": "Tailoring"
+    }
+  ],
+  "tables": {
+    "Advanced Carpentry Table": [
+      "CompositesUpgradeItem",
+      "BasicUpgradeItem",
+      "AdvancedUpgradeItem",
+      "ModernUpgradeItem"
+    ],
+    "Advanced Masonry Table": [
+      "MasonryBasicUpgradeItem",
+      "BasicUpgradeItem",
+      "AdvancedUpgradeItem",
+      "ModernUpgradeItem"
+    ],
+    "Advanced Tailoring Table": [
+      "TailoringUpgradeItem",
+      "BasicUpgradeItem",
+      "AdvancedUpgradeItem",
+      "ModernUpgradeItem"
+    ],
+    "Anvil": [
+      "BlacksmithUpgradeItem",
+      "SmeltingUpgradeItem",
+      "BasicUpgradeItem",
+      "AdvancedUpgradeItem",
+      "ModernUpgradeItem"
+    ],
+    "Assembly Line": [
+      "MechanicsAdvancedUpgradeItem",
+      "BasicUpgradeItem",
+      "AdvancedUpgradeItem",
+      "ModernUpgradeItem"
+    ],
+    "Automatic Loom": [
+      "TailoringUpgradeItem",
+      "BasicUpgradeItem",
+      "AdvancedUpgradeItem",
+      "ModernUpgradeItem"
+    ],
+    "Bakery Oven": [
+      "BakingUpgradeItem",
+      "AdvancedBakingUpgradeItem",
+      "MasonryBasicUpgradeItem",
+      "BasicUpgradeItem",
+      "AdvancedUpgradeItem",
+      "ModernUpgradeItem"
+    ],
+    "Blacksmith Table": [
+      "BlacksmithUpgradeItem",
+      "BasicUpgradeItem",
+      "AdvancedUpgradeItem",
+      "ModernUpgradeItem"
+    ],
+    "Blast Furnace": [
+      "AdvancedSmeltingUpgradeItem",
+      "SmeltingUpgradeItem",
+      "MasonryBasicUpgradeItem",
+      "BasicUpgradeItem",
+      "AdvancedUpgradeItem",
+      "ModernUpgradeItem"
+    ],
+    "Bloomery": [
+      "SmeltingUpgradeItem",
+      "BasicUpgradeItem",
+      "AdvancedUpgradeItem",
+      "ModernUpgradeItem"
+    ],
+    "Butchery Table": [
+      "ButcheryUpgradeItem",
+      "HuntingUpgradeItem",
+      "BasicUpgradeItem",
+      "AdvancedUpgradeItem",
+      "ModernUpgradeItem"
+    ],
+    "Campfire": [
+      "CampfireCookingUpgradeItem",
+      "BasicUpgradeItem",
+      "AdvancedUpgradeItem",
+      "ModernUpgradeItem"
+    ],
+    "Carpentry Table": [
+      "CarpentryBasicUpgradeItem",
+      "LoggingBasicUpgradeItem",
+      "BasicEngineeringUpgradeItem",
+      "BasicUpgradeItem",
+      "AdvancedUpgradeItem",
+      "ModernUpgradeItem"
+    ],
+    "Cast Iron Stove": [
+      "CookingUpgradeItem",
+      "BasicUpgradeItem",
+      "AdvancedUpgradeItem",
+      "ModernUpgradeItem"
+    ],
+    "Cement Kiln": [
+      "MasonryBasicUpgradeItem",
+      "BasicUpgradeItem",
+      "AdvancedUpgradeItem",
+      "ModernUpgradeItem"
+    ],
+    "Electric Lathe": [
+      "IndustryUpgradeItem",
+      "BasicUpgradeItem",
+      "AdvancedUpgradeItem",
+      "ModernUpgradeItem"
+    ],
+    "Electric Machinist Table": [
+      "IndustryUpgradeItem",
+      "ElectronicsUpgradeItem",
+      "MechanicsAdvancedUpgradeItem",
+      "MiningModernUpgradeItem",
+      "BasicUpgradeItem",
+      "AdvancedUpgradeItem",
+      "ModernUpgradeItem"
+    ],
+    "Electric Planer": [
+      "IndustryUpgradeItem",
+      "BasicUpgradeItem",
+      "AdvancedUpgradeItem",
+      "ModernUpgradeItem"
+    ],
+    "Electric Stamping Press": [
+      "IndustryUpgradeItem",
+      "BasicUpgradeItem",
+      "AdvancedUpgradeItem",
+      "ModernUpgradeItem"
+    ],
+    "Electronics Assembly": [
+      "ElectronicsUpgradeItem",
+      "IndustryUpgradeItem",
+      "BasicUpgradeItem",
+      "AdvancedUpgradeItem",
+      "ModernUpgradeItem"
+    ],
+    "Farmers Table": [
+      "FarmingUpgradeItem",
+      "FertilizersUpgradeItem",
+      "BasicUpgradeItem",
+      "AdvancedUpgradeItem",
+      "ModernUpgradeItem"
+    ],
+    "Fiber Scutching Station": [
+      "GatheringBasicUpgradeItem",
+      "BasicUpgradeItem",
+      "AdvancedUpgradeItem",
+      "ModernUpgradeItem"
+    ],
+    "Fish Rack": [
+      "HuntingUpgradeItem",
+      "BasicUpgradeItem",
+      "AdvancedUpgradeItem",
+      "ModernUpgradeItem"
+    ],
+    "Fishery": [
+      "HuntingUpgradeItem",
+      "BasicUpgradeItem",
+      "AdvancedUpgradeItem",
+      "ModernUpgradeItem"
+    ],
+    "Fletching Table": [
+      "HuntingUpgradeItem",
+      "BasicUpgradeItem",
+      "AdvancedUpgradeItem",
+      "ModernUpgradeItem"
+    ],
+    "Froth Floatation Cell": [
+      "MiningModernUpgradeItem",
+      "ModernUpgradeItem"
+    ],
+    "Glassworks": [
+      "GlassworkingAdvancedUpgradeItem",
+      "BasicUpgradeItem",
+      "AdvancedUpgradeItem",
+      "ModernUpgradeItem"
+    ],
+    "Grindstone": [
+      "BlacksmithUpgradeItem",
+      "BasicUpgradeItem",
+      "AdvancedUpgradeItem",
+      "ModernUpgradeItem"
+    ],
+    "Industrial Mill": [
+      "MillingUpgradeItem",
+      "BasicUpgradeItem",
+      "AdvancedUpgradeItem",
+      "ModernUpgradeItem"
+    ],
+    "Injection Mold Machine": [
+      "OilDrillingUpgradeItem",
+      "BasicUpgradeItem",
+      "AdvancedUpgradeItem",
+      "ModernUpgradeItem"
+    ],
+    "Kiln": [
+      "PotteryUpgradeItem",
+      "LoggingBasicUpgradeItem",
+      "MasonryBasicUpgradeItem",
+      "BasicUpgradeItem",
+      "AdvancedUpgradeItem",
+      "ModernUpgradeItem"
+    ],
+    "Kitchen": [
+      "AdvancedCookingUpgradeItem",
+      "BasicUpgradeItem",
+      "AdvancedUpgradeItem",
+      "ModernUpgradeItem"
+    ],
+    "Laboratory": [
+      "CuttingEdgeCookingUpgradeItem",
+      "BasicUpgradeItem",
+      "AdvancedUpgradeItem",
+      "ModernUpgradeItem"
+    ],
+    "Lathe": [
+      "MechanicsAdvancedUpgradeItem",
+      "BasicUpgradeItem",
+      "AdvancedUpgradeItem",
+      "ModernUpgradeItem"
+    ],
+    "Loom": [
+      "TailoringUpgradeItem",
+      "BasicUpgradeItem",
+      "AdvancedUpgradeItem",
+      "ModernUpgradeItem"
+    ],
+    "Machinist Table": [
+      "MechanicsAdvancedUpgradeItem",
+      "MiningAdvancedUpgradeItem",
+      "BasicUpgradeItem",
+      "AdvancedUpgradeItem",
+      "ModernUpgradeItem"
+    ],
+    "Masonry Table": [
+      "MasonryBasicUpgradeItem",
+      "BasicUpgradeItem",
+      "AdvancedUpgradeItem",
+      "ModernUpgradeItem"
+    ],
+    "Medium Shipyard": [
+      "ShipwrightBasicUpgradeItem",
+      "BasicUpgradeItem",
+      "AdvancedUpgradeItem",
+      "ModernUpgradeItem"
+    ],
+    "Mill": [
+      "MillingUpgradeItem",
+      "BasicUpgradeItem",
+      "AdvancedUpgradeItem",
+      "ModernUpgradeItem"
+    ],
+    "Oil Refinery": [
+      "OilDrillingUpgradeItem",
+      "BasicUpgradeItem",
+      "AdvancedUpgradeItem",
+      "ModernUpgradeItem"
+    ],
+    "Paint Mixer": [
+      "PaintingUpgradeItem",
+      "BasicUpgradeItem",
+      "AdvancedUpgradeItem",
+      "ModernUpgradeItem"
+    ],
+    "Pottery Table": [
+      "GatheringBasicUpgradeItem",
+      "PotteryUpgradeItem",
+      "BasicUpgradeItem",
+      "AdvancedUpgradeItem",
+      "ModernUpgradeItem"
+    ],
+    "Power Hammer": [
+      "BlacksmithUpgradeItem",
+      "BasicUpgradeItem",
+      "AdvancedUpgradeItem",
+      "ModernUpgradeItem"
+    ],
+    "Robotic Assembly Line": [
+      "IndustryUpgradeItem",
+      "ElectronicsUpgradeItem",
+      "BasicUpgradeItem",
+      "AdvancedUpgradeItem",
+      "ModernUpgradeItem"
+    ],
+    "Rocker Box": [
+      "MiningBasicUpgradeItem",
+      "BasicUpgradeItem"
+    ],
+    "Rolling Mill": [
+      "AdvancedSmeltingUpgradeItem",
+      "BasicUpgradeItem",
+      "AdvancedUpgradeItem",
+      "ModernUpgradeItem"
+    ],
+    "Sawmill": [
+      "CarpentryBasicUpgradeItem",
+      "LoggingBasicUpgradeItem",
+      "BasicUpgradeItem",
+      "AdvancedUpgradeItem",
+      "ModernUpgradeItem"
+    ],
+    "Screening Machine": [
+      "MiningAdvancedUpgradeItem",
+      "AdvancedUpgradeItem"
+    ],
+    "Screw Press": [
+      "MechanicsAdvancedUpgradeItem",
+      "BasicUpgradeItem",
+      "AdvancedUpgradeItem",
+      "ModernUpgradeItem"
+    ],
+    "Sensor Based Belt Sorter": [
+      "MiningModernUpgradeItem",
+      "ModernUpgradeItem"
+    ],
+    "Shaper": [
+      "MechanicsAdvancedUpgradeItem",
+      "BasicUpgradeItem",
+      "AdvancedUpgradeItem",
+      "ModernUpgradeItem"
+    ],
+    "Small Paper Machine": [
+      "PaperMillingUpgradeItem",
+      "BasicUpgradeItem",
+      "AdvancedUpgradeItem",
+      "ModernUpgradeItem"
+    ],
+    "Small Shipyard": [
+      "ShipwrightBasicUpgradeItem",
+      "BasicUpgradeItem",
+      "AdvancedUpgradeItem",
+      "ModernUpgradeItem"
+    ],
+    "Spin Melter": [
+      "TailoringUpgradeItem",
+      "GlassworkingAdvancedUpgradeItem",
+      "BasicUpgradeItem",
+      "AdvancedUpgradeItem",
+      "ModernUpgradeItem"
+    ],
+    "Stove": [
+      "AdvancedCookingUpgradeItem",
+      "AdvancedBakingUpgradeItem",
+      "BasicUpgradeItem",
+      "AdvancedUpgradeItem",
+      "ModernUpgradeItem"
+    ],
+    "Tailoring Table": [
+      "TailoringUpgradeItem",
+      "BasicUpgradeItem",
+      "AdvancedUpgradeItem",
+      "ModernUpgradeItem"
+    ],
+    "Wainwright Table": [
+      "BasicEngineeringUpgradeItem",
+      "BasicUpgradeItem",
+      "AdvancedUpgradeItem",
+      "ModernUpgradeItem"
+    ]
+  }
+}

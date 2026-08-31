@@ -15,19 +15,25 @@ import type {
   UserChoices
 } from './types.js';
 import type { TalentIndex } from './talentIndex.js';
+import type { ModuleIndex } from './moduleIndex.js';
+import type { AppliedModule, ModuleSlot } from './types.js';
 import { EXCLUDED_BYPRODUCTS, RAW_OVERRIDES } from './types.js';
 import type { RecipeIndex } from './recipeIndex.js';
 import type { TagsIndex } from './tagsIndex.js';
 import { ingredientAmountPerCycle } from './resourceCost.js';
 
-interface BuildOptions {
+export interface BuildOptions {
   targetItem: string;
   totalAmount: number;
   recipeIndex: RecipeIndex;
   tagsIndex: TagsIndex;
   choices: UserChoices;
   globalUpgrade: number;  // 0.0 – 1.0 default reduction; per-table overrides in choices.upgradeByTable
-  talentData?: TalentIndex;  // recipe Key → reduction + talent details (Eco 13 only)
+  talentData?: TalentIndex;  // recipe Key → reduction + talent details (Eco 13 / Eco 14)
+  // Eco 14 only: reduction comes from the recipe's table + skill and the enabled
+  // module slots rather than from a single globalUpgrade ladder value.
+  moduleData?: ModuleIndex;
+  moduleSlots?: ReadonlySet<ModuleSlot>;
 }
 
 // Node IDs are prefixed with their type to avoid collisions between,
@@ -42,7 +48,37 @@ function getDefaultVariant(recipe: RecipeObject): Variant {
 }
 
 export function buildGraph(opts: BuildOptions): PlannerGraph {
-  const { targetItem, totalAmount, recipeIndex, tagsIndex, choices, globalUpgrade, talentData } = opts;
+  const { targetItem, totalAmount, recipeIndex, tagsIndex, choices, globalUpgrade, talentData, moduleData, moduleSlots } = opts;
+
+  // Module reduction for one recipe. Eco 12/13 use the flat globalUpgrade ladder;
+  // Eco 14 resolves it from the table's slots and the recipe's own skill, since a
+  // specialty module only covers recipes of its skill.
+  // Per-table slot override wins over the global selection, so a single table can be
+  // planned with fewer modules than the rest.
+  function slotsForTable(table: string): ReadonlySet<ModuleSlot> | undefined {
+    if (!moduleSlots) return undefined;
+    const override = choices.moduleSlotsByTable?.get(table);
+    return override ? new Set(override) : moduleSlots;
+  }
+
+  function upgradeReductionFor(recipe: RecipeObject): number {
+    if (!recipe.CraftingTableCanUseModules) return 0;
+    const override = choices.upgradeByTable.get(recipe.CraftingTable);
+    if (override !== undefined) return override;
+    const slots = slotsForTable(recipe.CraftingTable);
+    if (moduleData && slots) {
+      return moduleData.reductionFor(recipe.CraftingTable, recipe.SkillNeeds[0]?.Skill ?? '', slots);
+    }
+    return globalUpgrade;
+  }
+
+  function appliedModulesFor(recipe: RecipeObject): AppliedModule[] | undefined {
+    if (!moduleData || !moduleSlots || !recipe.CraftingTableCanUseModules) return undefined;
+    // A numeric per-table override replaces the module maths, so naming modules would mislead.
+    if (choices.upgradeByTable.get(recipe.CraftingTable) !== undefined) return undefined;
+    const slots = slotsForTable(recipe.CraftingTable)!;
+    return moduleData.breakdownFor(recipe.CraftingTable, recipe.SkillNeeds[0]?.Skill ?? '', slots);
+  }
 
   // Accumulate total requirements and byproduct supply
   const requirements = new Map<string, number>();
@@ -94,9 +130,7 @@ export function buildGraph(opts: BuildOptions): PlannerGraph {
     const isTruePrimary = variant.Products[0]?.Name === itemName;
     if (!isTruePrimary) return;
 
-    const upgradeReduction = recipe.CraftingTableCanUseModules
-      ? (choices.upgradeByTable.get(recipe.CraftingTable) ?? globalUpgrade)
-      : 0;
+    const upgradeReduction = upgradeReductionFor(recipe);
     const talentReduction = Math.min(talentData?.get(recipe.Key)?.totalReduction ?? 0, 1);
     const effectiveReduction = 1 - (1 - upgradeReduction) * (1 - talentReduction);
 
@@ -274,11 +308,10 @@ export function buildGraph(opts: BuildOptions): PlannerGraph {
       return;
     }
 
-    const upgradeReduction = recipe.CraftingTableCanUseModules
-      ? (choices.upgradeByTable.get(recipe.CraftingTable) ?? globalUpgrade)
-      : 0;
+    const upgradeReduction = upgradeReductionFor(recipe);
     const talentReduction = Math.min(talentData?.get(recipe.Key)?.totalReduction ?? 0, 1);
     const effectiveReduction = 1 - (1 - upgradeReduction) * (1 - talentReduction);
+    const tableModules = appliedModulesFor(recipe);
 
     const primaryProduct = variant.Products.find(p => p.Name === itemName) ?? variant.Products[0];
     const primaryAmmount = primaryProduct?.Ammount ?? 1;
@@ -315,8 +348,8 @@ export function buildGraph(opts: BuildOptions): PlannerGraph {
     // Build InlinedProduction data for each inlineable ingredient.
     const inlinedProductionsData: InlinedProduction[] = [];
     for (const [ingredName, { recipe: prodRecipe, variant: prodVariant }] of inlineMap) {
-      const prodUpgrade = prodRecipe.CraftingTableCanUseModules
-        ? (choices.upgradeByTable.get(prodRecipe.CraftingTable) ?? globalUpgrade) : 0;
+      const prodUpgrade = upgradeReductionFor(prodRecipe);
+      const prodModules = appliedModulesFor(prodRecipe);
       const prodTalent = Math.min(talentData?.get(prodRecipe.Key)?.totalReduction ?? 0, 1);
       const prodEffective = 1 - (1 - prodUpgrade) * (1 - prodTalent);
 
@@ -353,6 +386,7 @@ export function buildGraph(opts: BuildOptions): PlannerGraph {
         talentReduction: prodTalent,
         effectiveReduction: prodEffective,
         appliedTalents: talentData?.get(prodRecipe.Key)?.talents ?? [],
+        ...(prodModules ? { appliedModules: prodModules } : {}),
         grossIngredients,
         netIngredients,
       });
@@ -386,6 +420,7 @@ export function buildGraph(opts: BuildOptions): PlannerGraph {
         talentReduction,
         effectiveReduction,
         appliedTalents: talentData?.get(recipe.Key)?.talents ?? [],
+        ...(tableModules ? { appliedModules: tableModules } : {}),
         availableRecipes: recipes,
         ...(loopbackItemsData.length > 0 ? { loopbackItems: loopbackItemsData } : {}),
         ...(inlinedProductionsData.length > 0 ? { inlinedProductions: inlinedProductionsData } : {})

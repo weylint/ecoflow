@@ -38,8 +38,12 @@ export function buildRecipeIndex(recipes: RecipeObject[]): RecipeIndex {
   // Sort each recipe list so the best default comes first:
   // 1. Recipes where this item is the primary (first) product outrank byproduct recipes.
   // 2. De-prioritize the Bioplastic recipe (produces Plastic from Corn — rarely the intended default).
-  // 3. Higher primary-output / total-input ratio first (more efficient recipe wins).
-  // 4. Shorter BaseCraftTime as tie-break.
+  // 3. De-prioritize Recycling recipes: they consume scrap/waste streams (Iron Scrap,
+  //    Textiles, Tailings…) that no recipe produces, so they can never be planned from
+  //    raw resources. They still win when they are the only producer. Eco 14 only —
+  //    earlier versions have no Recycling skill, so this rank is inert there.
+  // 4. Higher primary-output / total-input ratio first (more efficient recipe wins).
+  // 5. Shorter BaseCraftTime as tie-break.
   for (const [itemName, list] of byProduct) {
     if (list.length < 2) continue;
     list.sort((a, b) => {
@@ -56,7 +60,12 @@ export function buildRecipeIndex(recipes: RecipeObject[]): RecipeIndex {
       const bioB = b.Key === 'Bioplastic' ? 1 : 0;
       if (bioA !== bioB) return bioA - bioB;
 
-      // 3. Higher primary-output / total-input ratio first
+      // 3. De-prioritize Recycling recipes
+      const recA = a.SkillNeeds[0]?.Skill === 'Recycling' ? 1 : 0;
+      const recB = b.SkillNeeds[0]?.Skill === 'Recycling' ? 1 : 0;
+      if (recA !== recB) return recA - recB;
+
+      // 4. Higher primary-output / total-input ratio first
       const primaryA = va.Products.find(p => p.Name === itemName)?.Ammount ?? 0;
       const primaryB = vb.Products.find(p => p.Name === itemName)?.Ammount ?? 0;
       const totalInA = va.Ingredients.reduce((s, i) => s + i.Ammount, 0);
@@ -65,7 +74,7 @@ export function buildRecipeIndex(recipes: RecipeObject[]): RecipeIndex {
       const rateB = totalInB > 0 ? primaryB / totalInB : 0;
       if (rateA !== rateB) return rateB - rateA;
 
-      // 4. Shorter BaseCraftTime first
+      // 5. Shorter BaseCraftTime first
       return a.BaseCraftTime - b.BaseCraftTime;
     });
   }

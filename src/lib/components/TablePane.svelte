@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { TablePlannerNode, RecipeObject, ECO12_UPGRADE_LEVELS, ECO13_UPGRADE_LEVELS } from '../types.js';
+  import type { TablePlannerNode, RecipeObject, ModuleSlot, ECO12_UPGRADE_LEVELS, ECO13_UPGRADE_LEVELS } from '../types.js';
 
   interface Props {
     tableNodes: TablePlannerNode[];
@@ -9,9 +9,21 @@
     onRecipeChange: (itemName: string, recipe: RecipeObject) => void;
     onUpgradeChange: (tableName: string, value: number) => void;
     onMarketSelect: (itemName: string) => void;
+    // Eco 14 only: per-table module slots replace the upgrade ladder.
+    // `availableSlots` returns [] for other versions, which selects the ladder.
+    availableSlots?: (tableName: string) => ModuleSlot[];
+    currentSlots?: (tableName: string) => ModuleSlot[];
+    onModuleSlotsChange?: (tableName: string, slots: ModuleSlot[]) => void;
   }
 
-  let { tableNodes, upgradeByTable, globalUpgrade, upgradeLevels, onRecipeChange, onUpgradeChange, onMarketSelect }: Props = $props();
+  let { tableNodes, upgradeByTable, globalUpgrade, upgradeLevels, onRecipeChange, onUpgradeChange, onMarketSelect,
+        availableSlots, currentSlots, onModuleSlotsChange }: Props = $props();
+
+  function toggleSlot(table: string, slot: ModuleSlot, on: boolean) {
+    const next = new Set(currentSlots?.(table) ?? []);
+    if (on) next.add(slot); else next.delete(slot);
+    onModuleSlotsChange?.(table, (availableSlots?.(table) ?? []).filter(s => next.has(s)));
+  }
 
   function formatTime(seconds: number): string {
     const s = Math.round(seconds);
@@ -75,19 +87,36 @@
           </div>
 
           {#if node.recipe.CraftingTableCanUseModules}
-            <div class="entry-row">
-              <!-- svelte-ignore a11y_label_has_associated_control -->
-              <label>Upgrade:
-                <select
-                  value={upgradeByTable.get(node.table) ?? globalUpgrade}
-                  onchange={(e) => onUpgradeChange(node.table, Number((e.target as HTMLSelectElement).value))}
-                >
-                  {#each upgradeLevels as lvl}
-                    <option value={lvl.value}>{lvl.label} ({lvl.value * 100}%)</option>
-                  {/each}
-                </select>
-              </label>
-            </div>
+            {@const slots = availableSlots?.(node.table) ?? []}
+            {#if slots.length > 0}
+              <div class="entry-row slot-row">
+                <span class="slot-row-label">Modules:</span>
+                {#each slots as slot}
+                  <label class="slot-toggle">
+                    <input
+                      type="checkbox"
+                      checked={(currentSlots?.(node.table) ?? []).includes(slot)}
+                      onchange={(e) => toggleSlot(node.table, slot, (e.target as HTMLInputElement).checked)}
+                    />
+                    {slot}
+                  </label>
+                {/each}
+              </div>
+            {:else}
+              <div class="entry-row">
+                <!-- svelte-ignore a11y_label_has_associated_control -->
+                <label>Upgrade:
+                  <select
+                    value={upgradeByTable.get(node.table) ?? globalUpgrade}
+                    onchange={(e) => onUpgradeChange(node.table, Number((e.target as HTMLSelectElement).value))}
+                  >
+                    {#each upgradeLevels as lvl}
+                      <option value={lvl.value}>{lvl.label} ({lvl.value * 100}%)</option>
+                    {/each}
+                  </select>
+                </label>
+              </div>
+            {/if}
           {/if}
         </div>
       {/each}
@@ -178,6 +207,24 @@
     color: #7ec8e3;
     margin-bottom: 4px;
   }
+
+  .slot-row {
+    flex-wrap: wrap;
+    gap: 2px 8px;
+  }
+
+  .slot-row-label { color: #9bb; }
+
+  .slot-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    color: #7fd8b0;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .slot-toggle input { margin: 0; cursor: pointer; }
 
   .entry-row {
     margin-bottom: 4px;

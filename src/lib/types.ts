@@ -32,7 +32,39 @@ export interface Product { Name: string; Ammount: number }  // intentional doubl
 // ── Tags JSON type ─────────────────────────────────────────────────
 export interface TagsFile { Tags: Record<string, string[]> }
 
-// ── Upgrade levels ─────────────────────────────────────────────────
+// ── Eco version modes ──────────────────────────────────────────────
+// 'sandbox' is Eco 14's data with the user's own recipe and talent overrides
+// applied (src/lib/sandbox.ts) — a what-if version to balance against the three
+// real ones. It behaves exactly like Eco 14 everywhere else: same tags, same
+// module slots, same talents minus whatever the patch switches off.
+export type EcoMode = 'eco12' | 'eco13' | 'eco14' | 'sandbox';
+
+export const ECO_MODES: readonly EcoMode[] = ['eco12', 'eco13', 'eco14', 'sandbox'] as const;
+
+export const ECO_MODE_LABELS: Record<EcoMode, string> = {
+  eco12: 'Eco 12',
+  eco13: 'Eco 13',
+  eco14: 'Eco 14',
+  sandbox: 'Sandbox',
+};
+
+/** Modes that use Eco 14's four module slots rather than the 0–5 upgrade ladder. */
+export function usesModuleSlots(mode: EcoMode): mode is 'eco14' | 'sandbox' {
+  return mode === 'eco14' || mode === 'sandbox';
+}
+
+/** The real version a mode's data files come from. */
+export function dataVersionOf(mode: EcoMode): 'eco12' | 'eco13' | 'eco14' {
+  return mode === 'sandbox' ? 'eco14' : mode;
+}
+
+export function isEcoMode(value: unknown): value is EcoMode {
+  return ECO_MODES.includes(value as EcoMode);
+}
+
+// ── Upgrade levels (Eco 12 / Eco 13 only) ──────────────────────────
+// Eco 14 replaced this progressive ladder with four independent module slots —
+// see MODULE_SLOTS below and src/lib/moduleIndex.ts.
 export const ECO12_UPGRADE_LEVELS = [
   { label: 'Upgrade 0', value: 0 },
   { label: 'Upgrade 1', value: 0.15 },
@@ -51,8 +83,28 @@ export const ECO13_UPGRADE_LEVELS = [
   { label: 'Upgrade 5', value: 0.25 },
 ] as const;
 
+// Eco 14 has no upgrade ladder; callers must branch on the mode before calling this.
 export function getUpgradeLevels(mode: 'eco12' | 'eco13') {
   return mode === 'eco13' ? ECO13_UPGRADE_LEVELS : ECO12_UPGRADE_LEVELS;
+}
+
+// ── Eco 14 module slots ────────────────────────────────────────────
+// A table exposes at most one of each slot, and each is independently filled or
+// empty. Resource-cost bonuses pool additively across the filled slots.
+export const MODULE_SLOTS = ['Basic', 'Advanced', 'Modern', 'Specialty'] as const;
+export type ModuleSlot = typeof MODULE_SLOTS[number];
+
+// All four filled — "maximum efficiency", the balancing baseline.
+export const DEFAULT_MODULE_SLOTS: ModuleSlot[] = [...MODULE_SLOTS];
+
+export function isModuleSlot(value: unknown): value is ModuleSlot {
+  return MODULE_SLOTS.includes(value as ModuleSlot);
+}
+
+export interface AppliedModule {
+  slot: ModuleSlot;
+  module: string;      // display name, e.g. "Mining Advanced Upgrade"
+  reduction: number;   // this module's resource-cost reduction fraction
 }
 
 // Byproducts that are waste products and should never satisfy tag requirements
@@ -199,6 +251,7 @@ export interface InlinedProduction {
   talentReduction: number;
   effectiveReduction: number;
   appliedTalents: AppliedTalent[];
+  appliedModules?: AppliedModule[];
   grossIngredients: { name: string; amount: number; isStatic: boolean }[];
   netIngredients: { name: string; amount: number }[];
 }
@@ -215,6 +268,7 @@ export interface TablePlannerNode {
   talentReduction?: number;
   effectiveReduction: number;
   appliedTalents: AppliedTalent[];
+  appliedModules?: AppliedModule[];
   availableRecipes: RecipeObject[];
   loopbackItems?: { itemName: string; grossAmount: number; returnAmount: number; netAmount: number }[];
   inlinedProductions?: InlinedProduction[];
@@ -293,6 +347,9 @@ export interface UserChoices {
   itemByTag: Map<string, string>;             // tag name → chosen specific item
   marketItems: Set<string>;                   // items to buy instead of craft
   upgradeByTable: Map<string, number>;        // CraftingTable name → reduction fraction
+  // Eco 14: CraftingTable name → which module slots that table has filled.
+  // Absent means the table uses the global slot selection.
+  moduleSlotsByTable?: Map<string, ModuleSlot[]>;
 }
 
 export interface TalentEffect {

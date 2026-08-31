@@ -1,6 +1,6 @@
 <script lang="ts">
   import { Handle, Position } from '@xyflow/svelte';
-  import type { TablePlannerNode, RecipeObject, Variant, AppliedTalent, ECO12_UPGRADE_LEVELS, ECO13_UPGRADE_LEVELS, IngredientStats, ProductStats } from '../types.js';
+  import type { TablePlannerNode, RecipeObject, Variant, AppliedTalent, ECO12_UPGRADE_LEVELS, ECO13_UPGRADE_LEVELS, IngredientStats, ProductStats, ModuleSlot } from '../types.js';
   import { ECO12_UPGRADE_LEVELS as ECO12, EDM_MARKUP_EXCLUDED_RECIPES } from '../types.js';
   import { fmtNum, fmtEdm } from '../format.js';
 
@@ -12,6 +12,10 @@
       onUpgradeChange?: (tableName: string, value: number) => void;
       currentUpgrade?: number;
       upgradeLevels?: typeof ECO12_UPGRADE_LEVELS | typeof ECO13_UPGRADE_LEVELS;
+      // Eco 14: per-table module slots, replacing the upgrade ladder.
+      onModuleSlotsChange?: (tableName: string, slots: ModuleSlot[]) => void;
+      availableSlots?: ModuleSlot[];
+      currentSlots?: ModuleSlot[];
       ingredientStats?: IngredientStats[];
       productStats?: ProductStats[];
       showStats?: boolean;
@@ -43,6 +47,12 @@
   function handleUpgradeSelect(e: Event) {
     const select = e.target as HTMLSelectElement;
     data.onUpgradeChange?.(data.table, Number(select.value));
+  }
+
+  function toggleSlot(slot: ModuleSlot, on: boolean) {
+    const next = new Set(data.currentSlots ?? []);
+    if (on) next.add(slot); else next.delete(slot);
+    data.onModuleSlotsChange?.(data.table, (data.availableSlots ?? []).filter(s => next.has(s)));
   }
 
   function formatTime(seconds: number): string {
@@ -98,15 +108,46 @@
     {/if}
 
     {#if data.recipe.CraftingTableCanUseModules}
-      <div class="picker-row">
+      {#if data.availableSlots}
+        <!-- Eco 14: only the slots this table's allow-list can actually fill. -->
+        <div class="picker-row slot-row">
+          <span class="slot-row-label">Modules:</span>
+          {#each data.availableSlots as slot}
+            <label class="slot-toggle">
+              <input
+                type="checkbox"
+                checked={(data.currentSlots ?? []).includes(slot)}
+                onchange={(e) => toggleSlot(slot, (e.target as HTMLInputElement).checked)}
+              />
+              {slot}
+            </label>
+          {/each}
+        </div>
+      {:else}
         <!-- svelte-ignore a11y_label_has_associated_control -->
-        <label>Upgrade:
-          <select value={data.currentUpgrade ?? 0} onchange={handleUpgradeSelect}>
-            {#each (data.upgradeLevels ?? ECO12) as lvl}
-              <option value={lvl.value}>{lvl.label} ({lvl.value * 100}%)</option>
-            {/each}
-          </select>
-        </label>
+        <div class="picker-row">
+          <label>Upgrade:
+            <select value={data.currentUpgrade ?? 0} onchange={handleUpgradeSelect}>
+              {#each (data.upgradeLevels ?? ECO12) as lvl}
+                <option value={lvl.value}>{lvl.label} ({lvl.value * 100}%)</option>
+              {/each}
+            </select>
+          </label>
+        </div>
+      {/if}
+    {/if}
+
+    <!-- Eco 14: name the modules the reduction assumed. A specialty module only
+         covers its own skill, so the same table reduces different recipes by
+         different amounts — showing the modules makes that visible. -->
+    {#if data.appliedModules?.length}
+      <div class="modules">
+        {#each data.appliedModules as mod}
+          <span class="module-chip">
+            {mod.slot} −{Math.round(mod.reduction * 100)}%
+            <span class="talent-tooltip">{mod.module}</span>
+          </span>
+        {/each}
       </div>
     {/if}
 
@@ -151,7 +192,7 @@
     {/if}
 
     {#if data.showStats !== false && ((data.ingredientStats?.length ?? 0) > 0 || (data.productStats?.length ?? 0) > 0)}
-      <div class="stats-section" class:first-bottom={!data.appliedTalents?.length && !data.loopbackItems?.length}>
+      <div class="stats-section" class:first-bottom={!data.appliedModules?.length && !data.appliedTalents?.length && !data.loopbackItems?.length}>
 
         {#each (data.ingredientStats ?? []) as ing}
           {#if ing.name === 'Food'}
@@ -343,6 +384,48 @@
     padding-top: 4px;
   }
 
+  .slot-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 2px 6px;
+  }
+
+  .slot-row-label { font-size: 10px; color: #9bb; }
+
+  .slot-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    font-size: 10px;
+    color: #7fd8b0;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .slot-toggle input { margin: 0; cursor: pointer; }
+
+  .modules {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+    margin-top: 2px;
+    border-top: 1px solid #4a7fb5;
+    padding-top: 4px;
+  }
+
+  .module-chip {
+    position: relative;
+    font-size: 10px;
+    background: #143c2e;
+    border: 1px solid #3f9d76;
+    border-radius: 3px;
+    padding: 1px 4px;
+    color: #7fd8b0;
+    cursor: default;
+    white-space: nowrap;
+  }
+
   .talent-chip {
     position: relative;
     font-size: 10px;
@@ -373,6 +456,7 @@
     pointer-events: none;
   }
 
+  .module-chip:hover .talent-tooltip,
   .talent-chip:hover .talent-tooltip {
     display: block;
   }

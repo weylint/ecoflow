@@ -1,0 +1,2541 @@
+{
+  "skills": [
+    "Advanced Baking",
+    "Advanced Cooking",
+    "Advanced Masonry",
+    "Advanced Smelting",
+    "Baking",
+    "Basic Engineering",
+    "Blacksmith",
+    "Butchery",
+    "Campfire Cooking",
+    "Carpentry",
+    "Composites",
+    "Cooking",
+    "Cutting Edge Cooking",
+    "Electronics",
+    "Farming",
+    "Fertilizers",
+    "Gathering",
+    "Glassworking",
+    "Hunting",
+    "Industry",
+    "Logging",
+    "Masonry",
+    "Mechanics",
+    "Milling",
+    "Mining",
+    "Oil Drilling",
+    "Painting",
+    "Paper Milling",
+    "Pottery",
+    "Recycling",
+    "Self Improvement",
+    "Shipwright",
+    "Smelting",
+    "Tailoring"
+  ],
+  "edges": [
+    {
+      "from": "Advanced Baking",
+      "to": "Advanced Cooking",
+      "recipes": [
+        "Culinary Research Paper Modern"
+      ]
+    },
+    {
+      "from": "Advanced Baking",
+      "to": "Advanced Masonry",
+      "recipes": [
+        "Laser"
+      ]
+    },
+    {
+      "from": "Advanced Baking",
+      "to": "Composites",
+      "recipes": [
+        "Laser Body"
+      ]
+    },
+    {
+      "from": "Advanced Cooking",
+      "to": "Advanced Baking",
+      "recipes": [
+        "Culinary Research Paper Modern (Baking)"
+      ]
+    },
+    {
+      "from": "Advanced Cooking",
+      "to": "Advanced Masonry",
+      "recipes": [
+        "Laser"
+      ]
+    },
+    {
+      "from": "Advanced Cooking",
+      "to": "Composites",
+      "recipes": [
+        "Laser Body"
+      ]
+    },
+    {
+      "from": "Advanced Masonry",
+      "to": "Composites",
+      "recipes": [
+        "Laser Body"
+      ]
+    },
+    {
+      "from": "Advanced Smelting",
+      "to": "Advanced Cooking",
+      "recipes": [
+        "Cutting Edge Cooking Skill Book"
+      ]
+    },
+    {
+      "from": "Advanced Smelting",
+      "to": "Advanced Masonry",
+      "recipes": [
+        "Advanced Masonry",
+        "Ashlar Basalt",
+        "Ashlar Gneiss",
+        "Ashlar Granite",
+        "Ashlar Limestone",
+        "Ashlar Sandstone",
+        "Ashlar Shale",
+        "Laser"
+      ]
+    },
+    {
+      "from": "Advanced Smelting",
+      "to": "Composites",
+      "recipes": [
+        "Composites",
+        "Laser Body"
+      ]
+    },
+    {
+      "from": "Advanced Smelting",
+      "to": "Electronics",
+      "recipes": [
+        "Electronics",
+        "Electronics Assembly",
+        "Froth Floatation Cell",
+        "Steel Searchlight"
+      ]
+    },
+    {
+      "from": "Advanced Smelting",
+      "to": "Industry",
+      "recipes": [
+        "Advanced Combustion Engine",
+        "Electric Planer",
+        "Excavator",
+        "Industrial Elevator",
+        "Industrial Generator",
+        "Industry",
+        "Powered Storage Silo",
+        "Scorpion",
+        "Sensor Based Belt Sorter",
+        "Skid Steer",
+        "Truck",
+        "Truck Dumpster Loader",
+        "Truck Flatbed",
+        "Truck Garbage Collector"
+      ]
+    },
+    {
+      "from": "Advanced Smelting",
+      "to": "Masonry",
+      "recipes": [
+        "Reinforced Concrete",
+        "Sulfurcrete"
+      ]
+    },
+    {
+      "from": "Advanced Smelting",
+      "to": "Mechanics",
+      "recipes": [
+        "Steel Liquid Tank",
+        "Stove",
+        "Valve"
+      ]
+    },
+    {
+      "from": "Advanced Smelting",
+      "to": "Oil Drilling",
+      "recipes": [
+        "Biodiesel",
+        "Petroleum"
+      ]
+    },
+    {
+      "from": "Advanced Smelting",
+      "to": "Pottery",
+      "recipes": [
+        "Toilet"
+      ]
+    },
+    {
+      "from": "Advanced Smelting",
+      "to": "Recycling",
+      "recipes": [
+        "Steel Bin",
+        "Sulfuric Acid"
+      ]
+    },
+    {
+      "from": "Advanced Smelting",
+      "to": "Self Improvement",
+      "recipes": [
+        "Modern Upgrade"
+      ]
+    },
+    {
+      "from": "Advanced Smelting",
+      "to": "Shipwright",
+      "recipes": [
+        "Large Metal Ship Frame",
+        "Steel Moorage Post"
+      ]
+    },
+    {
+      "from": "Advanced Smelting",
+      "to": "Tailoring",
+      "recipes": [
+        "Nylon Futon Bed",
+        "Nylon Futon Couch",
+        "Upholstered Chair",
+        "Upholstered Couch"
+      ]
+    },
+    {
+      "from": "Baking",
+      "to": "Advanced Baking",
+      "recipes": [
+        "Advanced Baking",
+        "Bearclaw",
+        "Elk Wellington",
+        "Fantastic Forest Pizza",
+        "Fruit Tart",
+        "Hearty Hometown Pizza",
+        "Macarons",
+        "Pirozhok",
+        "Sensuous Sea Pizza",
+        "Stuffed Turkey",
+        "Tasty Tropical Pizza"
+      ]
+    },
+    {
+      "from": "Baking",
+      "to": "Advanced Cooking",
+      "recipes": [
+        "Advanced Cooking",
+        "Cutting Edge Cooking Skill Book"
+      ]
+    },
+    {
+      "from": "Baking",
+      "to": "Composites",
+      "recipes": [
+        "Laser Body"
+      ]
+    },
+    {
+      "from": "Baking",
+      "to": "Glassworking",
+      "recipes": [
+        "Special Alloy"
+      ]
+    },
+    {
+      "from": "Baking",
+      "to": "Self Improvement",
+      "recipes": [
+        "Advanced Upgrade"
+      ]
+    },
+    {
+      "from": "Basic Engineering",
+      "to": "Advanced Masonry",
+      "recipes": [
+        "Laser"
+      ]
+    },
+    {
+      "from": "Basic Engineering",
+      "to": "Blacksmith",
+      "recipes": [
+        "Huge Iron Banner Sign",
+        "Huge Iron Sign",
+        "Iron Paint Sprayer",
+        "Small Paper Machine"
+      ]
+    },
+    {
+      "from": "Basic Engineering",
+      "to": "Carpentry",
+      "recipes": [
+        "Loom",
+        "Machinist Table",
+        "Wooden Kitchen Lamp"
+      ]
+    },
+    {
+      "from": "Basic Engineering",
+      "to": "Electronics",
+      "recipes": [
+        "Blasting Cap"
+      ]
+    },
+    {
+      "from": "Basic Engineering",
+      "to": "Glassworking",
+      "recipes": [
+        "Glassworking",
+        "Special Alloy"
+      ]
+    },
+    {
+      "from": "Basic Engineering",
+      "to": "Industry",
+      "recipes": [
+        "Electric Lathe",
+        "Electric Stamping Press",
+        "Incinerator",
+        "Industry"
+      ]
+    },
+    {
+      "from": "Basic Engineering",
+      "to": "Logging",
+      "recipes": [
+        "Pottery Table"
+      ]
+    },
+    {
+      "from": "Basic Engineering",
+      "to": "Mechanics",
+      "recipes": [
+        "Biowaste Sorter",
+        "Boiler",
+        "Cement Kiln",
+        "Combustion Engine",
+        "Construction Scrap Sorter",
+        "Crane",
+        "Desalinator",
+        "Electric Machinist Table",
+        "Electro Static Filter",
+        "Engineering Research Paper Modern",
+        "Garbage Sorter",
+        "Heat Sink",
+        "Industrial Waste Sorter",
+        "Lathe",
+        "Lighthouse Lamp",
+        "Mechanics",
+        "Medium Shipyard",
+        "Metal Scrap Sorter",
+        "Oil Refinery",
+        "Portable Steam Engine",
+        "Power Hammer",
+        "Printing Press",
+        "Residual Waste Sorter",
+        "Shaper",
+        "Sink",
+        "Steam Tractor",
+        "Steam Tractor Harvester",
+        "Steam Tractor Plow",
+        "Steam Tractor Scoop",
+        "Steam Tractor Sower",
+        "Steam Tractor Tree Cutter",
+        "Steam Truck",
+        "Steam Truck Flatbed",
+        "Steam Truck Garbage Collector",
+        "Steel Liquid Tank",
+        "Water Filter"
+      ]
+    },
+    {
+      "from": "Basic Engineering",
+      "to": "Mining",
+      "recipes": [
+        "Crushed Stone Road Lv2"
+      ]
+    },
+    {
+      "from": "Basic Engineering",
+      "to": "Painting",
+      "recipes": [
+        "Painting"
+      ]
+    },
+    {
+      "from": "Basic Engineering",
+      "to": "Pottery",
+      "recipes": [
+        "Pottery"
+      ]
+    },
+    {
+      "from": "Basic Engineering",
+      "to": "Shipwright",
+      "recipes": [
+        "Iron Hull Sheet",
+        "Metal Rudder",
+        "Precision Tools",
+        "Small Wooden Boat",
+        "Wooden Barge"
+      ]
+    },
+    {
+      "from": "Basic Engineering",
+      "to": "Tailoring",
+      "recipes": [
+        "Oil Head Lamp"
+      ]
+    },
+    {
+      "from": "Blacksmith",
+      "to": "Advanced Masonry",
+      "recipes": [
+        "Laser"
+      ]
+    },
+    {
+      "from": "Blacksmith",
+      "to": "Carpentry",
+      "recipes": [
+        "Long Basic Wood Shelf",
+        "Long Floating Wood Shelf",
+        "Long Lumber Shelf",
+        "Lumber",
+        "Lumber Bench",
+        "Lumber Chair",
+        "Lumber Dresser",
+        "Lumber Table",
+        "Short Basic Wood Shelf",
+        "Short Floating Wood Shelf",
+        "Wood Double Shelf",
+        "Wooden Ceiling Light",
+        "Wooden Fabric Bed",
+        "Wooden Floor Lamp",
+        "Wooden Kitchen Lamp",
+        "Wooden Table Lamp"
+      ]
+    },
+    {
+      "from": "Blacksmith",
+      "to": "Composites",
+      "recipes": [
+        "Laser Body"
+      ]
+    },
+    {
+      "from": "Blacksmith",
+      "to": "Electronics",
+      "recipes": [
+        "Advanced Circuit",
+        "Basic Circuit",
+        "Ceramic Fuse",
+        "Electric Motor",
+        "Electric Wall Lamp",
+        "Electronics Assembly",
+        "Etched Advanced Circuit",
+        "Etched Basic Circuit",
+        "Fuse",
+        "Modern Double Street Light",
+        "Modern Street Light",
+        "Steel Abstract Fixture",
+        "Steel Ceiling Light",
+        "Steel Floor Lamp",
+        "Steel Hanging Lamp",
+        "Steel Kitchen Lamp",
+        "Steel Searchlight",
+        "Steel Table Lamp",
+        "Streetlamp"
+      ]
+    },
+    {
+      "from": "Blacksmith",
+      "to": "Glassworking",
+      "recipes": [
+        "Light Bulb"
+      ]
+    },
+    {
+      "from": "Blacksmith",
+      "to": "Industry",
+      "recipes": [
+        "Advanced Carpentry Table",
+        "Advanced Masonry Table",
+        "Electric Stamping Press",
+        "Injection Mold Machine",
+        "Plastic Buoy",
+        "Radiator"
+      ]
+    },
+    {
+      "from": "Blacksmith",
+      "to": "Logging",
+      "recipes": [
+        "Wooden Mold"
+      ]
+    },
+    {
+      "from": "Blacksmith",
+      "to": "Mechanics",
+      "recipes": [
+        "Desalinator",
+        "Electro Static Filter",
+        "Heat Sink",
+        "Insulated Copper Wiring",
+        "Lighthouse Lamp",
+        "Mechanics Advanced Upgrade",
+        "Steam Tractor Tree Cutter",
+        "Transmission Pole"
+      ]
+    },
+    {
+      "from": "Blacksmith",
+      "to": "Shipwright",
+      "recipes": [
+        "Industrial Barge",
+        "Medium Fishing Trawler",
+        "Small Wooden Boat"
+      ]
+    },
+    {
+      "from": "Butchery",
+      "to": "Advanced Baking",
+      "recipes": [
+        "Elk Wellington",
+        "Hearty Hometown Pizza",
+        "Pirozhok",
+        "Tasty Tropical Pizza"
+      ]
+    },
+    {
+      "from": "Butchery",
+      "to": "Advanced Cooking",
+      "recipes": [
+        "Agouti Enchiladas",
+        "Banh Xeo",
+        "Bear S U P R E M E",
+        "Boiled Sausage",
+        "Fried Hare Haunches",
+        "Seared Meat"
+      ]
+    },
+    {
+      "from": "Butchery",
+      "to": "Baking",
+      "recipes": [
+        "Baked Meat",
+        "Baked Roast"
+      ]
+    },
+    {
+      "from": "Butchery",
+      "to": "Campfire Cooking",
+      "recipes": [
+        "Campfire Roast",
+        "Charred Meat",
+        "Charred Sausage"
+      ]
+    },
+    {
+      "from": "Butchery",
+      "to": "Cooking",
+      "recipes": [
+        "Crispy Bacon",
+        "Loaded Taro Fries",
+        "Phad Thai",
+        "Simmered Meat",
+        "Smooth Gut Noodle Roll"
+      ]
+    },
+    {
+      "from": "Butchery",
+      "to": "Hunting",
+      "recipes": [
+        "Dry Meat",
+        "Sweet Jerky"
+      ]
+    },
+    {
+      "from": "Campfire Cooking",
+      "to": "Advanced Cooking",
+      "recipes": [
+        "Crimson Salad",
+        "Pineapple Friend Rice"
+      ]
+    },
+    {
+      "from": "Campfire Cooking",
+      "to": "Fertilizers",
+      "recipes": [
+        "Camas Ash Fertilizer"
+      ]
+    },
+    {
+      "from": "Campfire Cooking",
+      "to": "Glassworking",
+      "recipes": [
+        "Special Alloy"
+      ]
+    },
+    {
+      "from": "Campfire Cooking",
+      "to": "Shipwright",
+      "recipes": [
+        "Precision Tools"
+      ]
+    },
+    {
+      "from": "Carpentry",
+      "to": "Advanced Baking",
+      "recipes": [
+        "Advanced Baking"
+      ]
+    },
+    {
+      "from": "Carpentry",
+      "to": "Advanced Cooking",
+      "recipes": [
+        "Advanced Cooking"
+      ]
+    },
+    {
+      "from": "Carpentry",
+      "to": "Advanced Masonry",
+      "recipes": [
+        "Laser"
+      ]
+    },
+    {
+      "from": "Carpentry",
+      "to": "Basic Engineering",
+      "recipes": [
+        "Iron Road Tool",
+        "Wood Shop Cart"
+      ]
+    },
+    {
+      "from": "Carpentry",
+      "to": "Blacksmith",
+      "recipes": [
+        "Steel Axe",
+        "Steel Hammer",
+        "Steel Hoe",
+        "Steel Machete",
+        "Steel Pickaxe",
+        "Steel Shovel",
+        "Steel Sickle"
+      ]
+    },
+    {
+      "from": "Carpentry",
+      "to": "Composites",
+      "recipes": [
+        "Composites",
+        "Laser Body"
+      ]
+    },
+    {
+      "from": "Carpentry",
+      "to": "Hunting",
+      "recipes": [
+        "Goat Mount",
+        "Recurve Bow",
+        "Sheep Mount",
+        "Stuffed Alligator",
+        "Stuffed Bison",
+        "Stuffed Elk",
+        "Stuffed Goat",
+        "Stuffed Jaguar",
+        "Stuffed Wolf"
+      ]
+    },
+    {
+      "from": "Carpentry",
+      "to": "Industry",
+      "recipes": [
+        "Advanced Carpentry Table"
+      ]
+    },
+    {
+      "from": "Carpentry",
+      "to": "Mechanics",
+      "recipes": [
+        "Laboratory",
+        "Medium Shipyard",
+        "Steam Tractor",
+        "Steam Truck",
+        "Steam Truck Flatbed",
+        "Transmission Pole"
+      ]
+    },
+    {
+      "from": "Carpentry",
+      "to": "Oil Drilling",
+      "recipes": [
+        "Oil Drilling"
+      ]
+    },
+    {
+      "from": "Carpentry",
+      "to": "Pottery",
+      "recipes": [
+        "Standing Clay Pot"
+      ]
+    },
+    {
+      "from": "Carpentry",
+      "to": "Shipwright",
+      "recipes": [
+        "Wooden Transport Ship"
+      ]
+    },
+    {
+      "from": "Carpentry",
+      "to": "Smelting",
+      "recipes": [
+        "Cast Iron Stove",
+        "Town Bell"
+      ]
+    },
+    {
+      "from": "Carpentry",
+      "to": "Tailoring",
+      "recipes": [
+        "Couch",
+        "Nylon Futon Bed",
+        "Nylon Futon Couch",
+        "Upholstered Chair",
+        "Upholstered Couch"
+      ]
+    },
+    {
+      "from": "Composites",
+      "to": "Advanced Masonry",
+      "recipes": [
+        "Laser"
+      ]
+    },
+    {
+      "from": "Composites",
+      "to": "Electronics",
+      "recipes": [
+        "Computer Lab",
+        "Steel Abstract Fixture",
+        "Steel Hanging Lamp"
+      ]
+    },
+    {
+      "from": "Composites",
+      "to": "Hunting",
+      "recipes": [
+        "Bison Mount",
+        "Elk Mount"
+      ]
+    },
+    {
+      "from": "Cooking",
+      "to": "Advanced Baking",
+      "recipes": [
+        "Stuffed Turkey"
+      ]
+    },
+    {
+      "from": "Cooking",
+      "to": "Advanced Cooking",
+      "recipes": [
+        "Bear S U P R E M E",
+        "Bison Chow Fun",
+        "Boiled Sausage",
+        "Crimson Salad",
+        "Fish N Chips",
+        "Sweet Salad",
+        "Wild Mix"
+      ]
+    },
+    {
+      "from": "Cooking",
+      "to": "Advanced Masonry",
+      "recipes": [
+        "Laser"
+      ]
+    },
+    {
+      "from": "Cooking",
+      "to": "Baking",
+      "recipes": [
+        "Culinary Research Paper Advanced",
+        "Culinary Research Paper Advanced Meat"
+      ]
+    },
+    {
+      "from": "Cooking",
+      "to": "Glassworking",
+      "recipes": [
+        "Special Alloy"
+      ]
+    },
+    {
+      "from": "Electronics",
+      "to": "Advanced Masonry",
+      "recipes": [
+        "Laser"
+      ]
+    },
+    {
+      "from": "Electronics",
+      "to": "Blacksmith",
+      "recipes": [
+        "Modern Paint Sprayer"
+      ]
+    },
+    {
+      "from": "Electronics",
+      "to": "Industry",
+      "recipes": [
+        "Advanced Carpentry Table",
+        "Advanced Combustion Engine",
+        "Advanced Masonry Table",
+        "Advanced Tailoring Table",
+        "Automatic Loom",
+        "Incinerator",
+        "Industrial Elevator",
+        "Industrial Generator",
+        "Industrial Refrigerator",
+        "Injection Mold Machine",
+        "Powered Storage Silo",
+        "Refrigerator",
+        "Sensor Based Belt Sorter",
+        "Spin Melter",
+        "Washing Machine"
+      ]
+    },
+    {
+      "from": "Electronics",
+      "to": "Mechanics",
+      "recipes": [
+        "Electric Machinist Table",
+        "Lighthouse Lamp",
+        "Oil Refinery",
+        "Pump Jack",
+        "Servo",
+        "Stove",
+        "Transmission Pole",
+        "Waste Filter"
+      ]
+    },
+    {
+      "from": "Electronics",
+      "to": "Mining",
+      "recipes": [
+        "Mining Charge"
+      ]
+    },
+    {
+      "from": "Farming",
+      "to": "Advanced Cooking",
+      "recipes": [
+        "Banh Xeo",
+        "Bison Chow Fun"
+      ]
+    },
+    {
+      "from": "Farming",
+      "to": "Blacksmith",
+      "recipes": [
+        "Candle Stand",
+        "Ceiling Candle",
+        "Wall Candle"
+      ]
+    },
+    {
+      "from": "Farming",
+      "to": "Cooking",
+      "recipes": [
+        "Phad Thai"
+      ]
+    },
+    {
+      "from": "Farming",
+      "to": "Cutting Edge Cooking",
+      "recipes": [
+        "Cutting Edge Cooking Upgrade"
+      ]
+    },
+    {
+      "from": "Farming",
+      "to": "Electronics",
+      "recipes": [
+        "Blasting Cap"
+      ]
+    },
+    {
+      "from": "Farming",
+      "to": "Fertilizers",
+      "recipes": [
+        "Fertilizers"
+      ]
+    },
+    {
+      "from": "Farming",
+      "to": "Gathering",
+      "recipes": [
+        "Flax Fiber"
+      ]
+    },
+    {
+      "from": "Farming",
+      "to": "Glassworking",
+      "recipes": [
+        "Special Alloy"
+      ]
+    },
+    {
+      "from": "Farming",
+      "to": "Milling",
+      "recipes": [
+        "Cottonseed Oil",
+        "Flaxseed Oil",
+        "Processed Cottonseed Oil",
+        "Processed Sun Cheese",
+        "Processed Sunflower Oil",
+        "Processsed Flaxseed Oil",
+        "Sun Cheese",
+        "Sunflower Oil"
+      ]
+    },
+    {
+      "from": "Farming",
+      "to": "Oil Drilling",
+      "recipes": [
+        "Biodiesel",
+        "Oil Drilling"
+      ]
+    },
+    {
+      "from": "Farming",
+      "to": "Paper Milling",
+      "recipes": [
+        "Paper"
+      ]
+    },
+    {
+      "from": "Farming",
+      "to": "Self Improvement",
+      "recipes": [
+        "Advanced Upgrade",
+        "Basic Upgrade"
+      ]
+    },
+    {
+      "from": "Farming",
+      "to": "Shipwright",
+      "recipes": [
+        "Precision Tools"
+      ]
+    },
+    {
+      "from": "Fertilizers",
+      "to": "Advanced Cooking",
+      "recipes": [
+        "Cutting Edge Cooking Skill Book"
+      ]
+    },
+    {
+      "from": "Fertilizers",
+      "to": "Glassworking",
+      "recipes": [
+        "Special Alloy"
+      ]
+    },
+    {
+      "from": "Fertilizers",
+      "to": "Mining",
+      "recipes": [
+        "Dynamite"
+      ]
+    },
+    {
+      "from": "Fertilizers",
+      "to": "Oil Drilling",
+      "recipes": [
+        "Nitric Acid",
+        "Synthetic Phosphate Fertilizer"
+      ]
+    },
+    {
+      "from": "Fertilizers",
+      "to": "Self Improvement",
+      "recipes": [
+        "Modern Upgrade"
+      ]
+    },
+    {
+      "from": "Fertilizers",
+      "to": "Shipwright",
+      "recipes": [
+        "Precision Tools"
+      ]
+    },
+    {
+      "from": "Gathering",
+      "to": "Advanced Cooking",
+      "recipes": [
+        "Millionaires Salad"
+      ]
+    },
+    {
+      "from": "Gathering",
+      "to": "Baking",
+      "recipes": [
+        "Baked Heart Of Palm"
+      ]
+    },
+    {
+      "from": "Gathering",
+      "to": "Campfire Cooking",
+      "recipes": [
+        "Charred Heart Of Palm",
+        "Fried Hearts Of Palm",
+        "Jungle Campfire Salad"
+      ]
+    },
+    {
+      "from": "Gathering",
+      "to": "Farming",
+      "recipes": [
+        "Farming"
+      ]
+    },
+    {
+      "from": "Gathering",
+      "to": "Glassworking",
+      "recipes": [
+        "Special Alloy"
+      ]
+    },
+    {
+      "from": "Gathering",
+      "to": "Milling",
+      "recipes": [
+        "Milling"
+      ]
+    },
+    {
+      "from": "Gathering",
+      "to": "Painting",
+      "recipes": [
+        "Painting"
+      ]
+    },
+    {
+      "from": "Gathering",
+      "to": "Recycling",
+      "recipes": [
+        "Recycled Copper Bar",
+        "Recycled Gold Bar",
+        "Recycled Iron Bar",
+        "Recycling"
+      ]
+    },
+    {
+      "from": "Gathering",
+      "to": "Self Improvement",
+      "recipes": [
+        "Basic Upgrade"
+      ]
+    },
+    {
+      "from": "Gathering",
+      "to": "Shipwright",
+      "recipes": [
+        "Precision Tools",
+        "Shipwright"
+      ]
+    },
+    {
+      "from": "Gathering",
+      "to": "Smelting",
+      "recipes": [
+        "Cast Iron Bench",
+        "Cast Iron Chair",
+        "Cast Iron Table",
+        "Copper Bar",
+        "Gold Bar",
+        "Iron Bar",
+        "Smelt Copper",
+        "Smelt Gold",
+        "Smelt Iron"
+      ]
+    },
+    {
+      "from": "Gathering",
+      "to": "Tailoring",
+      "recipes": [
+        "Cotton Thread",
+        "Gathering Research Paper Advanced",
+        "Linen Yarn",
+        "Tailoring"
+      ]
+    },
+    {
+      "from": "Glassworking",
+      "to": "Advanced Masonry",
+      "recipes": [
+        "Laser"
+      ]
+    },
+    {
+      "from": "Glassworking",
+      "to": "Advanced Smelting",
+      "recipes": [
+        "Huge Steel Banner Sign",
+        "Huge Steel Sign"
+      ]
+    },
+    {
+      "from": "Glassworking",
+      "to": "Blacksmith",
+      "recipes": [
+        "Chainsaw",
+        "Modern Axe",
+        "Modern Hammer",
+        "Modern Hoe",
+        "Modern Machete",
+        "Modern Paint Sprayer",
+        "Modern Pickaxe",
+        "Modern Scythe",
+        "Modern Shovel"
+      ]
+    },
+    {
+      "from": "Glassworking",
+      "to": "Carpentry",
+      "recipes": [
+        "Wooden Ceiling Light",
+        "Wooden Floor Lamp",
+        "Wooden Kitchen Lamp",
+        "Wooden Table Lamp"
+      ]
+    },
+    {
+      "from": "Glassworking",
+      "to": "Composites",
+      "recipes": [
+        "Laser Body"
+      ]
+    },
+    {
+      "from": "Glassworking",
+      "to": "Electronics",
+      "recipes": [
+        "Electric Wall Lamp",
+        "Handheld Camera",
+        "Modern Double Street Light",
+        "Modern Street Light",
+        "Remote Detonator",
+        "Steel Abstract Fixture",
+        "Steel Ceiling Light",
+        "Steel Floor Lamp",
+        "Steel Hanging Lamp",
+        "Steel Kitchen Lamp",
+        "Steel Searchlight",
+        "Steel Table Lamp",
+        "Streetlamp",
+        "Substrate"
+      ]
+    },
+    {
+      "from": "Glassworking",
+      "to": "Hunting",
+      "recipes": [
+        "Composite Bow"
+      ]
+    },
+    {
+      "from": "Glassworking",
+      "to": "Industry",
+      "recipes": [
+        "Excavator",
+        "Scorpion",
+        "Skid Steer",
+        "Truck",
+        "Truck Garbage Collector"
+      ]
+    },
+    {
+      "from": "Glassworking",
+      "to": "Masonry",
+      "recipes": [
+        "Fiber Reinforced Concrete"
+      ]
+    },
+    {
+      "from": "Glassworking",
+      "to": "Mechanics",
+      "recipes": [
+        "Camera Film",
+        "Servo",
+        "Steam Tractor",
+        "Steam Truck",
+        "Tripod Camera"
+      ]
+    },
+    {
+      "from": "Glassworking",
+      "to": "Paper Milling",
+      "recipes": [
+        "Large Festive Paper Lantern",
+        "Large Paper Lantern",
+        "Small Paper Lantern"
+      ]
+    },
+    {
+      "from": "Hunting",
+      "to": "Advanced Baking",
+      "recipes": [
+        "Sensuous Sea Pizza"
+      ]
+    },
+    {
+      "from": "Hunting",
+      "to": "Advanced Cooking",
+      "recipes": [
+        "Fish N Chips",
+        "Hosomaki"
+      ]
+    },
+    {
+      "from": "Hunting",
+      "to": "Campfire Cooking",
+      "recipes": [
+        "Charred Fish"
+      ]
+    },
+    {
+      "from": "Hunting",
+      "to": "Cooking",
+      "recipes": [
+        "Fish Stock"
+      ]
+    },
+    {
+      "from": "Hunting",
+      "to": "Milling",
+      "recipes": [
+        "Fish Oil",
+        "Processed Fish Oil"
+      ]
+    },
+    {
+      "from": "Hunting",
+      "to": "Shipwright",
+      "recipes": [
+        "Precision Tools"
+      ]
+    },
+    {
+      "from": "Industry",
+      "to": "Advanced Masonry",
+      "recipes": [
+        "Laser"
+      ]
+    },
+    {
+      "from": "Industry",
+      "to": "Advanced Smelting",
+      "recipes": [
+        "Hanging Long Steel Sign",
+        "Hanging Steel Mine Sign",
+        "Hanging Steel Plain Sign",
+        "Hanging Steel Shop Sign",
+        "Huge Steel Banner Sign",
+        "Huge Steel Sign",
+        "Standing Long Steel Sign"
+      ]
+    },
+    {
+      "from": "Industry",
+      "to": "Blacksmith",
+      "recipes": [
+        "Modern Rock Drill"
+      ]
+    },
+    {
+      "from": "Industry",
+      "to": "Composites",
+      "recipes": [
+        "Laser Body"
+      ]
+    },
+    {
+      "from": "Industry",
+      "to": "Electronics",
+      "recipes": [
+        "Froth Floatation Cell",
+        "Jaw Crusher",
+        "Modern Double Street Light",
+        "Modern Street Light",
+        "Steel Searchlight",
+        "Wind Turbine"
+      ]
+    },
+    {
+      "from": "Industry",
+      "to": "Mechanics",
+      "recipes": [
+        "Steel Liquid Tank",
+        "Stove",
+        "Valve"
+      ]
+    },
+    {
+      "from": "Industry",
+      "to": "Pottery",
+      "recipes": [
+        "Standing Steel Brick Sign"
+      ]
+    },
+    {
+      "from": "Industry",
+      "to": "Recycling",
+      "recipes": [
+        "Dumpster Compost",
+        "Dumpster Garbage",
+        "Dumpster Recycle"
+      ]
+    },
+    {
+      "from": "Industry",
+      "to": "Shipwright",
+      "recipes": [
+        "Industrial Barge"
+      ]
+    },
+    {
+      "from": "Industry",
+      "to": "Tailoring",
+      "recipes": [
+        "Carbide Helmet Lamp"
+      ]
+    },
+    {
+      "from": "Logging",
+      "to": "Advanced Smelting",
+      "recipes": [
+        "Charcoal Steel"
+      ]
+    },
+    {
+      "from": "Logging",
+      "to": "Basic Engineering",
+      "recipes": [
+        "Hand Plow",
+        "Waterwheel",
+        "Windmill",
+        "Wood Cart",
+        "Wooden Elevator",
+        "Wooden Gear",
+        "Wooden Liquid Tank",
+        "Wooden Wheel"
+      ]
+    },
+    {
+      "from": "Logging",
+      "to": "Blacksmith",
+      "recipes": [
+        "Small Paper Machine"
+      ]
+    },
+    {
+      "from": "Logging",
+      "to": "Carpentry",
+      "recipes": [
+        "Carpentry",
+        "Court Chair",
+        "Dendrology Research Paper Advanced",
+        "Distribution Station",
+        "Icebox",
+        "Large Hanging Wood Sign",
+        "Large Standing Wood Sign",
+        "Shelf Cabinet",
+        "Small Hanging Wood Sign",
+        "Small Standing Wood Sign",
+        "Store Sign",
+        "Wood Plaque",
+        "Wooden Frame Wide",
+        "Wooden Latrine",
+        "Wooden Straw Bed"
+      ]
+    },
+    {
+      "from": "Logging",
+      "to": "Composites",
+      "recipes": [
+        "Laser Body"
+      ]
+    },
+    {
+      "from": "Logging",
+      "to": "Glassworking",
+      "recipes": [
+        "Special Alloy"
+      ]
+    },
+    {
+      "from": "Logging",
+      "to": "Hunting",
+      "recipes": [
+        "Crab Pot",
+        "Fish Rack",
+        "Fish Trap"
+      ]
+    },
+    {
+      "from": "Logging",
+      "to": "Masonry",
+      "recipes": [
+        "Grindstone"
+      ]
+    },
+    {
+      "from": "Logging",
+      "to": "Mechanics",
+      "recipes": [
+        "Power Hammer"
+      ]
+    },
+    {
+      "from": "Logging",
+      "to": "Milling",
+      "recipes": [
+        "Charcoal Powder",
+        "Milling",
+        "Processed Charcoal Powder"
+      ]
+    },
+    {
+      "from": "Logging",
+      "to": "Pottery",
+      "recipes": [
+        "Shale Brick",
+        "Wet Brick"
+      ]
+    },
+    {
+      "from": "Logging",
+      "to": "Recycling",
+      "recipes": [
+        "Recycling",
+        "Wooden Dumpster"
+      ]
+    },
+    {
+      "from": "Logging",
+      "to": "Shipwright",
+      "recipes": [
+        "Dendrology Research Paper Advanced Hull Planks",
+        "Large Canoe",
+        "Large Wooden Ship Frame",
+        "Medium Wooden Ship Frame",
+        "Outpost Netting",
+        "Shipwright",
+        "Small Wooden Ship Frame",
+        "Wooden Moorage Post"
+      ]
+    },
+    {
+      "from": "Logging",
+      "to": "Smelting",
+      "recipes": [
+        "Anvil"
+      ]
+    },
+    {
+      "from": "Logging",
+      "to": "Tailoring",
+      "recipes": [
+        "Cotton Curtains",
+        "Padded Chair",
+        "Weave Cotton Curtains",
+        "Weave Wool Curtains",
+        "Wool Curtains"
+      ]
+    },
+    {
+      "from": "Masonry",
+      "to": "Advanced Masonry",
+      "recipes": [
+        "Advanced Masonry",
+        "Ashlar Basalt",
+        "Ashlar Gneiss",
+        "Ashlar Granite",
+        "Ashlar Limestone",
+        "Ashlar Sandstone",
+        "Ashlar Shale",
+        "Laser"
+      ]
+    },
+    {
+      "from": "Masonry",
+      "to": "Advanced Smelting",
+      "recipes": [
+        "Charcoal Steel",
+        "Steel Bar"
+      ]
+    },
+    {
+      "from": "Masonry",
+      "to": "Basic Engineering",
+      "recipes": [
+        "Arrastra",
+        "Asphalt Concrete"
+      ]
+    },
+    {
+      "from": "Masonry",
+      "to": "Blacksmith",
+      "recipes": [
+        "Blacksmith",
+        "Standing Basalt Pot"
+      ]
+    },
+    {
+      "from": "Masonry",
+      "to": "Composites",
+      "recipes": [
+        "Laser Body"
+      ]
+    },
+    {
+      "from": "Masonry",
+      "to": "Electronics",
+      "recipes": [
+        "Computer Lab",
+        "Robotic Assembly Line"
+      ]
+    },
+    {
+      "from": "Masonry",
+      "to": "Glassworking",
+      "recipes": [
+        "Geology Research Paper Modern Glass",
+        "Glassworking",
+        "Quicklime Glass",
+        "Special Alloy"
+      ]
+    },
+    {
+      "from": "Masonry",
+      "to": "Mechanics",
+      "recipes": [
+        "Biowaste Sorter",
+        "Construction Scrap Sorter",
+        "Garbage Sorter",
+        "Industrial Waste Sorter",
+        "Metal Scrap Sorter",
+        "Oil Refinery",
+        "Pump Jack",
+        "Residual Waste Sorter",
+        "Waste Filter"
+      ]
+    },
+    {
+      "from": "Masonry",
+      "to": "Pottery",
+      "recipes": [
+        "Pottery"
+      ]
+    },
+    {
+      "from": "Masonry",
+      "to": "Recycling",
+      "recipes": [
+        "Recycled Steel Bar"
+      ]
+    },
+    {
+      "from": "Masonry",
+      "to": "Shipwright",
+      "recipes": [
+        "Precision Tools"
+      ]
+    },
+    {
+      "from": "Masonry",
+      "to": "Smelting",
+      "recipes": [
+        "Smelting"
+      ]
+    },
+    {
+      "from": "Mechanics",
+      "to": "Advanced Masonry",
+      "recipes": [
+        "Advanced Masonry",
+        "Laser"
+      ]
+    },
+    {
+      "from": "Mechanics",
+      "to": "Blacksmith",
+      "recipes": [
+        "Chainsaw",
+        "Modern Rock Drill"
+      ]
+    },
+    {
+      "from": "Mechanics",
+      "to": "Carpentry",
+      "recipes": [
+        "Wooden Rudder"
+      ]
+    },
+    {
+      "from": "Mechanics",
+      "to": "Composites",
+      "recipes": [
+        "Composite Lumber Bench",
+        "Composite Lumber Chair",
+        "Composite Lumber Door",
+        "Composite Lumber Table",
+        "Composites",
+        "Laser Body",
+        "Long Thin Wood Veneer Shelf",
+        "Long Wood Veneer Shelf",
+        "Short Curved Wood Veneer Shelf",
+        "Short Thin Wood Veneer Shelf",
+        "Short Wood Veneer Shelf"
+      ]
+    },
+    {
+      "from": "Mechanics",
+      "to": "Electronics",
+      "recipes": [
+        "Advanced Circuit",
+        "Blasting Cap",
+        "Electronics",
+        "Etched Advanced Circuit",
+        "Robotic Assembly Line",
+        "Solar Generator",
+        "Wind Turbine"
+      ]
+    },
+    {
+      "from": "Mechanics",
+      "to": "Glassworking",
+      "recipes": [
+        "Standing Glass Sign"
+      ]
+    },
+    {
+      "from": "Mechanics",
+      "to": "Industry",
+      "recipes": [
+        "Advanced Combustion Engine",
+        "Electric Planer",
+        "Electric Stamping Press",
+        "Excavator",
+        "Industrial Elevator",
+        "Industrial Mill",
+        "Industry",
+        "Radiator",
+        "Scorpion",
+        "Skid Steer",
+        "Truck",
+        "Truck Dumpster Loader",
+        "Truck Flatbed",
+        "Truck Garbage Collector"
+      ]
+    },
+    {
+      "from": "Mechanics",
+      "to": "Oil Drilling",
+      "recipes": [
+        "Oil Drilling"
+      ]
+    },
+    {
+      "from": "Mechanics",
+      "to": "Self Improvement",
+      "recipes": [
+        "Advanced Upgrade"
+      ]
+    },
+    {
+      "from": "Mechanics",
+      "to": "Shipwright",
+      "recipes": [
+        "Industrial Barge",
+        "Iron Hull Sheet",
+        "Large Metal Ship Frame",
+        "Medium Fishing Trawler",
+        "Medium Metal Ship Frame",
+        "Metal Rudder",
+        "Wooden Barge",
+        "Wooden Transport Ship"
+      ]
+    },
+    {
+      "from": "Milling",
+      "to": "Advanced Baking",
+      "recipes": [
+        "Bearclaw",
+        "Fantastic Forest Pizza",
+        "Hearty Hometown Pizza",
+        "Macarons",
+        "Sensuous Sea Pizza",
+        "Tasty Tropical Pizza"
+      ]
+    },
+    {
+      "from": "Milling",
+      "to": "Advanced Cooking",
+      "recipes": [
+        "Agouti Enchiladas",
+        "Banh Xeo",
+        "Corn Fritters",
+        "Fish N Chips",
+        "Fried Hare Haunches",
+        "Infused Oil",
+        "Seeded Camas Roll",
+        "Sweet Salad",
+        "Tortilla",
+        "Wild Mix"
+      ]
+    },
+    {
+      "from": "Milling",
+      "to": "Advanced Masonry",
+      "recipes": [
+        "Laser"
+      ]
+    },
+    {
+      "from": "Milling",
+      "to": "Baking",
+      "recipes": [
+        "Camas Bread",
+        "Flatbread",
+        "Fruit Muffin",
+        "Huckleberry Fritter",
+        "Huckleberry Pie",
+        "Leavened Dough",
+        "Meat Pie",
+        "Pastry Dough",
+        "Roast Pumpkin",
+        "Worldly Donut"
+      ]
+    },
+    {
+      "from": "Milling",
+      "to": "Basic Engineering",
+      "recipes": [
+        "Carbon Filter",
+        "Magnet"
+      ]
+    },
+    {
+      "from": "Milling",
+      "to": "Campfire Cooking",
+      "recipes": [
+        "Field Campfire Stew",
+        "Fish Stew",
+        "Jungle Campfire Stew",
+        "Meaty Stew",
+        "Root Campfire Stew",
+        "Wild Stew"
+      ]
+    },
+    {
+      "from": "Milling",
+      "to": "Carpentry",
+      "recipes": [
+        "Lumber"
+      ]
+    },
+    {
+      "from": "Milling",
+      "to": "Composites",
+      "recipes": [
+        "Laser Body"
+      ]
+    },
+    {
+      "from": "Milling",
+      "to": "Cooking",
+      "recipes": [
+        "Loaded Taro Fries",
+        "Mochi",
+        "Phad Thai",
+        "Pupusas",
+        "Rice Noodles"
+      ]
+    },
+    {
+      "from": "Milling",
+      "to": "Farming",
+      "recipes": [
+        "Iron Lactate"
+      ]
+    },
+    {
+      "from": "Milling",
+      "to": "Fertilizers",
+      "recipes": [
+        "Berry Extract Fertilizer",
+        "Black Powder"
+      ]
+    },
+    {
+      "from": "Milling",
+      "to": "Glassworking",
+      "recipes": [
+        "Galaxy Vase",
+        "Orange Vase",
+        "Plant Vase",
+        "Purple Vase",
+        "Red Vase",
+        "Special Alloy",
+        "Swirl Vase"
+      ]
+    },
+    {
+      "from": "Milling",
+      "to": "Hunting",
+      "recipes": [
+        "Sweet Jerky"
+      ]
+    },
+    {
+      "from": "Milling",
+      "to": "Painting",
+      "recipes": [
+        "Base Paint",
+        "Ink",
+        "Oil Paint"
+      ]
+    },
+    {
+      "from": "Milling",
+      "to": "Pottery",
+      "recipes": [
+        "Bathtub",
+        "Ceramic Tea Cup",
+        "Ceramic Tea Pot",
+        "Ceramic Tray",
+        "Small Sink",
+        "Toilet"
+      ]
+    },
+    {
+      "from": "Milling",
+      "to": "Recycling",
+      "recipes": [
+        "Bio Ethanol",
+        "Modern Compost Bin",
+        "Modern Garbage Bin",
+        "Modern Recycling Bin"
+      ]
+    },
+    {
+      "from": "Milling",
+      "to": "Shipwright",
+      "recipes": [
+        "Precision Tools"
+      ]
+    },
+    {
+      "from": "Mining",
+      "to": "Advanced Masonry",
+      "recipes": [
+        "Laser"
+      ]
+    },
+    {
+      "from": "Mining",
+      "to": "Advanced Smelting",
+      "recipes": [
+        "Advanced Smelting",
+        "Charcoal Steel",
+        "Steel Bar"
+      ]
+    },
+    {
+      "from": "Mining",
+      "to": "Baking",
+      "recipes": [
+        "Baking"
+      ]
+    },
+    {
+      "from": "Mining",
+      "to": "Basic Engineering",
+      "recipes": [
+        "Asphalt Concrete"
+      ]
+    },
+    {
+      "from": "Mining",
+      "to": "Blacksmith",
+      "recipes": [
+        "Blacksmith"
+      ]
+    },
+    {
+      "from": "Mining",
+      "to": "Cooking",
+      "recipes": [
+        "Cooking"
+      ]
+    },
+    {
+      "from": "Mining",
+      "to": "Farming",
+      "recipes": [
+        "Farming"
+      ]
+    },
+    {
+      "from": "Mining",
+      "to": "Fertilizers",
+      "recipes": [
+        "Black Powder",
+        "Phosphate Fertilizer"
+      ]
+    },
+    {
+      "from": "Mining",
+      "to": "Glassworking",
+      "recipes": [
+        "Glass",
+        "Glassworking",
+        "Quicklime Glass",
+        "Special Alloy"
+      ]
+    },
+    {
+      "from": "Mining",
+      "to": "Industry",
+      "recipes": [
+        "Rubber Wheel"
+      ]
+    },
+    {
+      "from": "Mining",
+      "to": "Masonry",
+      "recipes": [
+        "Fiber Reinforced Concrete",
+        "Geology Research Paper Advanced",
+        "Kiln",
+        "Large Hanging Mortared Stone Sign",
+        "Large Standing Mortared Stone Sign",
+        "Masonry",
+        "Masonry Basic Upgrade",
+        "Masonry Mortar",
+        "Mortared Stone Bench",
+        "Mortared Stone Chair",
+        "Mortared Stone Door",
+        "Mortared Stone Fireplace",
+        "Mortared Stone Table",
+        "Reinforced Concrete",
+        "Small Hanging Mortared Stone Sign",
+        "Small Standing Mortared Stone Sign",
+        "Stone Plaque",
+        "Sulfurcrete"
+      ]
+    },
+    {
+      "from": "Mining",
+      "to": "Milling",
+      "recipes": [
+        "Copper Hydroxide",
+        "Iron Oxide",
+        "Milling",
+        "Processed Copper Hydroxide",
+        "Processed Iron Oxide"
+      ]
+    },
+    {
+      "from": "Mining",
+      "to": "Oil Drilling",
+      "recipes": [
+        "Nitric Acid",
+        "Synthetic Rubber"
+      ]
+    },
+    {
+      "from": "Mining",
+      "to": "Pottery",
+      "recipes": [
+        "Ceramic Mold",
+        "Pottery",
+        "Shale Brick",
+        "Wet Brick"
+      ]
+    },
+    {
+      "from": "Mining",
+      "to": "Recycling",
+      "recipes": [
+        "Recycled Steel Bar",
+        "Recycling",
+        "Sulfuric Acid"
+      ]
+    },
+    {
+      "from": "Mining",
+      "to": "Smelting",
+      "recipes": [
+        "Cast Iron Plaque",
+        "Copper Bar",
+        "Gold Bar",
+        "Iron Bar",
+        "Smelt Copper",
+        "Smelt Gold",
+        "Smelt Iron",
+        "Smelting"
+      ]
+    },
+    {
+      "from": "Oil Drilling",
+      "to": "Advanced Masonry",
+      "recipes": [
+        "Laser"
+      ]
+    },
+    {
+      "from": "Oil Drilling",
+      "to": "Advanced Smelting",
+      "recipes": [
+        "Flat Steel"
+      ]
+    },
+    {
+      "from": "Oil Drilling",
+      "to": "Blacksmith",
+      "recipes": [
+        "Chainsaw",
+        "Modern Axe",
+        "Modern Hammer",
+        "Modern Hoe",
+        "Modern Machete",
+        "Modern Paint Sprayer",
+        "Modern Pickaxe",
+        "Modern Rock Drill",
+        "Modern Scythe",
+        "Modern Shovel"
+      ]
+    },
+    {
+      "from": "Oil Drilling",
+      "to": "Composites",
+      "recipes": [
+        "Composite Lumber",
+        "Laser Body"
+      ]
+    },
+    {
+      "from": "Oil Drilling",
+      "to": "Electronics",
+      "recipes": [
+        "Blasting Cap",
+        "Etched Advanced Circuit",
+        "Etched Basic Circuit",
+        "Handheld Camera",
+        "Jaw Crusher",
+        "Substrate"
+      ]
+    },
+    {
+      "from": "Oil Drilling",
+      "to": "Glassworking",
+      "recipes": [
+        "Framed Glass"
+      ]
+    },
+    {
+      "from": "Oil Drilling",
+      "to": "Industry",
+      "recipes": [
+        "Rubber Wheel",
+        "Steel Axle",
+        "Steel Gear"
+      ]
+    },
+    {
+      "from": "Oil Drilling",
+      "to": "Tailoring",
+      "recipes": [
+        "Chef Shoes",
+        "Cotton Carpet",
+        "Explorer Boots",
+        "Farmer Boots",
+        "Nylon Carpet",
+        "Nylon Thread",
+        "Wool Carpet"
+      ]
+    },
+    {
+      "from": "Painting",
+      "to": "Advanced Baking",
+      "recipes": [
+        "Culinary Research Paper Modern (Baking)"
+      ]
+    },
+    {
+      "from": "Painting",
+      "to": "Advanced Cooking",
+      "recipes": [
+        "Culinary Research Paper Modern"
+      ]
+    },
+    {
+      "from": "Painting",
+      "to": "Advanced Masonry",
+      "recipes": [
+        "Laser"
+      ]
+    },
+    {
+      "from": "Painting",
+      "to": "Advanced Smelting",
+      "recipes": [
+        "Metallurgy Research Paper Modern"
+      ]
+    },
+    {
+      "from": "Painting",
+      "to": "Carpentry",
+      "recipes": [
+        "Dendrology Research Paper Modern"
+      ]
+    },
+    {
+      "from": "Painting",
+      "to": "Composites",
+      "recipes": [
+        "Laser Body"
+      ]
+    },
+    {
+      "from": "Painting",
+      "to": "Fertilizers",
+      "recipes": [
+        "Agriculture Research Paper Modern"
+      ]
+    },
+    {
+      "from": "Painting",
+      "to": "Glassworking",
+      "recipes": [
+        "Geology Research Paper Modern Glass",
+        "Special Alloy"
+      ]
+    },
+    {
+      "from": "Painting",
+      "to": "Mechanics",
+      "recipes": [
+        "Engineering Research Paper Modern"
+      ]
+    },
+    {
+      "from": "Painting",
+      "to": "Paper Milling",
+      "recipes": [
+        "Printing Supplies"
+      ]
+    },
+    {
+      "from": "Painting",
+      "to": "Pottery",
+      "recipes": [
+        "Geology Research Paper Modern"
+      ]
+    },
+    {
+      "from": "Paper Milling",
+      "to": "Advanced Baking",
+      "recipes": [
+        "Culinary Research Paper Modern (Baking)"
+      ]
+    },
+    {
+      "from": "Paper Milling",
+      "to": "Advanced Cooking",
+      "recipes": [
+        "Culinary Research Paper Modern"
+      ]
+    },
+    {
+      "from": "Paper Milling",
+      "to": "Advanced Masonry",
+      "recipes": [
+        "Laser"
+      ]
+    },
+    {
+      "from": "Paper Milling",
+      "to": "Advanced Smelting",
+      "recipes": [
+        "Metallurgy Research Paper Modern"
+      ]
+    },
+    {
+      "from": "Paper Milling",
+      "to": "Carpentry",
+      "recipes": [
+        "Bookshelf",
+        "Dendrology Research Paper Modern",
+        "Heated Display Cabinet",
+        "Refrigerated Display Cabinet"
+      ]
+    },
+    {
+      "from": "Paper Milling",
+      "to": "Fertilizers",
+      "recipes": [
+        "Agriculture Research Paper Modern"
+      ]
+    },
+    {
+      "from": "Paper Milling",
+      "to": "Glassworking",
+      "recipes": [
+        "Geology Research Paper Modern Glass",
+        "Special Alloy"
+      ]
+    },
+    {
+      "from": "Paper Milling",
+      "to": "Mechanics",
+      "recipes": [
+        "Camera Film",
+        "Engineering Research Paper Modern",
+        "Insulated Copper Wiring",
+        "Laboratory",
+        "Medium Shipyard"
+      ]
+    },
+    {
+      "from": "Paper Milling",
+      "to": "Mining",
+      "recipes": [
+        "Dynamite"
+      ]
+    },
+    {
+      "from": "Paper Milling",
+      "to": "Painting",
+      "recipes": [
+        "Anatomy Book",
+        "Atlas Book",
+        "Botanical Book",
+        "Eco Book",
+        "Gold Trim Book"
+      ]
+    },
+    {
+      "from": "Paper Milling",
+      "to": "Pottery",
+      "recipes": [
+        "Geology Research Paper Modern"
+      ]
+    },
+    {
+      "from": "Pottery",
+      "to": "Advanced Smelting",
+      "recipes": [
+        "Charcoal Steel",
+        "Steel Bar"
+      ]
+    },
+    {
+      "from": "Pottery",
+      "to": "Composites",
+      "recipes": [
+        "Laser Body"
+      ]
+    },
+    {
+      "from": "Pottery",
+      "to": "Glassworking",
+      "recipes": [
+        "Special Alloy"
+      ]
+    },
+    {
+      "from": "Pottery",
+      "to": "Mechanics",
+      "recipes": [
+        "Blast Furnace"
+      ]
+    },
+    {
+      "from": "Pottery",
+      "to": "Recycling",
+      "recipes": [
+        "Recycled Steel Bar"
+      ]
+    },
+    {
+      "from": "Recycling",
+      "to": "Fertilizers",
+      "recipes": [
+        "Black Powder",
+        "Compost Fertilizer"
+      ]
+    },
+    {
+      "from": "Recycling",
+      "to": "Oil Drilling",
+      "recipes": [
+        "Synthetic Phosphate Fertilizer"
+      ]
+    },
+    {
+      "from": "Recycling",
+      "to": "Paper Milling",
+      "recipes": [
+        "Cellulose Fiber"
+      ]
+    },
+    {
+      "from": "Self Improvement",
+      "to": "Farming",
+      "recipes": [
+        "Agriculture Research Paper Advanced",
+        "Agriculture Research Paper Basic"
+      ]
+    },
+    {
+      "from": "Self Improvement",
+      "to": "Fertilizers",
+      "recipes": [
+        "Composite Filler",
+        "Compost Seeds",
+        "Fiber Filler",
+        "Pulp Filler"
+      ]
+    },
+    {
+      "from": "Self Improvement",
+      "to": "Logging",
+      "recipes": [
+        "Farmers Table"
+      ]
+    },
+    {
+      "from": "Shipwright",
+      "to": "Basic Engineering",
+      "recipes": [
+        "Waterwheel",
+        "Wooden Elevator"
+      ]
+    },
+    {
+      "from": "Shipwright",
+      "to": "Composites",
+      "recipes": [
+        "Laser Body"
+      ]
+    },
+    {
+      "from": "Shipwright",
+      "to": "Glassworking",
+      "recipes": [
+        "Decorative Glass Buoy Blue",
+        "Special Alloy"
+      ]
+    },
+    {
+      "from": "Shipwright",
+      "to": "Mechanics",
+      "recipes": [
+        "Blast Furnace",
+        "Medium Shipyard"
+      ]
+    },
+    {
+      "from": "Smelting",
+      "to": "Advanced Masonry",
+      "recipes": [
+        "Laser"
+      ]
+    },
+    {
+      "from": "Smelting",
+      "to": "Advanced Smelting",
+      "recipes": [
+        "Advanced Smelting"
+      ]
+    },
+    {
+      "from": "Smelting",
+      "to": "Basic Engineering",
+      "recipes": [
+        "Mechanical Water Pump",
+        "Powered Cart",
+        "Wooden Liquid Tank"
+      ]
+    },
+    {
+      "from": "Smelting",
+      "to": "Carpentry",
+      "recipes": [
+        "Storage Silo"
+      ]
+    },
+    {
+      "from": "Smelting",
+      "to": "Electronics",
+      "recipes": [
+        "Electronics"
+      ]
+    },
+    {
+      "from": "Smelting",
+      "to": "Mechanics",
+      "recipes": [
+        "Blast Furnace",
+        "Desalinator",
+        "Electric Water Pump",
+        "Mechanics",
+        "Oil Refinery",
+        "Piston",
+        "Portable Steam Engine",
+        "Steam Engine",
+        "Steam Tractor",
+        "Steam Tractor Harvester",
+        "Steam Tractor Sower",
+        "Steam Truck",
+        "Water Filter"
+      ]
+    },
+    {
+      "from": "Tailoring",
+      "to": "Advanced Masonry",
+      "recipes": [
+        "Laser"
+      ]
+    },
+    {
+      "from": "Tailoring",
+      "to": "Basic Engineering",
+      "recipes": [
+        "Wood Shop Cart"
+      ]
+    },
+    {
+      "from": "Tailoring",
+      "to": "Blacksmith",
+      "recipes": [
+        "Tallow Wall Lamp"
+      ]
+    },
+    {
+      "from": "Tailoring",
+      "to": "Carpentry",
+      "recipes": [
+        "Court Chair",
+        "Loom",
+        "Towel Rack"
+      ]
+    },
+    {
+      "from": "Tailoring",
+      "to": "Composites",
+      "recipes": [
+        "Laser Body"
+      ]
+    },
+    {
+      "from": "Tailoring",
+      "to": "Farming",
+      "recipes": [
+        "Tallow Candle"
+      ]
+    },
+    {
+      "from": "Tailoring",
+      "to": "Glassworking",
+      "recipes": [
+        "Special Alloy"
+      ]
+    },
+    {
+      "from": "Tailoring",
+      "to": "Hunting",
+      "recipes": [
+        "Composite Bow",
+        "Flax Trawler Net",
+        "Nylon Trawler Net",
+        "Recurve Bow"
+      ]
+    },
+    {
+      "from": "Tailoring",
+      "to": "Industry",
+      "recipes": [
+        "Excavator",
+        "Scorpion",
+        "Skid Steer",
+        "Truck"
+      ]
+    },
+    {
+      "from": "Tailoring",
+      "to": "Logging",
+      "recipes": [
+        "Huge Banner Sign",
+        "Huge Wooden Banner Sign"
+      ]
+    },
+    {
+      "from": "Tailoring",
+      "to": "Masonry",
+      "recipes": [
+        "Tallow Lamp"
+      ]
+    },
+    {
+      "from": "Tailoring",
+      "to": "Mechanics",
+      "recipes": [
+        "Crane"
+      ]
+    },
+    {
+      "from": "Tailoring",
+      "to": "Painting",
+      "recipes": [
+        "Art Supplies"
+      ]
+    },
+    {
+      "from": "Tailoring",
+      "to": "Paper Milling",
+      "recipes": [
+        "Large Festive Paper Lantern",
+        "Large Paper Lantern",
+        "Small Paper Lantern"
+      ]
+    },
+    {
+      "from": "Tailoring",
+      "to": "Shipwright",
+      "recipes": [
+        "Hemp Mooring Rope",
+        "Nylon Mooring Rope",
+        "Precision Tools"
+      ]
+    }
+  ]
+}

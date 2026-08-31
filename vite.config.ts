@@ -20,6 +20,9 @@ const devDataPlugin = {
 
 export default defineConfig({
   plugins: [sveltekit(), devDataPlugin],
+  // Svelte ships separate client and server builds; without the browser condition
+  // Vitest resolves the server one and component tests cannot mount.
+  resolve: process.env.VITEST ? { conditions: ['browser'] } : undefined,
   test: {
     environment: 'jsdom',
     globals: true

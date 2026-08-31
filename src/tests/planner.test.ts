@@ -3,8 +3,11 @@ import { buildGraph } from '$lib/planner.js';
 import { buildRecipeIndex } from '$lib/recipeIndex.js';
 import { buildTagsIndex } from '$lib/tagsIndex.js';
 import { buildTalentIndex } from '$lib/talentIndex.js';
+import { buildModuleIndex } from '$lib/moduleIndex.js';
+import type { ModulesFile } from '$lib/moduleIndex.js';
 import { simpleRecipe, tagRecipe, multiProductRecipe, widgetRecipe, sampleTags, slabRecipe, pathRecipe, crushedRockTags, multiVariantRecipe, byproductOnlyRecipe, pumpJackRecipe, plasticRecipe, barrelRecipe, gasolineRecipe } from './fixtures.js';
-import type { UserChoices, RecipeObject, ProfessionData, ProductPlannerNode, ByproductPlannerNode } from '$lib/types.js';
+import type { UserChoices, RecipeObject, ProfessionData, ProductPlannerNode, ByproductPlannerNode, TablePlannerNode, ModuleSlot } from '$lib/types.js';
+import { MODULE_SLOTS } from '$lib/types.js';
 
 function emptyChoices(): UserChoices {
   return {
@@ -849,5 +852,123 @@ describe('product node', () => {
     // Verify no duplicate byproduct IDs
     const byproductIds = graph.nodes.filter(n => n.id.startsWith('byproduct:')).map(n => n.id);
     expect(new Set(byproductIds).size).toBe(byproductIds.length);
+  });
+});
+
+// ── Eco 14 module slots ────────────────────────────────────────────
+// Eco 14 replaces the flat globalUpgrade ladder with per-(table, skill) reduction.
+// Eco 12/13 must keep resolving through globalUpgrade exactly as before.
+describe('buildGraph with Eco 14 module data', () => {
+  // Same table, two skills: one gets a strong specialty, the other none.
+  const moduleTable = 'Machinist Table';
+  const miningRecipe: RecipeObject = {
+    Key: 'Dynamite', Untranslated: 'Dynamite Recipe',
+    BaseCraftTime: 1, BaseLaborCost: 10, BaseXPGain: 1,
+    CraftingTable: moduleTable, CraftingTableCanUseModules: true,
+    DefaultVariant: 'Dynamite', NumberOfVariants: 1,
+    SkillNeeds: [{ Skill: 'Mining', Level: 1 }],
+    Variants: [{ Key: 'Dynamite', Name: 'Dynamite',
+      Ingredients: [{ IsSpecificItem: true, Tag: null, Name: 'Clay', Ammount: 10, IsStatic: false }],
+      Products: [{ Name: 'Dynamite', Ammount: 1 }] }]
+  };
+  const blacksmithRecipe: RecipeObject = {
+    ...miningRecipe,
+    Key: 'Copper Wiring', Untranslated: 'Copper Wiring Recipe',
+    DefaultVariant: 'Copper Wiring',
+    SkillNeeds: [{ Skill: 'Blacksmith', Level: 1 }],
+    Variants: [{ Key: 'CopperWiring', Name: 'Copper Wiring',
+      Ingredients: [{ IsSpecificItem: true, Tag: null, Name: 'Clay', Ammount: 10, IsStatic: false }],
+      Products: [{ Name: 'Copper Wiring', Ammount: 1 }] }]
+  };
+
+  const modulesFile: ModulesFile = {
+    modules: [
+      { item: 'BasicUpgradeItem',          name: 'Basic Upgrade',           slot: 'Basic',     resourceCostPercent: 0.10, skill: null },
+      { item: 'MiningAdvancedUpgradeItem', name: 'Mining Advanced Upgrade', slot: 'Specialty', resourceCostPercent: 0.20, skill: 'Mining' },
+    ],
+    tables: { [moduleTable]: ['BasicUpgradeItem', 'MiningAdvancedUpgradeItem'] },
+  };
+
+  const moduleData = buildModuleIndex(modulesFile);
+  const moduleSlots = new Set<ModuleSlot>(MODULE_SLOTS);
+  const recipeIndex = buildRecipeIndex([miningRecipe, blacksmithRecipe]);
+  const tagsIndex = buildTagsIndex({});
+
+  function plan(targetItem: string, choices = emptyChoices()) {
+    const graph = buildGraph({
+      targetItem, totalAmount: 10, recipeIndex, tagsIndex, choices,
+      globalUpgrade: 0.99,  // must be ignored entirely when moduleData is supplied
+      moduleData, moduleSlots
+    });
+    return graph.nodes.find((n): n is TablePlannerNode => n.type === 'table')!;
+  }
+
+  it('reduces ingredients by the pooled module total, ignoring globalUpgrade', () => {
+    // Basic 10% + Mining Advanced 20% = 30%; 10 Clay per cycle -> 7.
+    const table = plan('Dynamite');
+    expect(table.upgradeReduction).toBeCloseTo(0.30);
+    expect(table.effectiveReduction).toBeCloseTo(0.30);
+  });
+
+  it('applies a specialty module only to recipes of its own skill', () => {
+    // Same table, but Blacksmith gets no specialty — only the generic 10%.
+    expect(plan('Copper Wiring').upgradeReduction).toBeCloseTo(0.10);
+    // Re-query the Mining recipe to prove the two do not share a cache entry.
+    expect(plan('Dynamite').upgradeReduction).toBeCloseTo(0.30);
+  });
+
+  it('names the modules each reduction assumed', () => {
+    expect(plan('Dynamite').appliedModules).toEqual([
+      { slot: 'Basic',     module: 'Basic Upgrade',           reduction: 0.10 },
+      { slot: 'Specialty', module: 'Mining Advanced Upgrade', reduction: 0.20 },
+    ]);
+    expect(plan('Copper Wiring').appliedModules).toEqual([
+      { slot: 'Basic', module: 'Basic Upgrade', reduction: 0.10 },
+    ]);
+  });
+
+  it('exposes only the slots a table can actually fill', () => {
+    // The fixture table allows a Basic and a Specialty module and nothing else.
+    expect(moduleData.availableSlotsFor(moduleTable)).toEqual(['Basic', 'Specialty']);
+    expect(moduleData.availableSlotsFor('Workbench')).toEqual([]);
+  });
+
+  it('lets one table drop a slot without affecting the global selection', () => {
+    const choices = emptyChoices();
+    choices.moduleSlotsByTable = new Map([[moduleTable, ['Basic'] as ModuleSlot[]]]);
+    const table = plan('Dynamite', choices);
+    expect(table.upgradeReduction).toBeCloseTo(0.10);   // specialty dropped
+    expect(table.appliedModules).toEqual([
+      { slot: 'Basic', module: 'Basic Upgrade', reduction: 0.10 },
+    ]);
+    // A table with no override still follows the global selection.
+    expect(plan('Dynamite').upgradeReduction).toBeCloseTo(0.30);
+  });
+
+  it('lets a table opt out of modules entirely', () => {
+    const choices = emptyChoices();
+    choices.moduleSlotsByTable = new Map([[moduleTable, [] as ModuleSlot[]]]);
+    const table = plan('Dynamite', choices);
+    expect(table.upgradeReduction).toBe(0);
+    expect(table.appliedModules).toEqual([]);
+  });
+
+  it('lets a per-table override win over the module maths', () => {
+    const choices = emptyChoices();
+    choices.upgradeByTable.set(moduleTable, 0.5);
+    const table = plan('Dynamite', choices);
+    expect(table.upgradeReduction).toBeCloseTo(0.5);
+    // The modules no longer explain the number, so none are claimed.
+    expect(table.appliedModules).toBeUndefined();
+  });
+
+  it('leaves the Eco 12/13 path on globalUpgrade when no module data is given', () => {
+    const graph = buildGraph({
+      targetItem: 'Dynamite', totalAmount: 10, recipeIndex, tagsIndex,
+      choices: emptyChoices(), globalUpgrade: 0.25
+    });
+    const table = graph.nodes.find((n): n is TablePlannerNode => n.type === 'table')!;
+    expect(table.upgradeReduction).toBeCloseTo(0.25);
+    expect(table.appliedModules).toBeUndefined();
   });
 });

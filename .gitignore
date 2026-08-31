@@ -4,3 +4,12 @@ build/
 .env
 .env.*
 !.env.example
+
+# Windows download metadata
+*Zone.Identifier
+
+# Local run helper
+run.sh
+
+# Serena tool metadata
+.serena/
