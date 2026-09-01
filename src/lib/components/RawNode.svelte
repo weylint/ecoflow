@@ -10,13 +10,13 @@
   let { data }: Props = $props();
 </script>
 
-<div class="raw-node">
+<div class="raw-node" role="group" aria-label="Raw resource {data.itemName}, ×{fmtNum(data.amount)}">
   <Handle type="source" position={Position.Right} />
 
   <div class="content">
     <div class="label">RAW</div>
     <div class="name">{data.itemName}</div>
-    <div class="amount">× {fmtNum(data.amount)}</div>
+    <div class="amount" data-value={data.amount}>× {fmtNum(data.amount)}</div>
   </div>
 </div>
 

@@ -71,40 +71,71 @@
 
   const totalSeconds = $derived(data.cycles * data.recipe.BaseCraftTime * 60 * (1 - (data.currentUpgrade ?? 0)));
 
+  // A <select> flattens to all of its options in a text extraction, marking none,
+  // so the chosen recipe was invisible to anything reading the page as text.
+  // These render the answer as plain text beside the picker.
+  const recipeChoiceText = $derived(
+    `${data.recipe.DefaultVariant}${data.availableRecipes.length > 1
+      ? ` (${data.availableRecipes.length - 1} alternative${data.availableRecipes.length === 2 ? '' : 's'})`
+      : ''}`
+  );
+
+  // Module state used to be recoverable only by set-differencing the checkbox
+  // labels against the applied-modifier chips. One line states it instead.
+  const moduleSummary = $derived.by(() => {
+    const applied = data.appliedModules ?? [];
+    const available = data.availableSlots ?? [];
+    if (available.length === 0 && applied.length === 0) return null;
+    const on = applied.map(m => `${m.slot} −${Math.round(m.reduction * 100)}%`);
+    const off = available.filter(s => !applied.some(m => m.slot === s));
+    if (on.length === 0) return `Modules applied: none (${off.join(', ')} off)`;
+    return `Modules applied: ${on.join(', ')}${off.length > 0 ? ` (${off.join(', ')} off)` : ''}`;
+  });
+
+  const nodeLabel = $derived(
+    `Crafting table ${data.table}, producing ${data.itemName}, ×${data.cycles} runs, recipe ${data.recipe.DefaultVariant}`
+  );
+
 
 </script>
 
-<div class="table-node">
+<div class="table-node" role="group" aria-label={nodeLabel}>
   <Handle type="target" position={Position.Left} />
 
   <div class="header">{data.table}</div>
 
   <div class="body">
-    <div class="cycles">×{data.cycles} runs · {formatTime(totalSeconds)}</div>
+    <div class="cycles" data-value={data.cycles}>×{data.cycles} runs · {formatTime(totalSeconds)}</div>
 
     <div class="picker-row">
-      <!-- svelte-ignore a11y_label_has_associated_control -->
-      <label>Recipe:
-        <select value={data.recipe.Key} onchange={handleRecipeSelect}>
-          <option value="__market__">Market</option>
-          {#each data.availableRecipes as r}
-            <option value={r.Key}>{r.DefaultVariant}</option>
-          {/each}
-        </select>
-      </label>
+      <span class="picker-label">Recipe:</span>
+      <select
+        value={data.recipe.Key}
+        onchange={handleRecipeSelect}
+        aria-label="Recipe for {data.itemName} at {data.table}, currently {data.recipe.DefaultVariant}"
+      >
+        <option value="__market__">Market</option>
+        {#each data.availableRecipes as r}
+          <option value={r.Key}>{r.DefaultVariant}</option>
+        {/each}
+      </select>
     </div>
+    <div class="sr-only">Recipe: {recipeChoiceText}</div>
 
     {#if data.recipe.NumberOfVariants > 1}
       <div class="picker-row">
-        <!-- svelte-ignore a11y_label_has_associated_control -->
-        <label>Variant:
-          <select value={data.variant.Name} onchange={handleVariantSelect}>
-            {#each data.recipe.Variants as v}
-              <option value={v.Name}>{v.Name}</option>
-            {/each}
-          </select>
-        </label>
+        <span class="picker-label">Variant:</span>
+        <select
+          value={data.variant.Name}
+          onchange={handleVariantSelect}
+          aria-label="Variant for {data.itemName}, currently {data.variant.Name}"
+        >
+          {#each data.recipe.Variants as v}
+            <option value={v.Name}>{v.Name}</option>
+          {/each}
+        </select>
       </div>
+      <div class="sr-only">Variant: {data.variant.Name}</div>
     {/if}
 
     {#if data.recipe.CraftingTableCanUseModules}
@@ -118,21 +149,24 @@
                 type="checkbox"
                 checked={(data.currentSlots ?? []).includes(slot)}
                 onchange={(e) => toggleSlot(slot, (e.target as HTMLInputElement).checked)}
+                aria-label="{slot} module slot on {data.table}"
               />
               {slot}
             </label>
           {/each}
         </div>
       {:else}
-        <!-- svelte-ignore a11y_label_has_associated_control -->
         <div class="picker-row">
-          <label>Upgrade:
-            <select value={data.currentUpgrade ?? 0} onchange={handleUpgradeSelect}>
-              {#each (data.upgradeLevels ?? ECO12) as lvl}
-                <option value={lvl.value}>{lvl.label} ({lvl.value * 100}%)</option>
-              {/each}
-            </select>
-          </label>
+          <span class="picker-label">Upgrade:</span>
+          <select
+            value={data.currentUpgrade ?? 0}
+            onchange={handleUpgradeSelect}
+            aria-label="Upgrade level for {data.table}, currently {Math.round((data.currentUpgrade ?? 0) * 100)}%"
+          >
+            {#each (data.upgradeLevels ?? ECO12) as lvl}
+              <option value={lvl.value}>{lvl.label} ({lvl.value * 100}%)</option>
+            {/each}
+          </select>
         </div>
       {/if}
     {/if}
@@ -140,15 +174,18 @@
     <!-- Eco 14: name the modules the reduction assumed. A specialty module only
          covers its own skill, so the same table reduces different recipes by
          different amounts — showing the modules makes that visible. -->
-    {#if data.appliedModules?.length}
+    {#if data.appliedModules?.length || moduleSummary}
       <div class="modules">
-        {#each data.appliedModules as mod}
+        {#each data.appliedModules ?? [] as mod}
           <span class="module-chip">
             {mod.slot} −{Math.round(mod.reduction * 100)}%
             <span class="talent-tooltip">{mod.module}</span>
           </span>
         {/each}
       </div>
+      {#if moduleSummary}
+        <div class="sr-only">{moduleSummary}</div>
+      {/if}
     {/if}
 
     {#if data.appliedTalents?.length}
@@ -167,9 +204,9 @@
         {#each data.loopbackItems as lb}
           <div class="returnable-row">
             <span class="lb-name">{lb.itemName}</span>
-            <span class="lb-gross">↓{fmtNum(lb.grossAmount)}</span>
-            <span class="lb-return">↑{fmtNum(lb.returnAmount)}</span>
-            <span class="lb-net">net {fmtNum(lb.netAmount)}</span>
+            <span class="lb-gross" data-value={lb.grossAmount}>↓{fmtNum(lb.grossAmount)}</span>
+            <span class="lb-return" data-value={lb.returnAmount}>↑{fmtNum(lb.returnAmount)}</span>
+            <span class="lb-net" data-value={lb.netAmount}>net {fmtNum(lb.netAmount)}</span>
           </div>
         {/each}
       </div>
@@ -183,7 +220,7 @@
             {#if ni.amount > 0}
               <div class="inlined-row">
                 <span class="il-label">{ni.name}</span>
-                <span class="il-net">net {fmtNum(ni.amount)}</span>
+                <span class="il-net" data-value={ni.amount}>net {fmtNum(ni.amount)}</span>
               </div>
             {/if}
           {/each}
@@ -197,19 +234,19 @@
         {#each (data.ingredientStats ?? []) as ing}
           {#if ing.name === 'Food'}
             {@const isWP = EDM_MARKUP_EXCLUDED_RECIPES.has(data.recipe.Key)}
-            <span class="stats-food-cals">{fmtNum(ing.amount)} {isWP ? 'Labour' : 'cal'} · {fmtNum(ing.amount / data.cycles)}/run</span>
+            <span class="stats-food-cals" data-value={ing.amount}>{fmtNum(ing.amount)} {isWP ? 'Labour' : 'cal'} · {fmtNum(ing.amount / data.cycles)}/run</span>
             {#if ing.edmPerUnit != null}
               <span class="stats-label">{isWP ? 'IN: Work Party' : 'IN: Food'}</span>
-              <span class="stats-num">{fmtNum(ing.amount, true)}</span>
-              <span class="stats-rate">{fmtEdm(ing.edmPerUnit)}/u</span>
-              <span class="stats-total">{fmtEdm(ing.totalEdm!)} EDM</span>
+              <span class="stats-num" data-value={ing.amount}>{fmtNum(ing.amount, true)}</span>
+              <span class="stats-rate" data-value={ing.edmPerUnit}>{fmtEdm(ing.edmPerUnit)}/u</span>
+              <span class="stats-total" data-value={ing.totalEdm}>{fmtEdm(ing.totalEdm!)} EDM</span>
             {/if}
           {:else}
             <span class="stats-label">IN: {ing.name}</span>
-            <span class="stats-num">{fmtNum(ing.amount, true)}</span>
+            <span class="stats-num" data-value={ing.amount}>{fmtNum(ing.amount, true)}</span>
             {#if ing.edmPerUnit != null}
-              <span class="stats-rate">{fmtEdm(ing.edmPerUnit)}/u</span>
-              <span class="stats-total">{fmtEdm(ing.totalEdm!)} EDM</span>
+              <span class="stats-rate" data-value={ing.edmPerUnit}>{fmtEdm(ing.edmPerUnit)}/u</span>
+              <span class="stats-total" data-value={ing.totalEdm}>{fmtEdm(ing.totalEdm!)} EDM</span>
             {:else}
               <span></span><span></span>
             {/if}
@@ -218,10 +255,10 @@
 
         {#each (data.productStats ?? []) as prod}
           <span class="stats-label">OUT: {prod.name}</span>
-          <span class="stats-num">{fmtNum(prod.amount, true)}</span>
+          <span class="stats-num" data-value={prod.amount}>{fmtNum(prod.amount, true)}</span>
           {#if prod.edmPerUnit != null}
-            <span class="stats-rate">{fmtEdm(prod.edmPerUnit)}/u</span>
-            <span class="stats-total">{fmtEdm(prod.totalEdm!)} EDM</span>
+            <span class="stats-rate" data-value={prod.edmPerUnit}>{fmtEdm(prod.edmPerUnit)}/u</span>
+            <span class="stats-total" data-value={prod.totalEdm}>{fmtEdm(prod.totalEdm!)} EDM</span>
           {:else}
             <span></span><span></span>
           {/if}
@@ -230,7 +267,7 @@
         {#if data.valueAdded != null && data.valueAdded > 0}
           {@const primaryAmt = data.productStats?.find(p => p.name === data.itemName)?.amount ?? 0}
           {@const vaPerUnit = primaryAmt > 0 ? data.valueAdded / primaryAmt : null}
-          <span class="stats-va">VA: +{fmtEdm(data.valueAdded)} EDM{#if vaPerUnit != null} · +{fmtEdm(vaPerUnit)}/u{/if}</span>
+          <span class="stats-va" data-value={data.valueAdded}>VA: +{fmtEdm(data.valueAdded)} EDM{#if vaPerUnit != null} · +{fmtEdm(vaPerUnit)}/u{/if}</span>
         {/if}
 
       </div>
@@ -332,7 +369,8 @@
     font-size: 11px;
   }
 
-  .picker-row label {
+  .picker-row label,
+  .picker-row .picker-label {
     white-space: nowrap;
     color: #a0c4e0;
   }

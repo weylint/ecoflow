@@ -133,12 +133,16 @@ When a byproduct auto-satisfies a tag ingredient:
 
 ## EDM CLI
 
-`./edm "<item name>" <amount> [--eco eco12|eco13|eco14|sandbox] [--upgrade 0-5 | --slots LIST] [--patch FILE] [--csv]`
+`./edm "<item name>" <amount> [--eco eco12|eco13|eco14|sandbox] [--upgrade 0-5 | --slots LIST] [--patch FILE] [--overrides OV] [--csv|--json]`
 
 Computes the EDM for a recipe chain without the browser UI. Defaults to Eco 14 with all
 module slots. `--upgrade` applies to eco12/eco13, `--slots` (`all`, `none`, or a comma list
 of `basic,advanced,modern,specialty`) to eco14; using the wrong flag for a mode is an error.
-Run `./edm --help` for full usage. Entry point: `cli/edm.ts`; shell wrapper: `edm` (repo root).
+`--overrides` takes the same string the app puts in the URL's `ov=` parameter, and `--json`
+emits the whole plan — see "Agent / Headless Access" below.
+Run `./edm --help` for full usage. Entry point: `cli/edm.ts`, which is only arg parsing and
+rendering; everything between "read the data files" and "here is a costed plan" lives in
+`cli/planSetup.ts`. Shell wrapper: `edm` (repo root).
 
 ## Production Report
 
@@ -207,6 +211,51 @@ the plan's whole total and exits the CLI with an error — one unpriced item bla
 - `Wood Scrap` and `Textiles` are knowingly left unpriced — `edmCoverage.test.ts` walks all
   three versions' real data files and fails on any *new* unpriced ingredient, with those two
   in an explicit `ACCEPTED_GAPS` set.
+
+## Agent / Headless Access
+
+The app is `adapter-static` with `ssr: false`, so there is **no server route** — a
+`+server.ts` would work under `npm run dev` and fail the build that ships to GitHub
+Pages. The machine-facing interfaces are therefore:
+
+| Path | Entry point |
+|------|-------------|
+| Offline | `./edm "<item>" <n> --json` — the whole plan as JSON |
+| In the page | `window.ecoPlanner` (`src/lib/agentApi.ts`) |
+| Shareable | the `ov` URL parameter |
+
+- `src/lib/planExport.ts` builds the JSON document **both** emit, so the CLI and the
+  browser can never drift. Node ids are the planner's own `table:Name` scheme, which is
+  also the DOM's. Numbers are raw; recipes are reduced to keys rather than embedded whole.
+- `src/lib/choiceCodec.ts` is the `ov` codec — `r:` recipe, `v:` variant, `t:` tag item,
+  `m:` market, `s:` per-table slots, `u:` per-table upgrade. **The URL parameter and
+  `./edm --overrides` are the same string**, so a shared link is also a command line.
+  Only deviations from `DEFAULT_RECIPE_CHOICES` / the user's tag defaults are emitted, so
+  a default plan's URL stays short. Parsing is lenient like `parseColumnTargets`: one
+  unparseable entry is skipped rather than failing the link.
+  Applying `ov` needs the recipe index, so `+page.svelte` parses it with the rest of the
+  URL state but applies it *after* `loadData()`. That is safe with respect to the Settings
+  Persistence Gotcha only because `choices` is not part of the persisted settings blob.
+- `src/lib/priceSet.ts` stamps a short id for the price model behind a cost figure — every
+  EDM number depends on values that live only in localStorage, so without it no two agents
+  can tell whether they are comparing like with like. **Hash the settings *before*
+  `withDerivedEdmValues`**: derived prices depend on the plan being costed, so hashing the
+  derived ones gives the same price model a different id per product.
+- `window.ecoPlanner.ready` resolves after the first plan — the completion signal to await
+  instead of polling the DOM. `replan()` also fills a `role="status"` live region; the
+  empty `aria-live="assertive"` region a reader may find is SvelteKit's own announcer, not
+  ours.
+- Svelte Flow's `<Handle>` takes no extra attributes (no rest props) and stamps
+  `role="button"` with no name on all ~141 of them, so `src/lib/a11yHandles.ts` hides them
+  with a MutationObserver as they render.
+- Node components carry `role="group"` + `aria-label`, mirror every rendered quantity into
+  `data-value` (edge labels into `data-amount`), and print the selected recipe, variant and
+  module state as `.sr-only` text — a `<select>` flattens to *all* of its options in a text
+  extraction, marking none, and module state was otherwise recoverable only by
+  set-differencing the checkbox labels against the applied-modifier chips.
+- **One number locale.** `format.ts` (de-DE) is the source of truth; `graphBuilder.ts`'s
+  `fmt` routes through `fmtNum` rather than emitting dot-decimals on edge labels beside
+  de-DE node bodies, where `1.200` meant two different numbers a centimetre apart.
 
 ## Theming
 

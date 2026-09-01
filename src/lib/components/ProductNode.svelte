@@ -13,23 +13,23 @@
   const matches = $derived(data.amount === data.producedAmount);
 </script>
 
-<div class="product-node">
+<div class="product-node" role="group" aria-label="Target product {data.itemName}, ×{fmt(data.amount)} requested, ×{fmt(data.producedAmount)} produced">
   <Handle type="target" position={Position.Left} />
 
   <div class="content">
     <div class="label">PRODUCT</div>
     <div class="name">{data.itemName}</div>
     {#if matches}
-      <div class="amount">× {fmt(data.amount)}</div>
+      <div class="amount" data-value={data.amount}>× {fmt(data.amount)}</div>
     {:else}
       <div class="amounts">
         <div class="amount-row">
           <span class="amount-label">Requested:</span>
-          <span class="amount-value">× {fmt(data.amount)}</span>
+          <span class="amount-value" data-value={data.amount}>× {fmt(data.amount)}</span>
         </div>
         <div class="amount-row">
           <span class="amount-label">Produced:</span>
-          <span class="amount-value">× {fmt(data.producedAmount)}</span>
+          <span class="amount-value" data-value={data.producedAmount}>× {fmt(data.producedAmount)}</span>
         </div>
       </div>
     {/if}

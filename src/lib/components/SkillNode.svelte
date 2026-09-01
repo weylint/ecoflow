@@ -8,7 +8,7 @@
   let { data }: Props = $props();
 </script>
 
-<div class="skill-node">
+<div class="skill-node" role="group" aria-label="Profession {data.skill}">
   <Handle type="target" position={Position.Left} />
   <div class="name">{data.skill}</div>
   <Handle type="source" position={Position.Right} />

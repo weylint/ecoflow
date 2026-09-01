@@ -3,6 +3,7 @@ import { DEFAULT_LAYOUT_OPTIONS } from './types.js';
 import type { Node, Edge } from '@xyflow/svelte';
 import ELK from 'elkjs/lib/elk.bundled.js';
 import { ingredientAmountPerCycle } from './resourceCost.js';
+import { fmtNum } from './format.js';
 
 const elk = new ELK();
 
@@ -25,14 +26,27 @@ function elkNodeId(id: string): string {
   return id.replace(/[^a-zA-Z0-9_-]/g, '_');
 }
 
+// Edge labels used to be dot-decimal while every node body was de-DE, so `1.200`
+// meant twelve hundred inside a card and one-point-two on the edge beside it.
+// One formatter, one locale.
 function fmt(n: number): string {
-  return Number.isInteger(n) ? String(n) : n.toFixed(2);
+  return fmtNum(n);
 }
 
 const LABEL_STYLE = 'color: #ffffff; background: #2563eb; font-size: 11px; font-weight: 500; border-radius: 4px; padding: 2px 6px;';
 const FEEDBACK_STYLE = 'stroke: #f59e0b; stroke-width: 2; stroke-dasharray: 6 3;';
 
-function labeledEdge(id: string, source: string, target: string, label: string, tooltip?: string): Edge<Record<string, unknown>, 'labeledEdge'> {
+// `amount` is the raw, unformatted quantity. It is not displayed — it lands in a
+// data-amount attribute so a reader parsing the graph never has to un-format a
+// locale-specific label to get the number back.
+function labeledEdge(
+  id: string, source: string, target: string, label: string,
+  tooltip?: string, amount?: number, itemName?: string
+): Edge<Record<string, unknown>, 'labeledEdge'> {
+  const data: Record<string, unknown> = {};
+  if (tooltip) data.tooltip = tooltip;
+  if (amount !== undefined) data.amount = amount;
+  if (itemName !== undefined) data.itemName = itemName;
   return {
     id,
     source,
@@ -40,7 +54,7 @@ function labeledEdge(id: string, source: string, target: string, label: string, 
     type: 'labeledEdge',
     label,
     labelStyle: LABEL_STYLE,
-    data: tooltip ? { tooltip } : undefined,
+    data: Object.keys(data).length > 0 ? data : undefined,
   };
 }
 
@@ -241,6 +255,7 @@ export async function buildFlowGraph(
     for (const src of sources) {
       for (const tgt of targets) {
         let edgeLabel = totalLabel;
+        let edgeAmount = item.amount;
         const tgtTable = tableNodes.get(tgt);
         if (tgtTable) {
           const ing = tgtTable.variant.Ingredients.find(i => i.Name === item.itemName);
@@ -248,6 +263,7 @@ export async function buildFlowGraph(
             const perCycle = ingredientAmountPerCycle(ing, tgtTable);
             const amt = perCycle * tgtTable.cycles;
             const itemTotal = itemConsumerTotal.get(itemId) ?? 0;
+            edgeAmount = amt;
             if (itemTotal > 0) {
               const pct = Math.round(amt / itemTotal * 100);
               edgeLabel = `${item.itemName} · ×${fmt(amt)} (${pct}%)`;
@@ -256,7 +272,9 @@ export async function buildFlowGraph(
             }
           }
         }
-        syntheticEdges.push(labeledEdge(`lbl:${src}→${itemId}→${tgt}`, src, tgt, edgeLabel));
+        syntheticEdges.push(labeledEdge(
+          `lbl:${src}→${itemId}→${tgt}`, src, tgt, edgeLabel, undefined, edgeAmount, item.itemName
+        ));
       }
     }
   }
@@ -277,9 +295,9 @@ export async function buildFlowGraph(
           const total = directConsumerTotal.get(e.source) ?? 0;
           if (total > 0) {
             const pct = Math.round(amt / total * 100);
-            return labeledEdge(e.id, e.source, e.target, `${itemName} · ×${fmt(amt)} (${pct}%)`);
+            return labeledEdge(e.id, e.source, e.target, `${itemName} · ×${fmt(amt)} (${pct}%)`, undefined, amt, itemName);
           }
-          return labeledEdge(e.id, e.source, e.target, `${itemName} · ×${fmt(amt)}`);
+          return labeledEdge(e.id, e.source, e.target, `${itemName} · ×${fmt(amt)}`, undefined, amt, itemName);
         }
       }
 

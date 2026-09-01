@@ -18,13 +18,14 @@
   const fmt = fmtNum;
 </script>
 
-<div class="byproduct-node" class:has-options={options.length > 0} class:excluded>
+<div class="byproduct-node" class:has-options={options.length > 0} class:excluded
+     role="group" aria-label="Byproduct {data.itemName}, ×{fmt(data.amount)}">
   <Handle type="target" position={Position.Left} />
 
   <div class="content">
     <div class="label">BYPRODUCT</div>
     <div class="name">{data.itemName}</div>
-    <div class="amount">× {fmt(data.amount)}</div>
+    <div class="amount" data-value={data.amount}>× {fmt(data.amount)}</div>
   </div>
 
   {#if options.length > 0}

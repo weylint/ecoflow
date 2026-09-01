@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { TablePlannerNode, RecipeObject, ModuleSlot, ECO12_UPGRADE_LEVELS, ECO13_UPGRADE_LEVELS } from '../types.js';
+  import { fmtNum } from '../format.js';
 
   interface Props {
     tableNodes: TablePlannerNode[];
@@ -55,36 +56,38 @@
   );
 </script>
 
-<aside class="table-pane">
-  <div class="pane-header">Tables</div>
+<aside class="table-pane" aria-labelledby="table-pane-heading">
+  <h2 class="pane-header" id="table-pane-heading">Tables</h2>
   {#each [...groups.entries()] as [skill, nodes]}
-    <div class="skill-group">
-      <div class="skill-header">{skill}</div>
+    <section class="skill-group" aria-label={skill}>
+      <h3 class="skill-header">{skill}</h3>
+      <ul class="entry-list">
       {#each nodes as node}
-        <div class="table-entry">
+        <li class="table-entry">
           <div class="entry-item">{node.itemName}</div>
           <div class="entry-table">{node.table}</div>
-          <div class="entry-cycles">×{node.cycles} runs · {formatTime(node.cycles * node.recipe.BaseCraftTime * 60 * (1 - (node.recipe.CraftingTableCanUseModules ? (upgradeByTable.get(node.table) ?? globalUpgrade) : 0)))}</div>
+          <div class="entry-cycles" data-value={node.cycles}>×{node.cycles} runs · {formatTime(node.cycles * node.recipe.BaseCraftTime * 60 * (1 - (node.recipe.CraftingTableCanUseModules ? (upgradeByTable.get(node.table) ?? globalUpgrade) : 0)))}</div>
 
           <div class="entry-row">
-            <!-- svelte-ignore a11y_label_has_associated_control -->
-            <label>Recipe:
-              <select
-                value={node.recipe.Key}
-                onchange={(e) => {
-                  const val = (e.target as HTMLSelectElement).value;
-                  if (val === '__market__') { onMarketSelect(node.itemName); return; }
-                  const r = node.availableRecipes.find(x => x.Key === val);
-                  if (r) onRecipeChange(node.itemName, r);
-                }}
-              >
-                <option value="__market__">Market</option>
-                {#each node.availableRecipes as r}
-                  <option value={r.Key}>{r.DefaultVariant}</option>
-                {/each}
-              </select>
-            </label>
+            <span class="picker-label">Recipe:</span>
+            <select
+              value={node.recipe.Key}
+              aria-label="Recipe for {node.itemName} at {node.table}, currently {node.recipe.DefaultVariant}"
+              onchange={(e) => {
+                const val = (e.target as HTMLSelectElement).value;
+                if (val === '__market__') { onMarketSelect(node.itemName); return; }
+                const r = node.availableRecipes.find(x => x.Key === val);
+                if (r) onRecipeChange(node.itemName, r);
+              }}
+            >
+              <option value="__market__">Market</option>
+              {#each node.availableRecipes as r}
+                <option value={r.Key}>{r.DefaultVariant}</option>
+              {/each}
+            </select>
           </div>
+          <div class="sr-only">Recipe: {node.recipe.DefaultVariant}{node.availableRecipes.length > 1
+            ? ` (${node.availableRecipes.length - 1} alternative${node.availableRecipes.length === 2 ? '' : 's'})` : ''}</div>
 
           {#if node.recipe.CraftingTableCanUseModules}
             {@const slots = availableSlots?.(node.table) ?? []}
@@ -97,51 +100,57 @@
                       type="checkbox"
                       checked={(currentSlots?.(node.table) ?? []).includes(slot)}
                       onchange={(e) => toggleSlot(node.table, slot, (e.target as HTMLInputElement).checked)}
+                      aria-label="{slot} module slot on {node.table}"
                     />
                     {slot}
                   </label>
                 {/each}
               </div>
+              {@const on = currentSlots?.(node.table) ?? []}
+              {@const off = slots.filter(sl => !on.includes(sl))}
+              <div class="sr-only">Modules applied: {on.length > 0 ? on.join(', ') : 'none'}{off.length > 0 ? ` (${off.join(', ')} off)` : ''}</div>
             {:else}
               <div class="entry-row">
-                <!-- svelte-ignore a11y_label_has_associated_control -->
-                <label>Upgrade:
-                  <select
-                    value={upgradeByTable.get(node.table) ?? globalUpgrade}
-                    onchange={(e) => onUpgradeChange(node.table, Number((e.target as HTMLSelectElement).value))}
-                  >
-                    {#each upgradeLevels as lvl}
-                      <option value={lvl.value}>{lvl.label} ({lvl.value * 100}%)</option>
-                    {/each}
-                  </select>
-                </label>
+                <span class="picker-label">Upgrade:</span>
+                <select
+                  value={upgradeByTable.get(node.table) ?? globalUpgrade}
+                  aria-label="Upgrade level for {node.table}, currently {Math.round((upgradeByTable.get(node.table) ?? globalUpgrade) * 100)}%"
+                  onchange={(e) => onUpgradeChange(node.table, Number((e.target as HTMLSelectElement).value))}
+                >
+                  {#each upgradeLevels as lvl}
+                    <option value={lvl.value}>{lvl.label} ({lvl.value * 100}%)</option>
+                  {/each}
+                </select>
               </div>
             {/if}
           {/if}
-        </div>
+        </li>
       {/each}
-    </div>
+      </ul>
+    </section>
   {/each}
 
   {#if inlinedRows.length > 0}
-    <div class="skill-group">
-      <div class="skill-header">Inlined Producers</div>
+    <section class="skill-group" aria-label="Inlined Producers">
+      <h3 class="skill-header">Inlined Producers</h3>
+      <ul class="entry-list">
       {#each inlinedRows as { ip, parentNode }}
-        <div class="table-entry">
+        <li class="table-entry">
           <div class="entry-item">via {parentNode.itemName}</div>
           <div class="entry-table">{ip.producerTable}</div>
-          <div class="entry-cycles">×{ip.cycles} runs (inlined)</div>
+          <div class="entry-cycles" data-value={ip.cycles}>×{ip.cycles} runs (inlined)</div>
           {#each ip.netIngredients as ni}
             {#if ni.amount > 0}
               <div class="inlined-ing">
                 <span class="ii-name">{ni.name}</span>
-                <span class="ii-net">net {ni.amount % 1 === 0 ? ni.amount : ni.amount.toFixed(2)}</span>
+                <span class="ii-net" data-value={ni.amount}>net {fmtNum(ni.amount)}</span>
               </div>
             {/if}
           {/each}
-        </div>
+        </li>
       {/each}
-    </div>
+      </ul>
+    </section>
   {/if}
 </aside>
 
@@ -157,6 +166,7 @@
   }
 
   .pane-header {
+    margin: 0;
     background: #1e1e1e;
     border-bottom: 1px solid #333;
     padding: 8px 12px;
@@ -170,7 +180,14 @@
     border-bottom: 1px solid #2a2a2a;
   }
 
+  .entry-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
   .skill-header {
+    margin: 0;
     background: #222;
     padding: 4px 12px;
     font-size: 11px;
@@ -211,6 +228,8 @@
   .slot-row {
     flex-wrap: wrap;
     gap: 2px 8px;
+    /* Was inherited from `.entry-row label`, which the explicit picker labels replaced. */
+    font-size: 11px;
   }
 
   .slot-row-label { color: #9bb; }
@@ -228,14 +247,15 @@
 
   .entry-row {
     margin-bottom: 4px;
-  }
-
-  .entry-row label {
     display: flex;
     align-items: center;
     gap: 6px;
+  }
+
+  .entry-row .picker-label {
     font-size: 11px;
     color: #888;
+    white-space: nowrap;
   }
 
   .entry-row select {

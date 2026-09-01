@@ -25,6 +25,14 @@
   import { buildSnapshot, serializeColumnTargets, parseColumnTargets } from '$lib/reportColumns.js';
   import type { ColumnTarget, ReportColumn } from '$lib/reportColumns.js';
   import { ingredientAmountPerCycle } from '$lib/resourceCost.js';
+  import {
+    overridesFromChoices, serializeChoiceOverrides, parseChoiceOverrides, applyChoiceOverrides,
+    type ChoiceBaseline,
+  } from '$lib/choiceCodec.js';
+  import { priceSetId } from '$lib/priceSet.js';
+  import { installAgentApi, type AgentApiInstall } from '$lib/agentApi.js';
+  import { hideFlowHandles } from '$lib/a11yHandles.js';
+  import { buildPlanExport } from '$lib/planExport.js';
   import { buildGraph } from '$lib/planner.js';
   import { isPatchEmpty, applySandboxPatch, applyTalentPatch, patchedVariantCount, parseSandboxPatch, EMPTY_SANDBOX_PATCH } from '$lib/sandbox.js';
   import type { SandboxPatch } from '$lib/sandbox.js';
@@ -101,6 +109,14 @@
     return isFinite(v) && v >= 0 && v <= 1 ? v : null;
   })();
   const _urlReport  = _urlParams?.get('report') === '1';
+  // Resolving these needs the recipe index, so parsing happens here but applying
+  // waits until loadData has run — see onMount.
+  const _urlOverrides = parseChoiceOverrides(_urlParams?.get('ov'));
+  const _urlLayoutDir = (() => {
+    const v = _urlParams?.get('layout');
+    return v === 'down' ? 'DOWN' as const : v === 'right' ? 'RIGHT' as const : null;
+  })();
+  const _urlGroup = _urlParams?.get('group') === '1';
   const _urlCmpMode = (() => {
     const v = _urlParams?.get('cmpMode');
     return isEcoMode(v) ? v : null;
@@ -133,6 +149,14 @@
       url.searchParams.delete('report');
       url.searchParams.delete('cols');
     }
+    // Per-node recipe, variant, tag, market and module decisions — without these
+    // a shared link reproduces only the four global inputs, and a reload loses
+    // everything the user actually chose.
+    if (overridesParam) url.searchParams.set('ov', overridesParam);
+    else url.searchParams.delete('ov');
+    url.searchParams.set('layout', layoutOptions.direction === 'DOWN' ? 'down' : 'right');
+    if (groupByProfession) url.searchParams.set('group', '1');
+    else url.searchParams.delete('group');
     // Superseded by `cols`; cleared so a refreshed link does not carry both.
     for (const legacy of ['cmpMode', 'cmpVal', 'cmpSlots']) url.searchParams.delete(legacy);
     history.replaceState({}, '', url.toString());
@@ -149,6 +173,19 @@
     marketItems: new Set(DEFAULT_MARKET_ITEMS),
     upgradeByTable: new Map()
   });
+
+  // What a plan looks like before the user touches anything. Only deviations from
+  // this reach the URL, so a default plan's link stays as short as it ever was.
+  const choiceBaseline = $derived<ChoiceBaseline>({
+    recipeByItem: DEFAULT_RECIPE_CHOICES,
+    itemByTag: Object.fromEntries(tagDefaults),
+    marketItems: DEFAULT_MARKET_ITEMS,
+  });
+
+  // Every per-node decision, in the same syntax `./edm --overrides` reads.
+  const overridesParam = $derived(
+    serializeChoiceOverrides(overridesFromChoices($state.snapshot(choices) as UserChoices, choiceBaseline))
+  );
 
   let plannerTableNodes = $state<TablePlannerNode[]>([]);
   let plannerRawNodes = $state<RawPlannerNode[]>([]);
@@ -504,7 +541,18 @@
   // SvelteFlow v0.1.x requires writable stores, not $state arrays
   const flowNodes = writable<Node[]>([]);
   const flowEdges = writable<Edge[]>([]);
+  // Svelte Flow's connection handles are unnamed role="button"s; take them out of
+  // the accessibility tree as they are rendered.
+  $effect(() => {
+    if (!browser) return;
+    return hideFlowHandles(document.body);
+  });
+
   let graphBuilding = $state(false);
+  const plural = (n: number, noun: string) => `${n} ${noun}${n === 1 ? '' : 's'}`;
+  // Announced in the live region at the end of every replan.
+  let planStatus = $state('');
+  let agentApi: AgentApiInstall | null = null;
   let fitViewPending = $state(false);
 
   // ── Data loading ─────────────────────────────────────────────────
@@ -640,18 +688,86 @@
     else if (_urlCmpMode && !usesModuleSlots(_urlCmpMode) && _urlCmpVal !== null) urlCols[_urlCmpMode] ??= { mode: _urlCmpMode, value: _urlCmpVal };
     if (Object.keys(urlCols).length > 0) columnTargets = { ...columnTargets, ...urlCols };
     if (_urlReport) pendingOpenReport = true;
+    if (_urlLayoutDir) layoutOptions = { ...layoutOptions, direction: _urlLayoutDir };
+    if (_urlGroup) groupByProfession = true;
     // Everything restored from storage and the URL is now in place, so saving
     // can no longer overwrite it with defaults.
     settingsLoaded = true;
 
+    agentApi = installAgentApi({
+      getState: () => ({
+        product: selectedProduct,
+        amount,
+        ecoMode: settings.ecoMode,
+        moduleSlots: usesModules ? [...activeModuleSlots] : null,
+        globalUpgrade: usesModules ? null : globalUpgrade,
+        overrides: overridesParam,
+        priceSetId: priceSetId($state.snapshot(settings) as AppSettings),
+        planning: graphBuilding,
+        nodeCounts: {
+          total: lastPlannerGraph?.nodes.length ?? 0,
+          tables: plannerTableNodes.length,
+          raw: plannerRawNodes.length,
+          byproducts: plannerByproductNodes.length,
+          unresolvedTags: plannerUnresolvedTagNodes.length,
+        },
+      }),
+      getPlan: () => {
+        if (!lastPlannerGraph) return null;
+        return buildPlanExport(
+          $state.snapshot(lastPlannerGraph) as PlannerGraph,
+          edmReport,
+          {
+            ecoMode: settings.ecoMode,
+            targetItem: selectedProduct,
+            amount,
+            ...(usesModules ? { moduleSlots: [...activeModuleSlots] } : { globalUpgrade }),
+            priceSetId: priceSetId($state.snapshot(settings) as AppSettings),
+            generatedAt: new Date().toISOString(),
+          },
+          overridesParam
+        );
+      },
+      setProduct: async (name, nextAmount) => {
+        selectedProduct = name;
+        if (nextAmount !== undefined) amount = nextAmount;
+        await replan(false);
+      },
+      setOverrides: async (ov) => {
+        if (!recipeIndex) return;
+        const applied = applyChoiceOverrides(
+          $state.snapshot(choices) as UserChoices, parseChoiceOverrides(ov), recipeIndex
+        );
+        choices = applied.choices;
+        await replan();
+      },
+      replan: () => replan(),
+      listProducts: () => recipeIndex?.allCraftableNames ?? [],
+    });
+
     try {
       await loadData(settings.ecoMode);
+      // A recipe key only becomes a RecipeObject once the index exists, so the
+      // link's per-node choices are applied here rather than with the rest of
+      // the URL state above. Choices are not part of the persisted settings
+      // blob, so this cannot be clobbered by the save effect.
+      if (recipeIndex) {
+        const applied = applyChoiceOverrides(
+          $state.snapshot(choices) as UserChoices, _urlOverrides, recipeIndex
+        );
+        choices = applied.choices;
+        if (applied.unmatched.length > 0) {
+          console.warn('Ignored URL overrides that match nothing:', applied.unmatched.join(', '));
+        }
+      }
       loading = false;
       // Auto-plan on load — fresh layout so viewport fits
       await replan(false);
     } catch (e) {
       error = e instanceof Error ? e.message : String(e);
+      planStatus = `Could not load ${ECO_MODE_LABELS[settings.ecoMode]} data: ${error}`;
       loading = false;
+      agentApi.markReady();
     }
   });
 
@@ -869,6 +985,20 @@
         pendingOpenReport = false;
         openReport();
       }
+      // Planning is async and finishes silently: nothing in the DOM says whether
+      // an empty canvas means "still computing" or "no recipe". Announcing the
+      // outcome gives screen readers and agents the same completion signal.
+      planStatus = plannerTableNodes.length === 0
+        ? `No plan for ${selectedProduct} — nothing produces it in ${ECO_MODE_LABELS[settings.ecoMode]}.`
+        : `Plan ready — ${plural(plannerTableNodes.length, 'step')}, ` +
+          `${plural(plannerRawNodes.length, 'raw input')}, ` +
+          `${plural(plannerByproductNodes.length, 'byproduct')}, ` +
+          `${plural(plannerUnresolvedTagNodes.length, 'unresolved tag')}.`;
+      agentApi?.markReady();
+    } catch (e) {
+      planStatus = `Planning failed: ${e instanceof Error ? e.message : String(e)}`;
+      agentApi?.markReady();
+      throw e;
     } finally {
       graphBuilding = false;
     }
@@ -1129,6 +1259,10 @@
       </button>
     </div>
   </header>
+
+  <!-- The only aria-live region on the page used to be SvelteKit's own announcer,
+       which never says anything about the plan. This one does. -->
+  <div class="sr-only" role="status" aria-live="polite">{planStatus}</div>
 
   <main class="canvas-container">
     <div class="graph-area">

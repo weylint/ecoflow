@@ -2,6 +2,7 @@
   import type { ReportColumn, ColumnTarget, ReportRow } from '../reportColumns.js';
   import { unionRows } from '../reportColumns.js';
   import type { AppSettings } from '../settings.js';
+  import { priceSetId } from '../priceSet.js';
   import type { EcoMode, ModuleSlot } from '../types.js';
   import { ECO_MODE_LABELS, MODULE_SLOTS, getUpgradeLevels, usesModuleSlots } from '../types.js';
   import { fmtNum, fmtValue } from '../format.js';
@@ -155,6 +156,10 @@
     <div class="report-header">
       <h2 id="report-title">Production Report</h2>
       <span class="report-subject">{fmtNum(requestedAmount)} × {selectedProduct}</span>
+      <!-- Every EDM figure below depends on prices that live only in this browser's
+           localStorage, so the same link in a fresh profile yields different costs.
+           This says which price set produced these numbers. -->
+      <span class="price-set" title="Identifier for the EDM prices, tag defaults, markup and food costs behind these figures. Two reports with the same id are comparable.">prices {priceSetId(settings)}</span>
       <button
         class="copy-link-btn"
         onclick={async () => {
@@ -404,6 +409,15 @@
   }
 
   .report-header h2 { margin: 0; font-size: 16px; color: var(--heading); }
+  .price-set {
+    font-family: ui-monospace, monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 1px 5px;
+    cursor: help;
+  }
   .report-subject { color: var(--text-muted); font-size: 12px; margin-right: auto; }
 
   .close-btn { background: none; border: none; color: var(--text-dim); font-size: 18px; cursor: pointer; padding: 0; }

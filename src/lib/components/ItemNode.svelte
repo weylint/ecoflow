@@ -10,12 +10,12 @@
   let { data }: Props = $props();
 </script>
 
-<div class="item-node">
+<div class="item-node" role="group" aria-label="Item {data.itemName}, ×{fmtNum(data.amount)}">
   <Handle type="target" position={Position.Left} />
 
   <div class="content">
     <div class="name">{data.itemName}</div>
-    <div class="amount">
+    <div class="amount" data-value={data.amount}>
       {#if data.amount === 0}
         ✓ from byproduct
       {:else}
@@ -23,7 +23,7 @@
       {/if}
     </div>
     {#if data.byproductSupply}
-      <div class="supply">+{fmtNum(data.byproductSupply)} byproduct</div>
+      <div class="supply" data-value={data.byproductSupply}>+{fmtNum(data.byproductSupply)} byproduct</div>
     {/if}
   </div>
 

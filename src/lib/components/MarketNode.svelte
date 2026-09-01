@@ -21,26 +21,28 @@
   }
 </script>
 
-<div class="market-node">
+<div class="market-node" role="group" aria-label="Bought from market: {data.itemName}, ×{fmtNum(data.amount)}">
   <Handle type="source" position={Position.Right} />
 
   <div class="header">MARKET</div>
 
   <div class="body">
     <div class="name">{data.itemName}</div>
-    <div class="amount">× {fmtNum(data.amount)}</div>
+    <div class="amount" data-value={data.amount}>× {fmtNum(data.amount)}</div>
 
     {#if data.availableRecipes.length > 0}
       <div class="picker-row">
-        <!-- svelte-ignore a11y_label_has_associated_control -->
-        <label>Switch to:
-          <select value="__market__" onchange={handleRecipeSelect}>
-            <option value="__market__">Market</option>
-            {#each data.availableRecipes as r}
-              <option value={r.Key}>{r.DefaultVariant}</option>
-            {/each}
-          </select>
-        </label>
+        <span class="picker-label">Switch to:</span>
+        <select
+          value="__market__"
+          onchange={handleRecipeSelect}
+          aria-label="Source for {data.itemName}, currently bought from the market"
+        >
+          <option value="__market__">Market</option>
+          {#each data.availableRecipes as r}
+            <option value={r.Key}>{r.DefaultVariant}</option>
+          {/each}
+        </select>
       </div>
     {/if}
   </div>
@@ -96,7 +98,7 @@
     font-size: 11px;
   }
 
-  .picker-row label {
+  .picker-row .picker-label {
     white-space: nowrap;
     color: #a0c490;
     display: flex;

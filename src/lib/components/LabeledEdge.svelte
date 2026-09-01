@@ -4,6 +4,10 @@
 
   interface LabeledEdgeData {
     tooltip?: string;
+    /** Raw quantity, mirrored into data-amount so the number survives without
+     *  reversing the de-DE label formatting. */
+    amount?: number;
+    itemName?: string;
   }
 
   let {
@@ -55,6 +59,8 @@
       style:transform="translate(-50%, -50%) translate({labelX}px,{labelY}px)"
       style={labelStyle}
       title={edgeData.tooltip}
+      data-amount={edgeData.amount}
+      data-item={edgeData.itemName}
     >
       {label}
     </div>

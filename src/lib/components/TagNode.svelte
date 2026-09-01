@@ -13,6 +13,15 @@
 
   const fmt = fmtNum;
 
+  // The placeholder option is emitted first in a text extraction, so a resolved
+  // tag card read as unresolved. This states the resolution before the picker.
+  const resolutionText = $derived.by(() => {
+    if (data.selectedItem) return `resolved to ${data.selectedItem}`;
+    const bp = data.byproductContributors ?? [];
+    if (bp.length > 0) return `covered by byproduct: ${bp.map(c => c.itemName).join(', ')}`;
+    return 'unresolved — no item picked';
+  });
+
   function handleSelect(e: Event) {
     const select = e.target as HTMLSelectElement;
     if (select.value && data.onTagSelect) {
@@ -21,13 +30,19 @@
   }
 </script>
 
-<div class="tag-node" class:resolved={!!data.selectedItem}>
+<div
+  class="tag-node"
+  class:resolved={!!data.selectedItem}
+  role="group"
+  aria-label="Tag {data.tag}, ×{fmt(data.amount)}, {resolutionText}"
+>
   <Handle type="source" position={Position.Right} />
 
   <div class="header">TAG: {data.tag}</div>
 
   <div class="body">
-    <div class="amount">
+    <div class="choice-text">{resolutionText}</div>
+    <div class="amount" data-value={data.amount}>
       {#if data.amount === 0 && data.byproductContributors?.length}
         ✓ from byproduct
       {:else}
@@ -36,12 +51,12 @@
     </div>
     {#if data.byproductContributors}
       {#each data.byproductContributors as c}
-        <div class="supply">+{fmt(c.contribution)} {c.itemName}</div>
+        <div class="supply" data-value={c.contribution}>+{fmt(c.contribution)} {c.itemName}</div>
       {/each}
     {/if}
 
     <div class="picker-row">
-      <select onchange={handleSelect}>
+      <select onchange={handleSelect} aria-label="Item for tag {data.tag}, currently {data.selectedItem ?? 'none picked'}">
         <option value="" selected={!data.selectedItem}>— pick item —</option>
         {#each data.availableItems as item}
           <option value={item} selected={item === data.selectedItem}>
@@ -58,6 +73,12 @@
 </div>
 
 <style>
+  .choice-text {
+    font-size: 10px;
+    color: #e8c9a0;
+    padding: 0 0 2px;
+  }
+
   .tag-node {
     background: #5a3d1a;
     border: 2px solid #b07830;
